@@ -709,7 +709,10 @@ On the web, with Show todos on:
   swipes and the hold menu cover them). A tap on the text opens it with the cursor where it landed;
   a tap elsewhere on the row (above, below or beside the text) opens it with the cursor at the end.
   While a todo is edited on Android the list ends at the keyboard and keeps that todo in view, the
-  last of a long list too. Text saves after a short pause, and as the page is
+  last of a long list too; for 1.5 s after its edit starts it is brought back even from off screen
+  (as when its field taking focus cuts the scroll to it short), unless the user scrolls the list
+  meanwhile, by a drag, a mouse wheel or trackpad, the keys, or TalkBack. Text saves after a short
+  pause, and as the page is
   hidden; blank text is never saved, and closing a todo left blank deletes it, with undo.
   While a todo is edited it keeps its place, and its saves change only its text. Its time
   (`modifiedAt`) changes once, as editing ends (focus leaves the text, Enter or Escape, or
