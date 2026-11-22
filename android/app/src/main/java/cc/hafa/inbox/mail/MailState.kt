@@ -204,6 +204,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.functions.FirebaseFunctions
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
@@ -602,6 +603,8 @@ class MailState(
     private val focusOn: StateFlow<Boolean>,
     /** how Gmail is reached */
     transport: HttpTransport = UrlConnectionTransport,
+    /** where Gmail requests and their decoding run */
+    gmailIo: CoroutineDispatcher = Dispatchers.IO,
     /** the pacing every Gmail call waits for */
     gate: RateGate = RateGate(onBackoff = backoffLog(context)),
     /** called at start while the saved copy of mail has never been filled, so it fills in the background */
@@ -623,7 +626,7 @@ class MailState(
     }
 
     private val labelPrefDocs = LabelPrefDocs(firestore, uid) { docs -> state.update { it.copy(labelPrefDocs = docs) } }
-    private val gmail = GmailClient(tokens, gate, transport = ReportingTransport(transport, ::noteConnection))
+    private val gmail = GmailClient(tokens, gate, gmailIo, transport = ReportingTransport(transport, ::noteConnection))
     private val functions = FirebaseFunctions.getInstance(FirebaseConfig.FUNCTIONS_REGION)
     // Attachments being fetched, then the fetched ones, most recently used kept up to ATTACHMENT_CACHE_BYTES.
     private val fetchingAttachments = ConcurrentHashMap<String, Deferred<ByteArray>>()

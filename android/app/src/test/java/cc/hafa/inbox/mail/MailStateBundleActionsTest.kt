@@ -205,10 +205,12 @@ class MailStateBundleActionsTest {
     @Test
     fun `a change Gmail refuses for good puts the row back as Gmail has it and says so`() {
         refusing = true
+        modifying = CompletableDeferred()
         val state = loaded()
         state.done(listOf("t1"))
         ShadowLooper.idleMainLooper()
         assertFalse("still in the inbox at once", state.model.value.summaries["t1"]?.isInInbox == true)
+        modifying.complete(Unit)
         awaitTrue("the refusal") { state.model.value.queue.isEmpty() && sent("t1", "INBOX", adds = false) }
         awaitTrue("the row as Gmail has it") { state.model.value.summaries["t1"]?.isInInbox == true }
         val notice = state.sending.notice.value
