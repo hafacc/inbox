@@ -110,6 +110,9 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.Shape
@@ -138,6 +141,9 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.onLongClick
+import androidx.compose.ui.semantics.scrollBy
+import androidx.compose.ui.semantics.scrollByOffset
+import androidx.compose.ui.semantics.scrollToIndex
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.SpanStyle
@@ -268,6 +274,8 @@ private const val DIMMED_ALPHA = 0.45f
 private const val DIM_MS = 200
 // Rows fade in and out, and the rest slide into place, over this long, as on web.
 private const val LIST_MS = 200
+// How long after a todo's edit starts it is kept in view even when off screen, as on web.
+private const val FOLLOW_MS = 1_500L
 private val LIST_FADE = tween<Float>(LIST_MS)
 // Rows slide on a spring, so a slide whose end moves again on the way (an opening bundle's header
 // folding its summary line) carries on rather than starting over.
@@ -502,7 +510,8 @@ fun ThreadList(
     val keyboard = remember { KeyboardOverlap() }
     keyboard.Track()
     val editingKey = todos.editingId?.let(::todoRowKey)
-    val listState = rememberListScroll(rowList, rowKeys, itemIndex, actions, keyboard, editingKey)
+    val userScrolls = remember { UserScrolls() }
+    val listState = rememberListScroll(rowList, rowKeys, itemIndex, actions, keyboard, editingKey, userScrolls)
     toTop?.Follow(listState)
     // A todo opened from its reminder is scrolled to once its list shows it.
     val highlightIndex = todos.highlightId?.takeIf { inTodos }?.let { itemIndex[todoRowKey(it)] }
@@ -559,7 +568,7 @@ fun ThreadList(
             contentPadding = contentPadding,
             modifier = Modifier
                 .fillMaxSize()
-                .then(if (editingKey != null) Modifier.imePadding() else Modifier)
+                .then(if (editingKey != null) Modifier.imePadding().userScrolls(userScrolls, listState, scope) else Modifier)
                 .onGloballyPositioned(keyboard::place),
         ) {
             if (inTodos && rowList.rows.isEmpty()) {
@@ -704,6 +713,7 @@ private fun rememberListScroll(
     actions: RowActions,
     keyboard: KeyboardOverlap,
     editingKey: String?,
+    userScrolls: UserScrolls,
 ): LazyListState {
     // Where the list sat, by its first row's key (or at its very top), kept while it is out of composition: a thread
     // open over it, or another page. It comes back by that row rather than by position, as rows may have come and gone
@@ -776,12 +786,20 @@ private fun rememberListScroll(
     }
     LaunchedEffect(editingKey) {
         if (editingKey != null) {
+            // For a moment after the edit starts, as on web, the row is brought back even from off
+            // screen, as when its text field taking focus cuts the scroll down to it short; once
+            // the user scrolls the list, by any means, only a row still on screen is.
+            var following = true
+            userScrolls.scrolled = false
+            launch {
+                delay(FOLLOW_MS)
+                following = false
+            }
             snapshotFlow {
                 val size = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == editingKey }?.size
-                Triple(keyboard.overlap(), listState.layoutInfo.viewportEndOffset, size)
+                EditedPlace(keyboard.overlap(), listState.layoutInfo.viewportEndOffset, size, listState.isScrollInProgress)
             }
-                // Scrolled off by hand, the row isn't pulled back until something moves again.
-                .filter { (_, _, size) -> size != null }
+                .filter { place -> !place.scrolling && (place.size != null || (following && !userScrolls.scrolled)) }
                 .distinctUntilChanged()
                 .collect { currentIndex[editingKey]?.let { listState.reveal(it, keyboard.overlap(), animate = false) } }
         }
@@ -833,6 +851,44 @@ private class KeyboardOverlap {
 
 // Whether the list is scrolled to its very top.
 private fun LazyListState.atTop(): Boolean = firstVisibleItemIndex == 0 && firstVisibleItemScrollOffset == 0
+
+// What keeps the todo being edited in view: the keyboard over the list, the list's end, the row's
+// height (null while off screen), and whether the list is scrolling.
+private data class EditedPlace(val keyboard: Int, val end: Int, val size: Int?, val scrolling: Boolean)
+
+/** Whether the user has scrolled a list by hand: a drag, a mouse wheel or trackpad, the keys, or an accessibility service. */
+private class UserScrolls {
+    /** whether the user scrolled since this was last cleared */
+    var scrolled = false
+
+    /** notices the drags, wheels and keys that scroll the list, which all pass through nested scrolling */
+    val connection = object : NestedScrollConnection {
+        override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+            if (source == NestedScrollSource.UserInput && available != Offset.Zero) scrolled = true
+            return Offset.Zero
+        }
+    }
+}
+
+// An accessibility service's scrolls skip nested scrolling, so the list's own scroll actions are
+// replaced by ones that note it first and then scroll the same way.
+private fun Modifier.userScrolls(scrolls: UserScrolls, listState: LazyListState, scope: CoroutineScope): Modifier =
+    nestedScroll(scrolls.connection).semantics {
+        scrollBy { _, by ->
+            scrolls.scrolled = true
+            scope.launch { listState.animateScrollBy(by) }
+            true
+        }
+        scrollByOffset { offset ->
+            scrolls.scrolled = true
+            Offset(0f, listState.animateScrollBy(offset.y))
+        }
+        scrollToIndex { index ->
+            scrolls.scrolled = true
+            scope.launch { listState.scrollToItem(index) }
+            true
+        }
+    }
 
 /** The layout a list last drew, and its row keys. */
 private class LayoutSeen {
