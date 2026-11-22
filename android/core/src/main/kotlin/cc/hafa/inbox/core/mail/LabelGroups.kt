@@ -1,5 +1,11 @@
 package cc.hafa.inbox.core.mail
 
+// Folding a list's items (threads, and todos by the labels their tags name) into one row per big
+// user label. Ported from web's shared/src/label-groups.ts; both run
+// shared/testdata/label-group-fixtures.json (through the list model).
+
+import cc.hafa.inbox.core.todo.Todo
+
 /** Fewest threads sharing a user label before they fold into one row. */
 const val MIN_GROUP_SIZE = 2
 
@@ -11,12 +17,16 @@ sealed interface ListEntry<out Thread> : SectionEntry<Thread> {
         val thread: Thread,
     ) : ListEntry<Thread>
 
-    /** Threads sharing [labelId], folded into one row. */
+    /** Threads (and, in a list's sections, todos) sharing [labelId], folded into one row. */
     data class Group<Thread>(
         /** the label they share */
         val labelId: String,
         /** the threads, in list order */
         val threads: List<Thread>,
+        /** the todos, in list order */
+        val todos: List<Todo> = emptyList(),
+        /** the threads and todos together, in list order */
+        val items: List<SectionEntry<Thread>> = threads.map { Single(it) },
     ) : ListEntry<Thread>
 }
 

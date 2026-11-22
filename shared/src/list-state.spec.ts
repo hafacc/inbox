@@ -40,7 +40,10 @@ type FixtureEntry =
   | {
       kind: "bundle";
       labelId: string;
-      threads: { id: string }[];
+      /** its threads, when it holds no todos */
+      threads?: { id: string }[];
+      /** its threads and todos, in order */
+      items?: { kind: "thread" | "todo"; id: string }[];
       more: boolean;
       loading: boolean;
     };
@@ -78,12 +81,18 @@ function entryOf(entry: FixtureEntry): LayoutEntry<null, null> {
   } else if (entry.kind === "todo") {
     return { kind: "todo", id: entry.id, data: null };
   } else {
-    return {
-      ...entry,
-      threads: entry.threads.map((thread) => ({
+    const items =
+      entry.items ??
+      (entry.threads ?? []).map((thread) => ({
+        kind: "thread" as const,
         id: thread.id,
-        data: null,
-      })),
+      }));
+    return {
+      kind: "bundle",
+      labelId: entry.labelId,
+      more: entry.more,
+      loading: entry.loading,
+      items: items.map((item) => ({ ...item, data: null })),
     };
   }
 }
@@ -195,10 +204,11 @@ function randomLayout(next: () => number): LayoutSection<null, null>[] {
         entries.push({
           kind: "bundle",
           labelId: pick(LABELS),
-          threads: Array.from({ length: size }, () => ({
-            id: pick(THREADS),
-            data: null,
-          })),
+          items: Array.from({ length: size }, () =>
+            next() < 0.75
+              ? { kind: "thread" as const, id: pick(THREADS), data: null }
+              : { kind: "todo" as const, id: pick(TODOS), data: null },
+          ),
           more: next() < 0.4,
           loading: next() < 0.2,
         });
@@ -355,7 +365,9 @@ function stepProblems(
     const insideOf = (state: State, key: string | undefined) =>
       state.rows.some(
         (row) =>
-          row.key === key && row.kind === "thread" && row.bundle === label,
+          row.key === key &&
+          (row.kind === "thread" || row.kind === "todo") &&
+          row.bundle === label,
       );
     const stays =
       label !== undefined &&
@@ -388,7 +400,8 @@ function stepProblems(
     return (
       row !== undefined &&
       ((row.kind === "bundle" && row.labelId === labelId) ||
-        (row.kind === "thread" && row.bundle === labelId))
+        ((row.kind === "thread" || row.kind === "todo") &&
+          row.bundle === labelId))
     );
   };
   if (

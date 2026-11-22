@@ -8,7 +8,8 @@
     "exclusion": "inboxExclusion(labels, known): the query leaving fetched bundles' threads out of the inbox's own list: -category:x for a category (personal is primary), -label:name otherwise (lower-case, spaces and / as -), space-separated; \"\" when none. A label is skipped when its name holds anything but letters, digits, spaces, / and -, or when another of known (default: labels) has the same query name.",
     "merge": "mergeFirstPage(existing, page): a refreshed first page, then the loaded ids past the old place of the page's last known id; null when the page shares nothing with existing.",
     "nextPage": "inboxNextPage(query, pageToken, tokenQuery): the next inbox page's query and token; the token only while the query is the one it came from, else paging starts over.",
-    "counts": "bundleCounts(threads, unread, more): \"N\" / \"N+\" threads and \"N new\" / \"N+ new\" unread (null when none); \"+\" when Gmail has a next page.",
+    "counts": "bundleCounts(threads, unread, more, todos ?? 0): \"N\" / \"N+\" threads and todos together and \"N new\" / \"N+ new\" unread (null when none); \"+\" when Gmail has a next page.",
+    "line": "bundleLine(texts): a closed bundle row's line after its senders: texts (its emails' subjects and its todos' plain texts, in the bundle's order) trimmed, blank and repeated ones (exactly the same text) left out, the first 3 joined by \" · \".",
     "touched": "touchedBundles(records, bundleLabels): bundle labels on a message added, deleted or relabeled, or themselves added or removed, in bundleLabels order.",
     "inbox": "inInbox(labels): true when labels hold INBOX and neither SPAM nor TRASH.",
     "topUp": "bundlesToTopUp(bundles): labels, in order, with more in Gmail, no page loading and no failed page, and either no thread shown, or open with fewer than 10 shown, its end on screen, or fewer than 3 loaded threads after the thread open in it (afterOpen; null: none of its threads open)."
@@ -121,7 +122,16 @@
     { "name": "all fetched", "threads": 12, "unread": 3, "more": false, "expect": { "threads": "12", "unread": "3 new" } },
     { "name": "more in Gmail", "threads": 50, "unread": 50, "more": true, "expect": { "threads": "50+", "unread": "50+ new" } },
     { "name": "some unread, more in Gmail", "threads": 50, "unread": 7, "more": true, "expect": { "threads": "50+", "unread": "7+ new" } },
-    { "name": "none unread", "threads": 50, "unread": 0, "more": true, "expect": { "threads": "50+", "unread": null } }
+    { "name": "none unread", "threads": 50, "unread": 0, "more": true, "expect": { "threads": "50+", "unread": null } },
+    { "name": "todos add to the threads, more in Gmail", "threads": 10, "todos": 2, "unread": 1, "more": true, "expect": { "threads": "12+", "unread": "1+ new" } },
+    { "name": "todos alone", "threads": 0, "todos": 3, "unread": 0, "more": false, "expect": { "threads": "3", "unread": null } }
+  ],
+  "line": [
+    { "name": "the first three, in order", "texts": ["Invoice", "Buy milk", "Receipt", "Order shipped"], "expect": "Invoice · Buy milk · Receipt" },
+    { "name": "a repeated subject shows once, and the next one takes its place", "texts": ["Build failed", "Build failed", "Call Ana", "Build failed", "Deploy done"], "expect": "Build failed · Call Ana · Deploy done" },
+    { "name": "blank ones are left out, and each is trimmed", "texts": ["", "  Lunch  ", " ", "Lunch", "Pay rent"], "expect": "Lunch · Pay rent" },
+    { "name": "a repeat differing in case is kept", "texts": ["Hello", "hello"], "expect": "Hello · hello" },
+    { "name": "nothing to name", "texts": ["", " "], "expect": "" }
   ],
   "touched": [
     {

@@ -14,6 +14,8 @@ export {
   taggedThreadIds,
   tagLabel,
   todoLabelIds,
+  type UnlabeledTag,
+  unlabeledTags,
 } from "./label-tags";
 export {
   type EmailTodo,
@@ -65,7 +67,7 @@ export {
   readRepeat,
   repeatText,
 } from "./repeat";
-export { type StyledNode, styledTree } from "./styled";
+export { type StyledNode, styledPlain, styledTree } from "./styled";
 export {
   completeTag,
   countTags,

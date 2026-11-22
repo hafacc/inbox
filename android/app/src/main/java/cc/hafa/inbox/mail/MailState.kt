@@ -46,6 +46,7 @@ import cc.hafa.inbox.core.gmail.mapLimited
 import cc.hafa.inbox.core.gmail.touchesDrafts
 import cc.hafa.inbox.core.label.categoryChange
 import cc.hafa.inbox.core.label.keepListed
+import cc.hafa.inbox.core.label.labelNamed
 import cc.hafa.inbox.core.label.renames
 import cc.hafa.inbox.core.mail.AccountChange
 import cc.hafa.inbox.core.mail.ActSource
@@ -130,6 +131,7 @@ import cc.hafa.inbox.core.mail.relabelChanges
 import cc.hafa.inbox.core.mail.replay
 import cc.hafa.inbox.core.mail.restoresSnooze
 import cc.hafa.inbox.core.mail.rowThreadId
+import cc.hafa.inbox.core.mail.rowTodoId
 import cc.hafa.inbox.core.mail.savedSummary
 import cc.hafa.inbox.core.mail.scanStart
 import cc.hafa.inbox.core.mail.selectionActions
@@ -141,6 +143,8 @@ import cc.hafa.inbox.core.mail.summarizeThread
 import cc.hafa.inbox.core.mail.threadDetail
 import cc.hafa.inbox.core.mail.threadLabels
 import cc.hafa.inbox.core.mail.threadRowKey
+import cc.hafa.inbox.core.mail.ListEntry
+import cc.hafa.inbox.core.mail.bundledOnWake
 import cc.hafa.inbox.core.mail.todoRowKey
 import cc.hafa.inbox.core.mail.todoSelectionPlan
 import cc.hafa.inbox.core.mail.touchedBundles
@@ -961,7 +965,12 @@ class MailState(
             val early = state.value.accountQueue
             val joined = if (accountQueued == null) early else joinAccountQueues(accountQueued, early)
             state.update {
-                it.copy(labels = labelsWithPending(labels ?: it.labels, joined), queue = queued, accountQueue = joined)
+                it.copy(
+                    labels = labelsWithPending(labels ?: it.labels, joined),
+                    labelsLoaded = it.labelsLoaded || labels != null,
+                    queue = queued,
+                    accountQueue = joined,
+                )
             }
             if (accountQueued == null) {
                 Log.w(TAG, "saved label and filter edits unreadable; left as they are")
@@ -1161,8 +1170,21 @@ class MailState(
             doc.snoozeUntil?.takeIf { it >= from }?.let { SnoozeEnd(id, epochToIso(it, zone)) }
         }
         val fromIso = epochToIso(from, zone)
-        val todoEnds = todoSnapshot.todos.mapNotNull { todo -> todoSnoozeEnd(todo)?.takeIf { it.until >= fromIso }?.let { it to todo.text } }
-        return ReminderSnoozes(threads + todoEnds.map { it.first }, todoEnds.associate { (end, text) -> end.itemId to text })
+        val todoEnds = todoSnapshot.todos.mapNotNull { todo -> todoSnoozeEnd(todo)?.takeIf { it.until >= fromIso }?.let { it to todo } }
+        val model = state.value
+        // With Skip notifications for bundled mail on, a thread or todo a bundle holds comes back quietly.
+        val quiet = if (settings.quietBundles) {
+            val quietThreads = threads.filter { end ->
+                val labels = model.summaries[end.itemId]?.labelIds.orEmpty()
+                val tagged = model.threadTodos[end.itemId]?.let { model.labelTags.labelIds(it.text) }.orEmpty()
+                bundledOnWake(labels + tagged, PINNED_LABEL in labels, model.bundleLabelIds)
+            }
+            val quietTodos = todoEnds.filter { (_, todo) -> bundledOnWake(model.labelTags.labelIds(todo.text), todo.pinned, model.bundleLabelIds) }
+            (quietThreads + quietTodos.map { it.first }).mapTo(hashSetOf()) { it.itemId }
+        } else {
+            emptySet()
+        }
+        return ReminderSnoozes(threads + todoEnds.map { it.first }, todoEnds.associate { (end, todo) -> end.itemId to todo.text }, quiet)
     }
 
     /** Whether newer mail already woke [threadId]'s snooze, and was notified for itself. */
@@ -1295,7 +1317,9 @@ class MailState(
         try {
             val labels = gmail.listLabels()
             val drafts = gmail.getLabel(Labels.DRAFT)
-            state.update { it.copy(labels = labelsWithPending(labels, it.accountQueue), draftLabelThreads = drafts.threadsTotal ?: 0) }
+            state.update {
+                it.copy(labels = labelsWithPending(labels, it.accountQueue), labelsLoaded = true, draftLabelThreads = drafts.threadsTotal ?: 0)
+            }
             cache.putLabels(labels)
         } catch (error: CancellationException) {
             throw error
@@ -2030,38 +2054,67 @@ class MailState(
     }
 
     /**
-     * Done all on a bundle. When Gmail has more of the label's inbox threads than were fetched,
-     * every unpinned one is listed by id (up to [MAX_BULK_THREADS], no thread read) and archived
-     * after the [shown] ones; undo, offered at once, puts them all back.
+     * Done all on a bundle: its todos (a repeating one making its next copy) and threads. When
+     * Gmail has more of the label's inbox threads than were fetched, every unpinned one is listed by
+     * id (up to [MAX_BULK_THREADS], no thread read) and archived after the [shown] ones; undo,
+     * offered at once, puts them all back.
      */
     fun doneBundle(labelId: String, shown: List<String>, origin: ActOrigin = ActOrigin.ROW) {
-        sweepBundle(labelId, shown, origin, ::archivePlan)
+        val now = System.currentTimeMillis()
+        val todoIds = bundleTodoIds(labelId)
+        sweepBundle(labelId, shown, origin, todoPlan(todoIds, UndoPlan(UndoKind.DONE), { it.withDone(now, it.id).done }, todos::done), ::archivePlan)
     }
 
     /**
-     * Pin all on a bundle: every thread Done all would take ([doneBundle]), Gmail's other ones
-     * listed after, as one undo offered at once. Pinned, they leave the bundle for the inbox.
+     * Pin all on a bundle: its todos not pinned yet and every thread Done all would take ([doneBundle]),
+     * Gmail's other ones listed after, as one undo offered at once. Pinned, they leave the bundle for the inbox.
      */
     fun pinBundle(labelId: String, shown: List<String>, origin: ActOrigin = ActOrigin.ROW) {
-        sweepBundle(labelId, shown, origin) { items, keys -> pinItemsPlan(items, keys, pinned = true) }
+        val now = System.currentTimeMillis()
+        val todoIds = bundleTodos(labelId).filter { !it.pinned }.map { it.id }
+        val todoPins = todoPlan(todoIds, UndoPlan(UndoKind.PIN, pinned = true), { it.withPinToggled(now) }, todos::togglePins)
+        sweepBundle(labelId, shown, origin, todoPins) { items, keys -> pinItemsPlan(items, keys, pinned = true) }
     }
 
     /**
-     * Delete all on a bundle: every thread Done all would take ([doneBundle]) to the trash, Gmail's
-     * other ones listed after, as one undo offered at once.
+     * Delete all on a bundle: its todos, and every thread Done all would take ([doneBundle]) to the
+     * trash, Gmail's other ones listed after, as one undo offered at once.
      */
     fun deleteBundle(labelId: String, shown: List<String>, origin: ActOrigin = ActOrigin.ROW) {
-        sweepBundle(labelId, shown, origin) { items, keys -> trashItemsPlan(items, keys, trash = true) }
+        val todoIds = bundleTodoIds(labelId)
+        val removed = if (todoIds.isEmpty()) {
+            ActionPlan()
+        } else {
+            ActionPlan(keys = todoIds.map(::todoRowKey), todos = listOf(TodoStep(todoIds, { null }, todos::remove)), undo = UndoPlan(UndoKind.DELETE))
+        }
+        sweepBundle(labelId, shown, origin, removed) { items, keys -> trashItemsPlan(items, keys, trash = true) }
     }
 
-    // Carries out [plan] on a bundle's [shown] threads as Done all sweeps them, then, when Gmail has
-    // more of the label's inbox threads than were fetched, on those it lists (not read, so as having
-    // the bundle's labels), their undo joining the first one.
-    private fun sweepBundle(labelId: String, shown: List<String>, origin: ActOrigin, plan: (items: List<UndoItem>, keys: List<String>) -> ActionPlan) {
+    // The todos bundle [labelId] holds in the current list.
+    private fun bundleTodos(labelId: String): List<Todo> =
+        state.value.sections().asSequence()
+            .flatMap { it.entries }
+            .firstNotNullOfOrNull { entry -> (entry as? ListEntry.Group)?.takeIf { it.labelId == labelId } }
+            ?.todos.orEmpty()
+
+    private fun bundleTodoIds(labelId: String): List<String> = bundleTodos(labelId).map { it.id }
+
+    // Carries out [todoPlan] on a bundle's todos and [plan] on its [shown] threads as Done all
+    // sweeps them, as one undo, then, when Gmail has more of the label's inbox threads than were
+    // fetched, [plan] on those it lists (not read, so as having the bundle's labels), their undo
+    // joining the first one.
+    private fun sweepBundle(
+        labelId: String,
+        shown: List<String>,
+        origin: ActOrigin,
+        todoPlan: ActionPlan,
+        plan: (items: List<UndoItem>, keys: List<String>) -> ActionPlan,
+    ) {
         val loaded = bundleSweepIds(swept(shown), emptyList(), emptyList())
         val hasMore = state.value.bundleHasMore(labelId)
         val items = undoItems(gmailThreads(loaded))
-        val carried = carryOut(plan(items, loaded), origin)
+        // The todos go first, so the threads' action names the undo when there are any.
+        val carried = carryOut(todoPlan + plan(items, loaded), origin)
         if (!hasMore) return
         val inLabel = listOf(Labels.INBOX, labelId)
         val acted = items.mapTo(mutableSetOf()) { it.id }
@@ -2072,8 +2125,8 @@ class MailState(
     }
 
     /**
-     * Snooze every thread of a bundle until [epoch], as one pick and one undo: those Done all would
-     * take. When Gmail has more of the label's inbox threads than were fetched, they are listed by
+     * Snooze every thread and todo of a bundle until [epoch], as one pick and one undo: those Done
+     * all would take. When Gmail has more of the label's inbox threads than were fetched, they are listed by
      * id (up to [MAX_BULK_THREADS], no thread read) and snoozed after the [shown] ones; undo,
      * offered at once, takes them all back. False when [epoch] already passed.
      */
@@ -2093,7 +2146,9 @@ class MailState(
         }
         val pick = SnoozePick(epoch, source, pickedKey)
         val acted = gmailThreads(loaded).filter { undoItem(it) != null }
-        val carried = carryOut(snoozePlan(acted, epoch, loaded).copy(pick = pick), origin)
+        val now = System.currentTimeMillis()
+        val todoSnoozes = todoPlan(bundleTodoIds(labelId), UndoPlan(UndoKind.SNOOZE), { it.withSnoozed(epoch, now) }) { todos.snooze(it, epoch) }
+        val carried = carryOut((todoSnoozes + snoozePlan(acted, epoch, loaded)).copy(pick = pick), origin)
         if (!hasMore) return carried.acted
         val inLabel = listOf(Labels.INBOX, labelId)
         carryOutRest(carried.entry) {
@@ -3035,7 +3090,13 @@ class MailState(
         fun sent() = changeSent(state.value.accountQueue, change.seq)
         when (change) {
             is AccountChange.CreateLabel -> {
-                val label = gmail.createLabel(change.name, change.color)
+                val label = try {
+                    gmail.createLabel(change.name, change.color)
+                } catch (error: GmailException) {
+                    // A try that timed out but was made, or the same label made elsewhere: use Gmail's.
+                    val existing = if (error.status == HttpURLConnection.HTTP_CONFLICT) labelNamed(gmail.listLabels(), change.name) else null
+                    existing ?: throw error
+                }
                 labelCreated(change, label)
             }
             is AccountChange.PatchLabel -> {
@@ -3511,17 +3572,25 @@ class MailState(
         val labelId = model.list.bundle?.labelId
         val threadId = model.list.open
         val focusedId = pinHeldThread(model)
+        val todoKey = rowTodoId(model.list.focus)?.let(::todoRowKey)
         val keptBundle = labelId?.let(model.held.bundles::get)
         val keptThread = threadId?.let(model.held.threads::get)
         val keptPin = focusedId?.let(model.held.pins::get)
+        val keptTodoPin = todoKey?.let(model.held.pins::get)
         val missing = (labelId != null && keptBundle == null) ||
             (threadId != null && keptThread == null) ||
-            (focusedId != null && keptPin == null)
-        val fresh = if (missing) openPlaces(model.sections(), setOfNotNull(labelId), threadId, focusedId) else HeldPlaces()
+            (focusedId != null && keptPin == null) ||
+            (todoKey != null && keptTodoPin == null)
+        val fresh = if (missing) {
+            openPlaces(model.sections(), setOfNotNull(labelId), threadId, focusedId, focusedTodo = rowTodoId(model.list.focus))
+        } else {
+            HeldPlaces()
+        }
         val thread = threadId?.let { id -> (keptThread ?: fresh.threads[id] ?: model.todosViewPlaceOf(id))?.let { mapOf(id to it) } }
         val bundle = labelId?.let { id -> (keptBundle ?: fresh.bundles[id])?.let { mapOf(id to it) } }
         val pin = focusedId?.let { id -> (keptPin ?: fresh.pins[id])?.let { mapOf(id to it) } }
-        return HeldPlaces(thread.orEmpty(), bundle.orEmpty(), pin.orEmpty())
+        val todoPin = todoKey?.let { key -> (keptTodoPin ?: fresh.pins[key])?.let { mapOf(key to it) } }
+        return HeldPlaces(thread.orEmpty(), bundle.orEmpty(), pin.orEmpty() + todoPin.orEmpty())
     }
 
     // The focused thread when it isn't open, whose pinning moves it only once focus leaves.

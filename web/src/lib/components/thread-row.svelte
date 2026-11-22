@@ -326,7 +326,9 @@
       class={[
         "relative flex items-center gap-3.5 pointer-events-none",
         compact
-          ? "h-16 px-4"
+          ? shownTodo
+            ? "min-h-16 py-3 px-4"
+            : "h-16 px-4"
           : asTodo
             ? "min-h-[56px] py-1 px-5"
             : shownTodo

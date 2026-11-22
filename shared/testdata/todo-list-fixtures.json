@@ -4,6 +4,7 @@
     "todos": "Every todo is todo-fixtures.json's `base` with the listed fields replaced; times are epoch milliseconds, local times read in `zone`.",
     "group": "groupActive(sortForFilter(todos, 'ACTIVE'), now): each heading's label, its ids in order, whether it is Pinned, and its floor and ceiling (null when it has none).",
     "move": "planMove(todo `id`, the Active list grouped as in `group`, slot, now): `same` when the slot is where it is, null when it can't go there, else the fields that change.",
+    "plain": "styledPlain(in): the text as a closed bundle's line sums a todo up, markers dropped.",
     "held": "heldInPlace(held, previous, live): the fields of the result that differ from `base`.",
     "search": "rankBySearch(todos, query): the ids found, in order.",
     "styled": "styledTree(text): text, marker, tag and span nodes."
@@ -996,5 +997,10 @@
       "in": "",
       "tree": []
     }
+  ],
+  "plain": [
+    { "in": "Buy *milk* #home", "out": "Buy milk #home" },
+    { "in": "Call _her_ about *#rent*", "out": "Call her about #rent" },
+    { "in": "  _spaced_  ", "out": "spaced" }
   ]
 }

@@ -1,5 +1,6 @@
-// Folding a list's threads into one row per big user label. Android :core mail/LabelGroups.kt is the
-// same; both run shared/testdata/label-group-fixtures.json (through the list model).
+// Folding a list's items (threads, and todos by the labels their tags name) into one row per big user
+// label. Android :core mail/LabelGroups.kt is the same; both run
+// shared/testdata/label-group-fixtures.json (through the list model).
 
 import { MIN_BUNDLE_SIZE } from "./bundles";
 

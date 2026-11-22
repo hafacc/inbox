@@ -7,7 +7,7 @@ import {
   planMove,
   rankBySearch,
 } from "./list";
-import { type StyledNode, styledTree } from "./styled";
+import { type StyledNode, styledPlain, styledTree } from "./styled";
 import { sortForFilter, type Todo } from "./todo";
 
 type Partial = Readonly<Record<string, unknown>>;
@@ -49,6 +49,7 @@ const fixtures = JSON.parse(
   }[];
   search: { name: string; todos: Partial[]; query: string; ids: string[] }[];
   styled: { in: string; tree: StyledNode[] }[];
+  plain: { in: string; out: string }[];
 };
 
 function todo(fields: Partial): Todo {
@@ -124,6 +125,14 @@ describe("styledTree", () => {
   for (const fixture of fixtures.styled) {
     test(JSON.stringify(fixture.in), () => {
       expect(styledTree(fixture.in)).toEqual(fixture.tree);
+    });
+  }
+});
+
+describe("styledPlain", () => {
+  for (const fixture of fixtures.plain) {
+    test(JSON.stringify(fixture.in), () => {
+      expect(styledPlain(fixture.in)).toBe(fixture.out);
     });
   }
 });

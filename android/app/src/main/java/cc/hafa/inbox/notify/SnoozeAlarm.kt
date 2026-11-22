@@ -10,6 +10,10 @@ import androidx.core.content.edit
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ProcessLifecycleOwner
 import cc.hafa.inbox.InboxApplication
+import cc.hafa.inbox.core.label.labelPrefsFrom
+import cc.hafa.inbox.core.mail.CATEGORY_NAMES
+import cc.hafa.inbox.core.mail.PINNED_LABEL
+import cc.hafa.inbox.core.mail.bundledOnWake
 import cc.hafa.inbox.core.mail.epochToIso
 import cc.hafa.inbox.core.mail.isLocalIso
 import cc.hafa.inbox.core.notify.LastCheck
@@ -19,6 +23,10 @@ import cc.hafa.inbox.core.notify.snoozeEndedPayload
 import cc.hafa.inbox.core.notify.todoIdOf
 import cc.hafa.inbox.core.notify.todoSnoozeEnd
 import cc.hafa.inbox.core.notify.todoSnoozeEndedContent
+import cc.hafa.inbox.core.todo.LabelTags
+import cc.hafa.inbox.data.MailCache
+import cc.hafa.inbox.data.MailDatabase
+import com.google.firebase.firestore.DocumentReference
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -63,6 +71,8 @@ data class ReminderSnoozes(
     val ends: List<SnoozeEnd>,
     /** each todo's text, by its item id */
     val todoTexts: Map<String, String>,
+    /** the threads and todos, by item id, whose snooze ending notifies nothing: bundled, with Skip notifications for bundled mail on (read from Firestore, only those already over are judged) */
+    val quiet: Set<String> = emptySet(),
 )
 
 /**
@@ -115,10 +125,11 @@ object SnoozeAlarm {
     // signed out meanwhile, refused).
     private suspend fun pendingSnoozes(app: InboxApplication, uid: String, now: Long, zone: ZoneId): ReminderSnoozes? {
         val live = withContext(Dispatchers.Main) { app.session.value?.takeIf { it.uid == uid }?.reminderSnoozes(now - LAPSED_READ_MS, zone) }
-        return live ?: readSnoozes(uid, now, zone)
+        return live ?: readSnoozes(app, uid, now, zone)
     }
 
-    private suspend fun readSnoozes(uid: String, now: Long, zone: ZoneId): ReminderSnoozes? =
+    // [judgeQuiet] false leaves [ReminderSnoozes.quiet] empty, for a read that only finds what to wait on.
+    private suspend fun readSnoozes(context: Context, uid: String, now: Long, zone: ZoneId, judgeQuiet: Boolean = true): ReminderSnoozes? =
         try {
             withTimeoutOrNull(READ_WAIT_MS) {
                 val from = epochToIso(now - LAPSED_READ_MS, zone)
@@ -126,7 +137,8 @@ object SnoozeAlarm {
                 val threads = user.collection("threads").whereGreaterThanOrEqualTo("snoozeUntil", from).get().await().documents.mapNotNull { entry ->
                     entry.getString("snoozeUntil")?.takeIf(::isLocalIso)?.let { SnoozeEnd(entry.id, it) }
                 }
-                val showTodos = (user.get().await().get("settings") as? Map<*, *>)?.get("showTodos") != false
+                val settings = user.get().await().get("settings") as? Map<*, *>
+                val showTodos = settings?.get("showTodos") != false
                 val todos = if (showTodos) {
                     user.collection("todos")
                         .whereEqualTo("deleted", false)
@@ -137,14 +149,75 @@ object SnoozeAlarm {
                     emptyList()
                 }
                 // A todo on an email has no snooze of its own, so no reminder.
-                val todoEnds = todos.mapNotNull { entry -> todoSnoozeEnd(entry.id, entry.data.orEmpty())?.let { it to entry.getString("text").orEmpty() } }
-                ReminderSnoozes(threads + todoEnds.map { it.first }, todoEnds.associate { (end, text) -> end.itemId to text })
+                val todoEnds = todos.mapNotNull { entry -> todoSnoozeEnd(entry.id, entry.data.orEmpty())?.let { it to entry } }
+                // Only a snooze already over notifies now, so only those are judged; the rest are
+                // judged again when their alarm comes.
+                val nowIso = epochToIso(now, zone)
+                val dueThreads = threads.filter { it.until <= nowIso }
+                val dueTodos = todoEnds.filter { (end, _) -> end.until <= nowIso }
+                val quiet = if (judgeQuiet && settings?.get("quietBundles") == true && (dueThreads.isNotEmpty() || dueTodos.isNotEmpty())) {
+                    val todoTexts = dueTodos.map { (end, entry) -> Triple(end.itemId, entry.getString("text").orEmpty(), entry.getBoolean("pinned") == true) }
+                    bundledItems(context, uid, user, dueThreads.map { it.itemId }, todoTexts, showTodos)
+                } else {
+                    emptySet()
+                }
+                ReminderSnoozes(threads + todoEnds.map { it.first }, todoEnds.associate { (end, entry) -> end.itemId to entry.getString("text").orEmpty() }, quiet)
             }
         } catch (error: CancellationException) {
             throw error
         } catch (error: Exception) {
             Log.w(TAG, "snooze read failed", error)
             null
+        }
+
+    // The threads (by id) and todos (item id, text, pinned) that count as bundled ([bundledOnWake]):
+    // the threads' labels and the label list from the account's cache, their bundling from
+    // `labelPrefs`, and while todos show, the labels the tags of a thread's email todo name (read
+    // only for threads their own labels don't bundle). When any of them can't be read, none does,
+    // so a failed check never costs a notification.
+    private suspend fun bundledItems(
+        context: Context,
+        uid: String,
+        user: DocumentReference,
+        threadIds: List<String>,
+        todos: List<Triple<String, String, Boolean>>,
+        showTodos: Boolean,
+    ): Set<String> =
+        try {
+            val database = MailDatabase.open(context, uid)
+            val (labels, summaries) = try {
+                val cache = MailCache(database.mailDao())
+                cache.labels().orEmpty() to cache.summaries(threadIds)
+            } finally {
+                database.close()
+            }
+            val stored = user.collection("labelPrefs").get().await().documents.associate { it.id to it.data }
+            val bundling = labels.filter { label ->
+                (label.type == "user" || label.id in CATEGORY_NAMES) &&
+                    labelPrefsFrom(stored[label.id], label.id, label.labelListVisibility).bundle
+            }.map { it.id }
+            val tags = LabelTags(labels)
+            val (ownQuiet, rest) = summaries.partition { bundledOnWake(it.labelIds, PINNED_LABEL in it.labelIds, bundling) }
+            val taggedQuiet = if (showTodos) {
+                // An email's todo is stored under its thread's id; the reads all start before any is awaited.
+                val unpinned = rest.filter { summary -> PINNED_LABEL !in summary.labelIds }
+                val reads = unpinned.map { summary -> user.collection("todos").document(summary.id).get() }
+                unpinned.zip(reads).filter { (summary, read) ->
+                    val data = read.await().data
+                    val text = data?.takeIf { it["threadId"] == summary.id && it["deleted"] != true }?.get("text") as? String
+                    text != null && bundledOnWake(tags.labelIds(text), pinned = false, bundling)
+                }.map { it.first }
+            } else {
+                emptyList()
+            }
+            val quietThreads = (ownQuiet + taggedQuiet).map { it.id }
+            val quietTodos = todos.filter { (_, text, pinned) -> bundledOnWake(tags.labelIds(text), pinned, bundling) }.map { it.first }
+            (quietThreads + quietTodos).toSet()
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            Log.w(TAG, "bundle check failed", error)
+            emptySet()
         }
 
     private suspend fun onScreen(): Boolean = withContext(Dispatchers.Main) {
@@ -175,7 +248,9 @@ object SnoozeAlarm {
                 val session = app.session.value
                 val snoozeAt = if (result.ended.any { todoIdOf(it.itemId) == null }) Notifier.snoozeTime(context) else null
                 for (snooze in result.ended) {
-                    if (todoIdOf(snooze.itemId) != null) {
+                    if (snooze.itemId in pending.quiet) {
+                        continue
+                    } else if (todoIdOf(snooze.itemId) != null) {
                         Notifier.showTodoSnoozeEnded(context, todoSnoozeEndedContent(snooze, pending.todoTexts[snooze.itemId].orEmpty(), zone))
                     } else if (session?.wokenByMail(snooze.itemId) != true) {
                         Notifier.showSnoozeEnded(context, snoozeEndedPayload(snooze, session?.summary(snooze.itemId), zone), snoozeAt)
@@ -197,7 +272,7 @@ object SnoozeAlarm {
             scheduleRetry(context, System.currentTimeMillis())
         } else {
             val now = System.currentTimeMillis()
-            val again = readSnoozes(uid, now, zone)
+            val again = readSnoozes(context, uid, now, zone, judgeQuiet = false)
             val latest = again?.let { checkSnoozes(it.ends, null, now, zone).next }
             if (again == null) {
                 scheduleRetry(context, now)

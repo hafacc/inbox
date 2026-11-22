@@ -1,6 +1,10 @@
 package cc.hafa.inbox.core.mail
 
 import cc.hafa.inbox.core.testing.Fixtures
+import cc.hafa.inbox.core.todo.EmailTodo
+import cc.hafa.inbox.core.todo.Todo
+import cc.hafa.inbox.core.todo.emailTodosByThread
+import cc.hafa.inbox.core.todo.rowEmailTodo
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.time.LocalDateTime
@@ -28,6 +32,17 @@ class LabelGroupFixturesTest {
         return Row(thread, SnoozeStatus.NONE, null, date)
     }
 
+    // The fixture's todos, and the labels each one's tags name.
+    private fun todos(fixture: Any?): Pair<List<Todo>, (Todo) -> List<String>> {
+        val cases = (fixture as List<*>?).orEmpty().map { it as Map<*, *> }
+        val labels = cases.associate { it["id"] as String to strings(it["labels"]) }
+        val todos = cases.map { todo ->
+            val id = todo["id"] as String
+            Todo.new(id, id, epoch(todo["date"])).copy(pinned = todo["pinned"] == true)
+        }
+        return todos to { todo -> labels[todo.id].orEmpty() }
+    }
+
     private fun held(fixture: Any?): HeldPlaces {
         val held = fixture as Map<*, *>? ?: return HeldPlaces()
         val threads = (held["threads"] as Map<*, *>).entries.associate { (id, place) ->
@@ -39,13 +54,23 @@ class LabelGroupFixturesTest {
         return HeldPlaces(threads, bundles, pins)
     }
 
-    private fun shape(sections: List<SectionModel>): List<Map<String, Any>> = sections.map { section ->
+    // A thread as the shape writes it: `id+todo` when its email has a todo, which shows inside its row.
+    private fun threadShape(row: Row, byThread: Map<String, EmailTodo>): String =
+        if (rowEmailTodo(byThread, listOf(row.thread.id)) == null) row.thread.id else "${row.thread.id}+todo"
+
+    private fun shape(sections: List<SectionModel>, byThread: Map<String, EmailTodo> = emptyMap()): List<Map<String, Any>> = sections.map { section ->
         mapOf(
             "key" to section.key,
             "entries" to section.entries.map { entry ->
                 when (entry) {
-                    is ListEntry.Single -> entry.thread.thread.id
-                    is ListEntry.Group -> "${entry.labelId}[${entry.threads.joinToString(",") { it.thread.id }}]"
+                    is ListEntry.Single -> threadShape(entry.thread, byThread)
+                    is ListEntry.Group -> "${entry.labelId}[${entry.items.joinToString(",") { item ->
+                        when (item) {
+                            is ListEntry.Single -> threadShape(item.thread, byThread)
+                            is TodoEntry -> "todo:${item.todo.id}"
+                            is ListEntry.Group -> item.labelId
+                        }
+                    }}]"
                     is TodoEntry -> "todo:${entry.todo.id}"
                 }
             },
@@ -66,7 +91,12 @@ class LabelGroupFixturesTest {
     fun inbox() {
         val now = epoch(Fixtures.labelGroups["now"])
         for (case in Fixtures.cases(Fixtures.labelGroups, "inbox")) {
-            val rows = (case["threads"] as List<*>).map { row(it as Map<*, *>) }
+            val threads = (case["threads"] as List<*>).map { it as Map<*, *> }
+            val rows = threads.map(::row)
+            val (todos, todoLabels) = todos(case["todos"])
+            // Each email's todo's tag labels, for the threads that have a todo.
+            val rowTodoLabels = threads.filter { it["todoLabels"] != null }.associate { it["id"] as String to strings(it["todoLabels"]) }
+            val todoThreads = case["todoThreads"]?.let(::strings).orEmpty() + rowTodoLabels.keys
             assertEquals(
                 case["name"] as String,
                 case["sections"],
@@ -77,9 +107,12 @@ class LabelGroupFixturesTest {
                         strings(case["bundleLabels"]),
                         NEW_YORK,
                         held(case["held"]),
+                        todos,
                         exhausted = case["exhausted"]?.let(::strings).orEmpty().toSet(),
-                        hasEmailTodo = case["todoThreads"]?.let(::strings).orEmpty().toSet().let { withTodo -> { row -> row.thread.id in withTodo } },
+                        todoLabels = todoLabels,
+                        rowTodoLabels = { row -> rowTodoLabels[row.thread.id].orEmpty() },
                     ),
+                    emailTodosByThread(todoThreads.map { EmailTodo.new(it, "on $it", 0L) }),
                 ),
             )
         }

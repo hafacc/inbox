@@ -315,8 +315,9 @@
           >
         </h2>
         <p class={[hint, "mt-1"]}>
-          New mail that goes into a bundle arrives without a notification. All
-          other mail still notifies.
+          New mail that goes into a bundle, and bundled mail or todos coming
+          back from snooze on Android, arrive without a notification. Everything
+          else still notifies.
         </p>
       </div>
       <input

@@ -7,6 +7,7 @@
     "suggest": "suggestTags(countTags(texts), own, prefix, limit ?? 5, labelTagNames(labels)): tags in use first, by use, then label tags no text uses, by key.",
     "rename": "renameTags(in, from, to): tags naming label `from` (or a label nested under it) rewritten for `to`.",
     "list": "labelTodos(todos, labelId): the ids of the todos whose tags name the label, in order.",
+    "unlabeled": "unlabeledTags(texts, labels): the tags the texts use that name no label, one per key (the spelling most texts use, ignoring case, as first written; the first seen when tied), in key order, each with the label to make for it (the tag with empty / parts dropped, its longest leading run that names a label spelled as that label is); one whose label name a label has already (Gmail's own included, ignoring case) is left out.",
     "threads": "taggedThreadIds(threadIds, listed): the thread ids that listed lacks, each once, in order.",
     "filter": "taggedFilter(filter, labels): the filter with the user labels' ids dropped from requires."
   },
@@ -88,6 +89,13 @@
       "todos": [{ "id": "a", "text": "#category_promotions" }],
       "ids": []
     }
+  ],
+  "unlabeled": [
+    { "name": "tags naming no label, by key, each once as first written", "texts": ["#Grocery #zoo", "#grocery", "#grocery #read-later", "#Work"], "out": [{ "tag": "Grocery", "label": "Grocery" }, { "tag": "zoo", "label": "zoo" }] },
+    { "name": "a nested tag makes a nested label; one under a label nests under it, spelled as it is", "texts": ["#home/garden", "#work/meetings", "#work/projects", "#Work/Projects/q3"], "out": [{ "tag": "home/garden", "label": "home/garden" }, { "tag": "work/meetings", "label": "Work/meetings" }, { "tag": "Work/Projects/q3", "label": "Work/Projects/q3" }] },
+    { "name": "of spellings with one key the most used wins, and empty parts are dropped from the label", "texts": ["#trip--plan", "#trip-plan", "#Trip-Plan", "#a//b"], "out": [{ "tag": "a//b", "label": "a/b" }, { "tag": "trip-plan", "label": "trip-plan" }] },
+    { "name": "a tag spelled as Gmail's own label or a category is left out", "texts": ["#inbox", "#category_promotions"], "out": [] },
+    { "name": "none", "texts": ["no tags", "#café"], "out": [] }
   ],
   "threads": [
     { "name": "threads the list lacks, each once", "threadIds": ["t1", "t2", "t1"], "listed": ["t2", "t3"], "ids": ["t1"] },

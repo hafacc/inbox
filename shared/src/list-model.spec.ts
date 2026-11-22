@@ -186,7 +186,20 @@ test("Snoozed lists the soonest wake first", () => {
   ]);
 });
 
-type ThreadFixture = { id: string; date: string; labels: string[] };
+type ThreadFixture = {
+  id: string;
+  date: string;
+  labels: string[];
+  /** the labels its email's todo's tags name, when it has a todo */
+  todoLabels?: string[];
+};
+
+type TodoFixture = {
+  id: string;
+  date: string;
+  labels: string[];
+  pinned?: boolean;
+};
 
 type HeldFixture = {
   threads: Record<string, { date: string; pinned: boolean; single: boolean }>;
@@ -197,6 +210,7 @@ type HeldFixture = {
 type GroupFixture = {
   name: string;
   bundleLabels: string[];
+  todos?: TodoFixture[];
   todoThreads?: string[];
   held?: HeldFixture;
   exhausted?: string[];
@@ -238,6 +252,20 @@ function fixtureRows(threads: ThreadFixture[]): Row[] {
   });
 }
 
+function fixtureTodos(todos: TodoFixture[] = []): {
+  todos: Todo[];
+  labelsOf: (todo: Todo) => readonly string[];
+} {
+  const labels = new Map(todos.map(({ id, labels }) => [id, labels]));
+  return {
+    todos: todos.map(({ id, date, pinned }) => ({
+      ...newTodo(id, id, new Date(date).getTime()),
+      pinned: pinned ?? false,
+    })),
+    labelsOf: (todo) => labels.get(todo.id) ?? [],
+  };
+}
+
 function heldPlaces(held: HeldFixture | undefined): HeldPlaces {
   return {
     threads: new Map(
@@ -256,14 +284,21 @@ function heldPlaces(held: HeldFixture | undefined): HeldPlaces {
   };
 }
 
-function shape(sections: SectionModel[]): { key: string; entries: string[] }[] {
+function shape(
+  sections: SectionModel[],
+  byThread: ReadonlyMap<string, EmailTodo> = new Map(),
+): { key: string; entries: string[] }[] {
+  const threadShape = (entry: Row): string =>
+    rowTodo(byThread, entry) === null
+      ? entry.thread.id
+      : `${entry.thread.id}+todo`;
   return sections.map((section) => ({
     key: section.key,
     entries: section.entries.map((entry) => {
-      if (entry.kind === "thread") return entry.thread.thread.id;
+      if (entry.kind === "thread") return threadShape(entry.thread);
       else if (entry.kind === "todo") return `todo:${entry.todo.id}`;
       else
-        return `${entry.labelId}[${entry.threads.map((member) => member.thread.id).join(",")}]`;
+        return `${entry.labelId}[${entry.items.map((item) => (item.kind === "thread" ? threadShape(item.thread) : `todo:${item.todo.id}`)).join(",")}]`;
     }),
   }));
 }
@@ -294,16 +329,25 @@ describe("label group fixtures (must match Android)", () => {
   const now = new Date(groupFixtures.now).getTime();
   for (const fixture of groupFixtures.inbox) {
     test(fixture.name, () => {
+      const { todos, labelsOf } = fixtureTodos(fixture.todos);
       const sections = inboxSections(
         fixtureRows(fixture.threads),
         now,
         fixture.bundleLabels,
         heldPlaces(fixture.held),
-        [],
+        todos,
         new Set(fixture.exhausted ?? []),
-        emailTodos(...(fixture.todoThreads ?? [])),
+        labelsOf,
+        (row) =>
+          fixture.threads.find((thread) => thread.id === row.thread.id)
+            ?.todoLabels ?? [],
       );
-      expect(shape(sections)).toEqual(fixture.sections);
+      const tagged = fixture.threads
+        .filter((thread) => thread.todoLabels !== undefined)
+        .map((thread) => thread.id);
+      expect(
+        shape(sections, emailTodos(...(fixture.todoThreads ?? []), ...tagged)),
+      ).toEqual(fixture.sections);
     });
   }
   for (const fixture of groupFixtures.plain) {
@@ -487,42 +531,24 @@ function emailTodos(...threadIds: string[]): ReadonlyMap<string, EmailTodo> {
   );
 }
 
-test("an email with a todo keeps a row of its own and no todo row, pinned or not", () => {
-  const rows = [
-    row("new", 1),
-    row("pinned", 30, ["INBOX", "STARRED"]),
-    row("g1", 2, ["INBOX", "L"]),
-    row("g2", 3, ["INBOX", "L"]),
-    row("g3", 4, ["INBOX", "L"]),
-  ];
-  const sections = inboxSections(
-    rows,
+test("Done all takes the todos of their own and those in its bundles, pinned ones aside", () => {
+  const [, section] = inboxSections(
+    [row("a", 1), row("g1", 3, ["INBOX", "L"])],
     NOW,
     ["L"],
     undefined,
-    [todo("own", 8)],
+    [todo("loose", 2), todo("tagged", 4), todo("pinned", 5, { pinned: true })],
     undefined,
-    emailTodos("pinned", "g1", "archived"),
+    (item) => (item.id === "loose" ? [] : ["L"]),
   );
-  expect(sections.map(entryIds)).toEqual([
-    ["pinned"],
-    ["new", "g1", "L", "todo:own"],
+  expect(section!.entries.map((entry) => entry.kind)).toEqual([
+    "thread",
+    "todo",
+    "group",
   ]);
-});
-
-test("Done all takes only the todos of their own", () => {
-  const [section] = inboxSections(
-    [row("a", 1), row("b", 3)],
-    NOW,
-    [],
-    undefined,
-    [todo("loose", 2), todo("older", 4)],
-    undefined,
-    emailTodos("a"),
-  );
   expect(doneAllTodos(section!).map((item) => item.id)).toEqual([
     "loose",
-    "older",
+    "tagged",
   ]);
 });
 
@@ -560,15 +586,7 @@ test("each thread shows in one place, however many lists name it", () => {
     bundles: new Map(),
     pins: new Map(),
   };
-  const sections = inboxSections(
-    rows,
-    NOW,
-    ["L"],
-    held,
-    [],
-    undefined,
-    emailTodos("a"),
-  );
+  const sections = inboxSections(rows, NOW, ["L"], held);
   const list = listOf(
     sections,
     { type: "tap", key: bundleRowKey("L") },
@@ -648,4 +666,23 @@ test("a joined row's todo is that of the first of its threads with one, lead fir
   expect(rowTodo(emailTodos("reply", "lead"), joined)?.threadId).toBe("lead");
   expect(rowTodo(emailTodos("other"), joined)).toBeNull();
   expect(rowTodo(emailTodos("lead"), row("lead", 2))?.threadId).toBe("lead");
+});
+
+test("openPlaces holds the focused todo's pinning under its row key, in a bundle or not", () => {
+  const sections = inboxSections(
+    [row("g1", 1, ["INBOX", "L"])],
+    NOW,
+    ["L"],
+    undefined,
+    [todo("tagged", 2), todo("loose", 3, { pinned: true })],
+    undefined,
+    (item) => (item.id === "tagged" ? ["L"] : []),
+  );
+  expect([
+    ...openPlaces(sections, null, null, null, "tagged").pins,
+    ...openPlaces(sections, null, null, null, "loose").pins,
+  ]).toEqual([
+    [todoRowKey("tagged"), false],
+    [todoRowKey("loose"), true],
+  ]);
 });

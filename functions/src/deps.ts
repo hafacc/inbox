@@ -122,15 +122,17 @@ function firestoreStore(seen: Map<string, PrivateDoc>): Store {
         };
       }
     },
-    async hasEmailTodo(uid, threadId) {
+    async emailTodoText(uid, threadId) {
       // An email's todo is stored under its thread's id.
-      const found = await userDoc(uid).collection("todos").doc(threadId).get();
-      const data = found.data();
-      return (
-        data !== undefined &&
+      const data = (
+        await userDoc(uid).collection("todos").doc(threadId).get()
+      ).data();
+      return data !== undefined &&
         data.threadId === threadId &&
-        data.deleted !== true
-      );
+        data.deleted !== true &&
+        typeof data.text === "string"
+        ? data.text
+        : null;
     },
     async deviceTokens(uid) {
       const found = await userDoc(uid).collection("devices").get();
