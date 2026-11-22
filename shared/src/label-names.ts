@@ -104,3 +104,15 @@ export function labelNameError(
   );
   return taken ? "A label has that name" : null;
 }
+
+/**
+ * The label Gmail counts as named `name`, ignoring case as Gmail does (so making `name` again is
+ * refused as a duplicate), or null.
+ */
+export function labelNamed<Label extends NamedLabel>(
+  labels: readonly Label[],
+  name: string,
+): Label | null {
+  const wanted = name.trim().toLowerCase();
+  return labels.find((label) => label.name.toLowerCase() === wanted) ?? null;
+}

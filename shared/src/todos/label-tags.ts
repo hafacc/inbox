@@ -1,79 +1,32 @@
 // A todo's `#tags` read as the user's own Gmail labels (design.md, "Todos"): a tag names a label
 // when their `tagKey`s agree, so `#read-later` names "Read Later" and `#work/projects` names the
-// nested "Work/Projects". Only user labels count, never Gmail's own or its categories, and nothing
-// here creates a label. Android `:core` `todo/LabelTags.kt` is the same, and both run
+// nested "Work/Projects". Only user labels count, never Gmail's own or its categories; a tag naming
+// none can be made a label (`unlabeledTags`). Android `:core` `todo/LabelTags.kt` is the same, and both run
 // shared/testdata/label-tag-fixtures.json.
 
+import { labelNameError } from "../label-names";
 import { labelQueryValue } from "../search";
 import type { ViewFilter } from "../view-filter";
-import { parseTags, tagKey } from "./tags";
+import {
+  type LabelTags,
+  labelTag,
+  labelTags,
+  type TagLabel,
+  todoLabelIds,
+} from "./tag-index";
+import { countTags, parseTags, tagKey } from "./tags";
+
+export {
+  type LabelTags,
+  labelTag,
+  labelTagNames,
+  labelTags,
+  type TagLabel,
+  tagLabel,
+  todoLabelIds,
+} from "./tag-index";
+
 import type { Todo } from "./todo";
-
-/** A Gmail label as tags read it. */
-export type TagLabel = { id: string; name: string; type: string };
-
-/** User labels by the key of the tag that names them, each key's labels in name order. */
-export type LabelTags<Label extends TagLabel = TagLabel> = ReadonlyMap<
-  string,
-  readonly Label[]
->;
-
-const LETTER = /\p{L}/u;
-
-/** A label's name as a tag, without `#` (its {@link tagKey}); null when no tag can name it (no letter). */
-export function labelTag(name: string): string | null {
-  const key = tagKey(name);
-  return LETTER.test(key) ? key : null;
-}
-
-function byName(left: TagLabel, right: TagLabel): number {
-  const leftFolded = left.name.toLowerCase();
-  const rightFolded = right.name.toLowerCase();
-  if (leftFolded !== rightFolded) return leftFolded < rightFolded ? -1 : 1;
-  if (left.name !== right.name) return left.name < right.name ? -1 : 1;
-  return 0;
-}
-
-/** The user labels of `labels` that a tag can name, by that tag's key. */
-export function labelTags<Label extends TagLabel>(
-  labels: readonly Label[],
-): LabelTags<Label> {
-  const index = new Map<string, Label[]>();
-  for (const label of [...labels].sort(byName)) {
-    if (label.type !== "user") continue;
-    const tag = labelTag(label.name);
-    if (tag === null) continue;
-    const named = index.get(tag);
-    if (named) named.push(label);
-    else index.set(tag, [label]);
-  }
-  return index;
-}
-
-/** The tags `index` can offer as a `#tag` is typed, one per key, in key order. */
-export function labelTagNames(index: LabelTags): string[] {
-  return [...index.keys()].sort();
-}
-
-/** The label a tag (without `#`) names, the first by name when several do; null when none does. */
-export function tagLabel<Label extends TagLabel>(
-  index: LabelTags<Label>,
-  name: string,
-): Label | null {
-  return index.get(tagKey(name))?.[0] ?? null;
-}
-
-/** The ids of the labels `text`'s tags name, in the order the tags come, each once. */
-export function todoLabelIds(text: string, index: LabelTags): string[] {
-  const ids: string[] = [];
-  for (const span of parseTags(text)) {
-    const named = index.get(tagKey(text.slice(span.start + 1, span.end)));
-    for (const label of named ?? []) {
-      if (!ids.includes(label.id)) ids.push(label.id);
-    }
-  }
-  return ids;
-}
 
 /** The todos whose text names the label `labelId`, in their order: a label's own list. */
 export function labelTodos<Item extends Pick<Todo, "text">>(
@@ -84,6 +37,53 @@ export function labelTodos<Item extends Pick<Todo, "text">>(
   return todos.filter((todo) =>
     todoLabelIds(todo.text, index).includes(labelId),
   );
+}
+
+/** A tag in use that names no label, and the name of the Gmail label that would. */
+export type UnlabeledTag = {
+  /** the tag, without `#` */
+  tag: string;
+  /** the label to make for it: the tag as written, nested at its `/` */
+  label: string;
+};
+
+/**
+ * The tags `texts` use that name no user label of `labels`, one per {@link tagKey} (its spelling
+ * most texts use, ignoring case, as first written; the first seen of those tied), in key order,
+ * each with the name of the label that
+ * would answer to it, nested under the label its leading parts name, if any, as that label is
+ * spelled. A tag whose label name another label (Gmail's own included) has already is left out,
+ * as Gmail wouldn't make it.
+ */
+export function unlabeledTags(
+  texts: Iterable<string>,
+  labels: readonly TagLabel[],
+): UnlabeledTag[] {
+  const index = labelTags(labels);
+  const byKey = new Map<string, { name: string; count: number }>();
+  for (const entry of countTags(texts).values()) {
+    const key = tagKey(entry.name);
+    const best = byKey.get(key);
+    if (best === undefined || entry.count > best.count) byKey.set(key, entry);
+  }
+  return [...byKey]
+    .filter(([key]) => !index.has(key))
+    .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
+    .map(([, { name }]) => ({ tag: name, label: tagLabelName(name, index) }))
+    .filter(({ label }) => labelNameError(labels, label) === null);
+}
+
+// The label name for a tag: its `/` parts as written, empty ones dropped, with the longest leading
+// run that names a user label spelled as that label is, so `#work/meetings` nests under "Work".
+function tagLabelName(tag: string, index: LabelTags): string {
+  const parts = tag.split("/").filter((part) => tagKey(part) !== "");
+  for (let depth = parts.length - 1; depth > 0; depth--) {
+    const parent = index.get(tagKey(parts.slice(0, depth).join("/")))?.[0];
+    if (parent !== undefined) {
+      return [parent.name, ...parts.slice(depth)].join("/");
+    }
+  }
+  return parts.join("/");
 }
 
 /** Whether `text` names a label that Gmail's `label:` takes as `value`. */

@@ -59,3 +59,18 @@ export function styledTree(text: string): StyledNode[] {
   }
   return build(text.length, 0);
 }
+
+/** A todo's text as a one-line summary shows it: its style markers dropped, its tags kept. */
+export function styledPlain(text: string): string {
+  const flatten = (nodes: readonly StyledNode[]): string =>
+    nodes
+      .map((node) =>
+        node.kind === "span"
+          ? flatten(node.children)
+          : node.kind === "marker"
+            ? ""
+            : node.text,
+      )
+      .join("");
+  return flatten(styledTree(text)).trim();
+}

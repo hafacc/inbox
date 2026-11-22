@@ -15,15 +15,14 @@ const BUNDLED_CATEGORIES: ReadonlySet<string> = new Set([
 /**
  * The labels that could fold a thread with these labels into a bundle as new mail arrives: its user
  * labels (Gmail gives them ids starting `Label_`) and categories other than Primary, without those
- * whose bundling is off (`bundleOff`, from `labelPrefs`). None for a pinned (starred) thread, nor
- * for one with a todo the apps show (`hasTodo`), neither of which ever sits in a bundle.
+ * whose bundling is off (`bundleOff`, from `labelPrefs`). None for a pinned (starred) thread, which
+ * never sits in a bundle.
  */
 export function arrivalBundleLabels(
   threadLabels: readonly string[],
   bundleOff: readonly string[],
-  hasTodo = false,
 ): string[] {
-  if (hasTodo || threadLabels.includes(PINNED_LABEL)) {
+  if (threadLabels.includes(PINNED_LABEL)) {
     return [];
   } else {
     return threadLabels.filter(
@@ -43,7 +42,20 @@ export function arrivalBundleLabels(
 export function bundledOnArrival(
   threadLabels: readonly string[],
   bundleOff: readonly string[],
-  hasTodo = false,
 ): boolean {
-  return arrivalBundleLabels(threadLabels, bundleOff, hasTodo).length > 0;
+  return arrivalBundleLabels(threadLabels, bundleOff).length > 0;
+}
+
+/**
+ * Whether a thread or todo coming back from its snooze counts as bundled, as Android judges it when
+ * the user asks not to be notified about bundled mail: it isn't pinned and one of its labels (a
+ * thread's own, or those a todo's tags name, see `todoLabelIds`) is one that bundles
+ * (`bundleLabelIds`), however many inbox items carry that label.
+ */
+export function bundledOnWake(
+  labelIds: readonly string[],
+  pinned: boolean,
+  bundleLabelIds: readonly string[],
+): boolean {
+  return !pinned && labelIds.some((id) => bundleLabelIds.includes(id));
 }

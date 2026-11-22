@@ -1,6 +1,6 @@
 <!-- @component The current mailbox as a card per day, todos among the threads when shown (an email's todo inside its row); an open thread or bundle lifts out of its card while the rest dims, and with a bundle open a tap on the rest closes it. Rows joining or leaving the list grow in or collapse out; pulling down at the top on touch refreshes. -->
 <script lang="ts">
-  import { bundleRowKey } from "@inbox/shared/list-state";
+  import { bundleRowKey, itemRowKey } from "@inbox/shared/list-state";
   import CheckCheck from "@lucide/svelte/icons/check-check";
   import Focus from "@lucide/svelte/icons/focus";
   import Funnel from "@lucide/svelte/icons/funnel";
@@ -33,13 +33,13 @@
   type MoreItem = Extract<ListRow, { kind: "more" }>;
   type CardItem = ThreadItem | TodoItem | BundleItem;
 
-  // What lifts out of a day's card: an open bundle with the threads it shows, or an open thread.
+  // What lifts out of a day's card: an open bundle with the threads and todos it shows, or an open thread.
   type Lifted =
     | {
         kind: "bundle";
         key: string;
         bundle: BundleItem;
-        shown: ThreadItem[];
+        shown: (ThreadItem | TodoItem)[];
         more: MoreItem | null;
       }
     | { kind: "open"; key: string; row: ThreadItem };
@@ -75,7 +75,7 @@
           (inner, entry) =>
             inner +
             (entry.kind === "bundle"
-              ? entry.threads.length
+              ? entry.items.filter((item) => item.kind === "thread").length
               : entry.kind === "thread"
                 ? 1
                 : 0),
@@ -112,7 +112,7 @@
         if (row.kind === "section" || row.kind === "more") continue;
         keys.add(row.key);
         if (row.kind === "bundle") {
-          for (const thread of row.threads) keys.add(thread.id);
+          for (const item of row.items) keys.add(itemRowKey(item));
         }
       }
       return keys;
@@ -123,10 +123,13 @@
   // The open bundle, and one just closed, which keeps showing its threads while it shrinks closed.
   const closingGroups = closingOpen(() => {
     const labelId = mail.openBundle;
-    if (labelId === null) return new Map<string, ThreadItem[]>();
+    if (labelId === null) {
+      return new Map<string, (ThreadItem | TodoItem)[]>();
+    }
     const shown = mail.list.rows.filter(
-      (row): row is ThreadItem =>
-        row.kind === "thread" && row.bundle === labelId,
+      (row): row is ThreadItem | TodoItem =>
+        (row.kind === "thread" || row.kind === "todo") &&
+        row.bundle === labelId,
     );
     return new Map([[bundleRowKey(labelId), shown]]);
   });
@@ -150,7 +153,10 @@
       } else if (section === null) {
       } else if (row.kind === "more") {
         if (bundle !== null) bundle.more = row;
-      } else if (row.kind === "thread" && row.bundle !== null) {
+      } else if (
+        (row.kind === "thread" || row.kind === "todo") &&
+        row.bundle !== null
+      ) {
         bundle?.shown.push(row);
       } else if (
         row.kind === "bundle" &&

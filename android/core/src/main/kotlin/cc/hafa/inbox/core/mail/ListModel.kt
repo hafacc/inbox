@@ -19,7 +19,7 @@ data class Row(
     val sortDate: Long,
 )
 
-/** An entry of a list section: a thread or label group ([ListEntry]), or a todo ([TodoEntry]). */
+/** An entry of a list section: a thread or label group ([ListEntry]), or a todo ([TodoEntry]); a group's items are threads and todos. */
 sealed interface SectionEntry<out Thread>
 
 /** A todo among the threads of a list. */
@@ -57,14 +57,25 @@ private fun placeOf(row: Row, held: HeldPlaces): ThreadPlace =
 private fun newestFirst(rows: List<Row>, held: HeldPlaces): List<Pair<Row, ThreadPlace>> =
     newestThreadsFirst(rows.map { it to placeOf(it, held) }, { (row, _) -> row.thread.id }, { (_, place) -> place.date })
 
+/** A label group of [items] (threads and todos), newest first. */
+private fun groupEntry(labelId: String, items: List<SectionEntry<Row>>): ListEntry.Group<Row> =
+    ListEntry.Group(
+        labelId,
+        items.mapNotNull { (it as? ListEntry.Single)?.thread },
+        items.mapNotNull { (it as? TodoEntry)?.todo },
+        items,
+    )
+
 /**
  * Inbox: pinned threads and todos first, then time sections; a big label folds into one group, in
- * the section of its newest thread. An open thread or bundle in [held] keeps its held place: a held
+ * the section of its newest thread or todo. Active [todos] sit among the threads by [listDate], and
+ * an unpinned one joins the groups of the labels its tags name ([todoLabels], see `todoLabelIds`)
+ * as a thread joins its labels': it counts toward a group and takes part in choosing one. An email
+ * groups by its own labels and those its todo's tags name ([rowTodoLabels]), together, by the same
+ * rule. An open thread or bundle in [held] keeps its held place: a held
  * thread its date, its pinning and its own row; a held bundle its date, and stays a bundle however
- * few threads are left in it, even none, until Gmail is known to have no more of its label
- * ([exhausted]), when an empty one leaves. Active [todos] sit among the threads by [listDate]. A
- * row whose email has a todo ([hasEmailTodo]) shows it inside, and is never folded into a group,
- * nor counts toward one.
+ * few items are left in it, even none, until Gmail is known to have no more of its label
+ * ([exhausted]), when an empty one leaves.
  */
 fun inboxSections(
     rows: List<Row>,
@@ -74,37 +85,59 @@ fun inboxSections(
     held: HeldPlaces = HeldPlaces(),
     todos: List<Todo> = emptyList(),
     exhausted: Set<String> = emptySet(),
-    hasEmailTodo: (Row) -> Boolean = { false },
+    todoLabels: (Todo) -> List<String> = { emptyList() },
+    rowTodoLabels: (Row) -> List<String> = { emptyList() },
 ): List<SectionModel> {
     val placed = newestFirst(rows, held)
     val (pinned, rest) = placed.partition { (_, place) -> place.pinned }
     val kept = userLabelIds.filterTo(linkedSetOf()) { it in held.bundles }
+    val loose = todos.newestFirst(zone)
+    val todoDates = loose.associate { it.id to it.listDate(zone) }
+    val (pinnedTodos, otherTodos) = loose.partition { held.pins[todoRowKey(it.id)] ?: it.pinned }
+    val dates = placed.associate { (row, place) -> row.thread.id to place.date }
+    fun itemDate(item: SectionEntry<Row>): Long = when (item) {
+        is ListEntry.Single -> dates.getValue(item.thread.thread.id)
+        is TodoEntry -> todoDates.getValue(item.todo.id)
+        is ListEntry.Group -> error("a group is not an item")
+    }
+    val items = (rest.map<Pair<Row, ThreadPlace>, SectionEntry<Row>> { ListEntry.Single(it.first) } + otherTodos.map(::TodoEntry))
+        .sortedByDescending(::itemDate)
     val groups = groupByLabel(
-        rest.map { it.first },
-        { row -> if (placeOf(row, held).single || hasEmailTodo(row)) emptyList() else row.thread.labelIds },
+        items,
+        { item ->
+            when (item) {
+                is TodoEntry -> todoLabels(item.todo)
+                is ListEntry.Single -> if (placeOf(item.thread, held).single) {
+                    emptyList()
+                } else {
+                    (item.thread.thread.labelIds + rowTodoLabels(item.thread)).distinct()
+                }
+                is ListEntry.Group -> emptyList()
+            }
+        },
         userLabelIds,
         MIN_GROUP_SIZE,
         kept,
-    ).toMutableList()
-    val loose = todos.newestFirst(zone)
-    val todoDates = loose.associate { it.id to it.listDate(zone) }
-    val (pinnedTodos, otherTodos) = loose.partition { it.pinned }
+    ).map<ListEntry<SectionEntry<Row>>, SectionEntry<Row>> { entry ->
+        when (entry) {
+            is ListEntry.Single -> entry.thread
+            is ListEntry.Group -> groupEntry(entry.labelId, entry.threads)
+        }
+    }.toMutableList()
     val out = mutableListOf<SectionModel>()
     val pinnedEntries = (
         pinned.map<Pair<Row, ThreadPlace>, Pair<SectionEntry<Row>, Long>> { (row, place) -> ListEntry.Single(row) to place.date } +
             pinnedTodos.map { TodoEntry(it) to todoDates.getValue(it.id) }
         ).sortedByDescending { (_, date) -> date }
     if (pinnedEntries.isNotEmpty()) out += SectionModel("pinned", "Pinned", pinnedEntries.map { it.first }, canDoneAll = false)
-    val dates = placed.associate { (row, place) -> row.thread.id to place.date }
     for (labelId in kept) {
-        if (labelId !in exhausted && groups.none { it is ListEntry.Group && it.labelId == labelId }) groups += ListEntry.Group(labelId, emptyList())
+        if (labelId !in exhausted && groups.none { it is ListEntry.Group && it.labelId == labelId }) groups += groupEntry(labelId, emptyList())
     }
     fun dateOf(entry: SectionEntry<Row>): Long = when (entry) {
-        is ListEntry.Single -> dates.getValue(entry.thread.thread.id)
-        is ListEntry.Group -> held.bundles[entry.labelId] ?: dates.getValue(entry.threads.first().thread.id)
-        is TodoEntry -> todoDates.getValue(entry.todo.id)
+        is ListEntry.Group -> held.bundles[entry.labelId] ?: itemDate(entry.items.first())
+        else -> itemDate(entry)
     }
-    val entries = (groups + otherTodos.map<Todo, SectionEntry<Row>>(::TodoEntry)).sortedByDescending(::dateOf)
+    val entries = groups.sortedByDescending(::dateOf)
     for (section in sectionize(entries) { pastSection(dateOf(it), now, zone) }) {
         out += SectionModel(section.key, section.title, section.items, canDoneAll = true)
     }
@@ -113,10 +146,18 @@ fun inboxSections(
 
 /**
  * The open thread and bundles at the places [sections] shows them: the open thread on its own row
- * or in a bundle, and each of the [openBundles] by its label and the date of its newest thread; and
- * the focused thread, when it isn't the open one, by whether it is pinned now.
+ * or in a bundle, and each of the [openBundles] by its label and the date of its newest item; and
+ * the focused thread, when it isn't the open one, by whether it is pinned now; and the focused todo
+ * ([focusedTodo]) the same way, under its row key.
  */
-fun openPlaces(sections: List<SectionModel>, openBundles: Set<String>, openId: String?, focusedId: String? = null): HeldPlaces {
+fun openPlaces(
+    sections: List<SectionModel>,
+    openBundles: Set<String>,
+    openId: String?,
+    focusedId: String? = null,
+    zone: ZoneId = ZoneId.systemDefault(),
+    focusedTodo: String? = null,
+): HeldPlaces {
     val threads = mutableMapOf<String, ThreadPlace>()
     val bundles = mutableMapOf<String, Long>()
     val pins = mutableMapOf<String, Boolean>()
@@ -125,17 +166,25 @@ fun openPlaces(sections: List<SectionModel>, openBundles: Set<String>, openId: S
         val id = row.thread.id
         if (id == openId) threads[id] = held else if (id == pinFocused) pins[id] = row.thread.isPinned
     }
+    fun placeTodo(todo: Todo) {
+        if (todo.id == focusedTodo) pins[todoRowKey(todo.id)] = todo.pinned
+    }
     for (section in sections) {
         for (entry in section.entries) {
             when (entry) {
                 is ListEntry.Single -> place(entry.thread, ThreadPlace(entry.thread.sortDate, pinned = section.key == "pinned", single = true))
                 is ListEntry.Group -> {
                     if (entry.labelId in openBundles) {
-                        bundles[entry.labelId] = entry.threads.firstOrNull()?.sortDate ?: 0L
+                        bundles[entry.labelId] = when (val first = entry.items.firstOrNull()) {
+                            is ListEntry.Single -> first.thread.sortDate
+                            is TodoEntry -> first.todo.listDate(zone)
+                            else -> 0L
+                        }
                     }
                     for (row in entry.threads) place(row, ThreadPlace(row.sortDate, pinned = false, single = false))
+                    entry.todos.forEach(::placeTodo)
                 }
-                is TodoEntry -> Unit
+                is TodoEntry -> placeTodo(entry.todo)
             }
         }
     }
@@ -182,9 +231,15 @@ fun doneAllIds(section: SectionModel): List<String> =
         }
     }.filterNot { it.thread.isPinned }.map { it.thread.id }
 
-/** The unpinned todo ids a section's "Done all" sweeps: its own todo rows. */
+/** The unpinned todo ids a section's "Done all" sweeps: its own todo rows and its bundles' todos. */
 fun doneAllTodoIds(section: SectionModel): List<String> =
-    section.entries.mapNotNull { (it as? TodoEntry)?.todo }.filterNot { it.pinned }.map { it.id }
+    section.entries.flatMap { entry ->
+        when (entry) {
+            is TodoEntry -> listOf(entry.todo)
+            is ListEntry.Group -> entry.todos
+            is ListEntry.Single -> emptyList()
+        }
+    }.filterNot { it.pinned }.map { it.id }
 
 /**
  * [sections] as the list's layout ([listStep]): each thread, todos on their own rows, and each bundle with whether Gmail has [more] of it and whether its next
@@ -206,7 +261,13 @@ fun listLayout(
                 )
                 is ListEntry.Group -> LayoutEntry.Bundle(
                     entry.labelId,
-                    entry.threads.map { LayoutThread(it.thread.id, it) },
+                    entry.items.map { item ->
+                        when (item) {
+                            is ListEntry.Single -> LayoutEntry.Thread(LayoutThread(item.thread.thread.id, item.thread))
+                            is TodoEntry -> LayoutEntry.Todo(item.todo.id, item.todo)
+                            is ListEntry.Group -> error("a group is not an item")
+                        }
+                    },
                     more(entry.labelId),
                     loading(entry.labelId),
                 )

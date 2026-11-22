@@ -152,15 +152,22 @@ class ListModelTest {
     }
 
     @Test
-    fun `an email with a todo keeps a row of its own, outside its bundle, and Done all sweeps only todo rows`() {
+    fun `a tagged todo joins its bundle, and Done all sweeps todo rows and bundled todos`() {
         val rows = listOf(
             row("mail", 1),
             row("gh-1", 2, listOf("INBOX", "Label_gh")),
             row("gh-2", 3, listOf("INBOX", "Label_gh")),
-            row("gh-3", 4, listOf("INBOX", "Label_gh")),
         )
-        val sections = inboxSections(rows, NOW, listOf("Label_gh"), NEW_YORK, todos = listOf(todo("own", 7))) { it.thread.id == "gh-2" }
-        assertEquals(listOf(listOf("mail", "Label_gh", "gh-2", "todo:own")), sections.map(::entryIds))
-        assertEquals(listOf("own"), doneAllTodoIds(sections[0]))
+        val todos = listOf(todo("own", 7), todo("tagged", 4))
+        val sections = inboxSections(
+            rows,
+            NOW,
+            listOf("Label_gh"),
+            NEW_YORK,
+            todos = todos,
+            todoLabels = { todo -> if (todo.id == "tagged") listOf("Label_gh") else emptyList() },
+        )
+        assertEquals(listOf(listOf("mail", "Label_gh", "todo:own")), sections.map(::entryIds))
+        assertEquals(listOf("tagged", "own"), doneAllTodoIds(sections[0]))
     }
 }

@@ -386,6 +386,9 @@ class FakeGmail implements GmailApi {
   async getThread(): Promise<never> {
     throw new Error("unused");
   }
+  async listLabels(): Promise<never> {
+    throw new Error("unused");
+  }
   async modifyThread(): Promise<never> {
     throw new Error("unused");
   }

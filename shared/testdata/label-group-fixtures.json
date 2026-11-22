@@ -1,7 +1,7 @@
 {
   "_doc": {
     "about": "Inbox bundles, run by shared/src/list-model.spec.ts and Android :core LabelGroupFixturesTest (America/New_York; times are local).",
-    "inbox": "inboxSections(threads, now, bundleLabels): STARRED threads go to Pinned; the rest, newest first, fold by label (a bundle label with two or more of them becomes one group holding all of them) and each entry lands in the time section of its newest thread. A section whose threads all moved into a newer bundle is left out. Entries are a thread id, or label[ids] for a group. held (optional) is what open threads and bundles keep until they close (see held-place-fixtures.json): a held thread sorts and sections by its held date, sits with the pinned threads or not as held, and when held as single stays out of bundles; held.pins (optional) holds the focused thread's pinning only: it sits with the pinned threads or not as held, and otherwise by its own date and labels; a held bundle sorts and sections by its held date, stays a bundle however few threads it has, and takes any thread carrying its label; left with none it stays too, unless its label is in exhausted (optional: bundle labels Gmail has no more of), when it leaves the list. todoThreads (optional) are the threads whose email has a todo: such a thread is never in a bundle, nor counts toward one, and has its own row.",
+    "inbox": "inboxSections(threads, now, bundleLabels): STARRED threads go to Pinned; the rest, newest first, fold by label (a bundle label with two or more of them becomes one group; a thread with several such labels joins the one with the most, ties by bundleLabels order, and a label left under two gives its threads back and the choice is redone) and each entry lands in the time section of its newest thread. A section whose threads all moved into a newer bundle is left out. Entries are a thread id, or label[ids] for a group. held (optional) is what open threads and bundles keep until they close (see held-place-fixtures.json): a held thread sorts and sections by its held date, sits with the pinned threads or not as held, and when held as single stays out of bundles; held.pins (optional) holds the focused thread's pinning only (a focused todo's under todo:id, which keeps it in Pinned or out of it, in its bundle or not, as held): it sits with the pinned threads or not as held, and otherwise by its own date and labels; a held bundle sorts and sections by its held date, stays a bundle however few threads it has, and takes any thread carrying its label; left with none it stays too, unless its label is in exhausted (optional: bundle labels Gmail has no more of), when it leaves the list. todos (optional) are active todos of their own, each with its date (its place among the threads) and labels (those its tags name; how tags name labels is label-tag-fixtures.json): an unpinned one folds by label as a thread does, counting toward a bundle and taking part in the choice of one, and shows as todo:id; a pinned one goes to Pinned. todoThreads (optional) are the threads whose email has a todo whose tags name no label; a thread's todoLabels (optional) says its email has a todo whose tags name those labels. Such a thread shows as id+todo, its todo inside its row, and folds by its own labels and its todo's together, by the same rule.",
     "plain": "plainSections(threads, now, held): any other mailbox, newest first in time sections; a held thread at its held date.",
     "preview": "groupShownCount(threads, showAll): an open bundle shows its first 5 threads, then \"Show N more\" for the hidden rest; all once asked."
   },
@@ -284,36 +284,239 @@
       "sections": [{ "key": "today", "entries": ["l1", "l2", "l3"] }]
     },
     {
-      "name": "an email with a todo stays out of its bundle, on its own row",
+      "name": "a todo whose tag names a bundle label joins its bundle, in date order among its threads",
       "bundleLabels": ["L"],
-      "todoThreads": ["l1"],
+      "todos": [
+        { "id": "t1", "date": "2026-11-02T09:00:00", "labels": ["L"] }
+      ],
       "threads": [
         { "id": "l1", "date": "2026-11-02T10:00:00", "labels": ["INBOX", "L"] },
-        { "id": "l2", "date": "2026-11-02T09:00:00", "labels": ["INBOX", "L"] },
-        { "id": "l3", "date": "2026-11-02T08:00:00", "labels": ["INBOX", "L"] }
+        { "id": "l2", "date": "2026-11-02T08:00:00", "labels": ["INBOX", "L"] }
       ],
-      "sections": [{ "key": "today", "entries": ["l1", "L[l2,l3]"] }]
+      "sections": [{ "key": "today", "entries": ["L[l1,todo:t1,l2]"] }]
     },
     {
-      "name": "an email with a todo doesn't count toward a bundle",
+      "name": "a todo counts toward the two a bundle needs",
       "bundleLabels": ["L"],
-      "todoThreads": ["l1"],
+      "todos": [
+        { "id": "t1", "date": "2026-11-02T09:00:00", "labels": ["L"] }
+      ],
       "threads": [
-        { "id": "l1", "date": "2026-11-02T10:00:00", "labels": ["INBOX", "L"] },
-        { "id": "l2", "date": "2026-11-02T09:00:00", "labels": ["INBOX", "L"] }
+        { "id": "a", "date": "2026-11-02T11:00:00", "labels": ["INBOX"] },
+        { "id": "l1", "date": "2026-11-02T10:00:00", "labels": ["INBOX", "L"] }
       ],
-      "sections": [{ "key": "today", "entries": ["l1", "l2"] }]
+      "sections": [{ "key": "today", "entries": ["a", "L[l1,todo:t1]"] }]
     },
     {
-      "name": "an open bundle doesn't take an email with a todo",
+      "name": "two todos make a bundle of todos alone, placed at the newer",
       "bundleLabels": ["L"],
-      "todoThreads": ["l2"],
+      "todos": [
+        { "id": "t1", "date": "2026-11-02T10:00:00", "labels": ["L"] },
+        { "id": "t2", "date": "2026-11-02T08:00:00", "labels": ["L"] }
+      ],
+      "threads": [
+        { "id": "a", "date": "2026-11-02T09:00:00", "labels": ["INBOX"] }
+      ],
+      "sections": [{ "key": "today", "entries": ["L[todo:t1,todo:t2]", "a"] }]
+    },
+    {
+      "name": "a lone todo of a bundle label, and those of a label that doesn't bundle, stay rows",
+      "bundleLabels": ["L"],
+      "todos": [
+        { "id": "t1", "date": "2026-11-02T10:00:00", "labels": ["L"] },
+        { "id": "t2", "date": "2026-11-02T09:00:00", "labels": ["M"] },
+        { "id": "t3", "date": "2026-11-02T08:00:00", "labels": ["M"] }
+      ],
+      "threads": [
+        { "id": "m1", "date": "2026-11-02T07:00:00", "labels": ["INBOX", "M"] }
+      ],
+      "sections": [{ "key": "today", "entries": ["todo:t1", "todo:t2", "todo:t3", "m1"] }]
+    },
+    {
+      "name": "a pinned todo stays in Pinned, out of its bundle",
+      "bundleLabels": ["L"],
+      "todos": [
+        { "id": "t1", "date": "2026-11-02T10:00:00", "labels": ["L"], "pinned": true }
+      ],
+      "threads": [
+        { "id": "l1", "date": "2026-11-02T09:00:00", "labels": ["INBOX", "L"] },
+        { "id": "l2", "date": "2026-11-02T08:00:00", "labels": ["INBOX", "L"] }
+      ],
+      "sections": [
+        { "key": "pinned", "entries": ["todo:t1"] },
+        { "key": "today", "entries": ["L[l1,l2]"] }
+      ]
+    },
+    {
+      "name": "a todo with two bundle labels joins the one with the most items, todos counted",
+      "bundleLabels": ["A",  "B"],
+      "todos": [
+        { "id": "t1", "date": "2026-11-02T09:30:00", "labels": ["A", "B"] },
+        { "id": "t2", "date": "2026-11-02T08:30:00", "labels": ["B"] }
+      ],
+      "threads": [
+        { "id": "a1", "date": "2026-11-02T10:00:00", "labels": ["INBOX", "A"] },
+        { "id": "b1", "date": "2026-11-02T09:00:00", "labels": ["INBOX", "B"] }
+      ],
+      "sections": [{ "key": "today", "entries": ["a1", "B[todo:t1,b1,todo:t2]"] }]
+    },
+    {
+      "name": "a todo with two bundle labels joins the later label when it has more",
+      "bundleLabels": ["A",  "B"],
+      "todos": [
+        { "id": "t1", "date": "2026-11-02T09:30:00", "labels": ["B", "A"] }
+      ],
+      "threads": [
+        { "id": "a1", "date": "2026-11-02T10:00:00", "labels": ["INBOX", "A"] },
+        { "id": "b1", "date": "2026-11-02T09:00:00", "labels": ["INBOX", "B"] },
+        { "id": "b2", "date": "2026-11-02T08:00:00", "labels": ["INBOX", "B"] }
+      ],
+      "sections": [{ "key": "today", "entries": ["a1", "B[todo:t1,b1,b2]"] }]
+    },
+    {
+      "name": "ties between bundle labels go to the earlier label, for a todo as for a thread",
+      "bundleLabels": ["A",  "B"],
+      "todos": [
+        { "id": "t1", "date": "2026-11-02T09:30:00", "labels": ["B", "A"] }
+      ],
+      "threads": [
+        { "id": "a1", "date": "2026-11-02T10:00:00", "labels": ["INBOX", "A"] },
+        { "id": "b1", "date": "2026-11-02T09:00:00", "labels": ["INBOX", "B"] }
+      ],
+      "sections": [{ "key": "today", "entries": ["A[a1,todo:t1]", "b1"] }]
+    },
+    {
+      "name": "a bundle a todo made big enough, left under two, gives the todo back",
+      "bundleLabels": ["A",  "B"],
+      "todos": [
+        { "id": "t1", "date": "2026-11-02T09:00:00", "labels": ["B"] }
+      ],
+      "threads": [
+        { "id": "a1", "date": "2026-11-02T10:00:00", "labels": ["INBOX", "A"] },
+        { "id": "b1", "date": "2026-11-02T09:30:00", "labels": ["INBOX", "A", "B"] },
+        { "id": "a2", "date": "2026-11-02T08:00:00", "labels": ["INBOX", "A"] }
+      ],
+      "sections": [{ "key": "today", "entries": ["A[a1,b1,a2]", "todo:t1"] }]
+    },
+    {
+      "name": "an open bundle keeps a lone todo",
+      "bundleLabels": ["L"],
       "held": { "threads": {}, "bundles": { "L": "2026-11-02T10:00:00" } },
+      "todos": [
+        { "id": "t1", "date": "2026-11-02T09:00:00", "labels": ["L"] }
+      ],
+      "threads": [
+        { "id": "a", "date": "2026-11-02T09:30:00", "labels": ["INBOX"] }
+      ],
+      "sections": [{ "key": "today", "entries": ["L[todo:t1]", "a"] }]
+    },
+    {
+      "name": "a bundle sits in the section of its newest item, a todo's included",
+      "bundleLabels": ["L"],
+      "todos": [
+        { "id": "t1", "date": "2026-11-02T10:00:00", "labels": ["L"] }
+      ],
+      "threads": [
+        { "id": "l1", "date": "2026-11-01T09:00:00", "labels": ["INBOX", "L"] },
+        { "id": "b", "date": "2026-11-01T08:00:00", "labels": ["INBOX"] }
+      ],
+      "sections": [
+        { "key": "today", "entries": ["L[todo:t1,l1]"] },
+        { "key": "yesterday", "entries": ["b"] }
+      ]
+    },
+    {
+      "name": "an email with a todo joins its label's bundle, its todo inside its row",
+      "bundleLabels": ["L"],
+      "todoThreads": ["l1"],
+      "threads": [
+        { "id": "a", "date": "2026-11-02T11:00:00", "labels": ["INBOX"] },
+        { "id": "l1", "date": "2026-11-02T10:00:00", "labels": ["INBOX", "L"] },
+        { "id": "l2", "date": "2026-11-02T09:00:00", "labels": ["INBOX", "L"] }
+      ],
+      "sections": [{ "key": "today", "entries": ["a", "L[l1+todo,l2]"] }]
+    },
+    {
+      "name": "an email with a todo counts toward the two a bundle needs",
+      "bundleLabels": ["L"],
+      "todoThreads": ["l1", "l2"],
       "threads": [
         { "id": "l1", "date": "2026-11-02T10:00:00", "labels": ["INBOX", "L"] },
         { "id": "l2", "date": "2026-11-02T09:00:00", "labels": ["INBOX", "L"] }
       ],
-      "sections": [{ "key": "today", "entries": ["L[l1]", "l2"] }]
+      "sections": [{ "key": "today", "entries": ["L[l1+todo,l2+todo]"] }]
+    },
+    {
+      "name": "an email joins the bundle its todo's tag names, though it lacks that label",
+      "bundleLabels": ["L"],
+      "threads": [
+        { "id": "a", "date": "2026-11-02T11:00:00", "labels": ["INBOX"] },
+        { "id": "e", "date": "2026-11-02T10:00:00", "labels": ["INBOX"], "todoLabels": ["L"] },
+        { "id": "l1", "date": "2026-11-02T09:00:00", "labels": ["INBOX", "L"] }
+      ],
+      "sections": [{ "key": "today", "entries": ["a", "L[e+todo,l1]"] }]
+    },
+    {
+      "name": "an email's own labels and its todo's tags choose together: the bundle with the most items",
+      "bundleLabels": ["M", "L"],
+      "threads": [
+        { "id": "e", "date": "2026-11-02T10:00:00", "labels": ["INBOX", "M"], "todoLabels": ["L"] },
+        { "id": "l1", "date": "2026-11-02T09:00:00", "labels": ["INBOX", "L"] },
+        { "id": "l2", "date": "2026-11-02T08:00:00", "labels": ["INBOX", "L"] },
+        { "id": "m1", "date": "2026-11-02T07:00:00", "labels": ["INBOX", "M"] }
+      ],
+      "sections": [{ "key": "today", "entries": ["L[e+todo,l1,l2]", "m1"] }]
+    },
+    {
+      "name": "an email's own label and its todo's tag tie: the earlier label wins, and the one left under two gives its email back",
+      "bundleLabels": ["M", "L"],
+      "threads": [
+        { "id": "e", "date": "2026-11-02T10:00:00", "labels": ["INBOX", "L"], "todoLabels": ["M"] },
+        { "id": "l1", "date": "2026-11-02T09:00:00", "labels": ["INBOX", "L"] },
+        { "id": "m1", "date": "2026-11-02T08:00:00", "labels": ["INBOX", "M"] }
+      ],
+      "sections": [{ "key": "today", "entries": ["M[e+todo,m1]", "l1"] }]
+    },
+    {
+      "name": "a pinned email stays in Pinned whatever its todo's tags name",
+      "bundleLabels": ["L"],
+      "threads": [
+        { "id": "p", "date": "2026-11-02T10:00:00", "labels": ["INBOX", "STARRED"], "todoLabels": ["L"] },
+        { "id": "l1", "date": "2026-11-02T09:00:00", "labels": ["INBOX", "L"] },
+        { "id": "l2", "date": "2026-11-02T08:00:00", "labels": ["INBOX", "L"] }
+      ],
+      "sections": [
+        { "key": "pinned", "entries": ["p+todo"] },
+        { "key": "today", "entries": ["L[l1,l2]"] }
+      ]
+    },
+    {
+      "name": "a todo focused in a bundle keeps its place there when pinned, until focus leaves",
+      "bundleLabels": ["L"],
+      "held": { "threads": {}, "bundles": {}, "pins": { "todo:t1": false } },
+      "todos": [
+        { "id": "t1", "date": "2026-11-02T09:30:00", "labels": ["L"], "pinned": true }
+      ],
+      "threads": [
+        { "id": "l1", "date": "2026-11-02T10:00:00", "labels": ["INBOX", "L"] }
+      ],
+      "sections": [{ "key": "today", "entries": ["L[l1,todo:t1]"] }]
+    },
+    {
+      "name": "a pinned todo focused keeps its place in Pinned when unpinned, until focus leaves",
+      "bundleLabels": ["L"],
+      "held": { "threads": {}, "bundles": {}, "pins": { "todo:t1": true } },
+      "todos": [
+        { "id": "t1", "date": "2026-11-02T09:30:00", "labels": ["L"] }
+      ],
+      "threads": [
+        { "id": "l1", "date": "2026-11-02T10:00:00", "labels": ["INBOX", "L"] },
+        { "id": "l2", "date": "2026-11-02T09:00:00", "labels": ["INBOX", "L"] }
+      ],
+      "sections": [
+        { "key": "pinned", "entries": ["todo:t1"] },
+        { "key": "today", "entries": ["L[l1,l2]"] }
+      ]
     }
   ],
   "plain": [

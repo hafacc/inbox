@@ -1,7 +1,15 @@
 // By relative path: the deploy uploads only functions/, and tsconfig.build.json compiles this in.
-import { bundledOnArrival } from "../../../shared/src/arrival-bundles.js";
+import {
+  bundledOnArrival,
+  PINNED_LABEL,
+} from "../../../shared/src/arrival-bundles.js";
 import { joinKeys } from "../../../shared/src/join-keys.js";
 import { answeredSearch } from "../../../shared/src/thread-joins.js";
+import {
+  labelTags,
+  todoLabelIds,
+} from "../../../shared/src/todos/tag-index.js";
+import { parseTags } from "../../../shared/src/todos/tags.js";
 import {
   ACTION_TOKEN_TTL_MS,
   type NotificationActionInput,
@@ -12,6 +20,7 @@ import {
   type GmailApi,
   GmailError,
   type GmailHistoryRecord,
+  type GmailLabel,
   type GmailMessage,
   LABEL,
 } from "./gmail-api.js";
@@ -59,7 +68,7 @@ export interface NotifyPrefs {
   quietBundles: boolean;
   /** labels with bundling off in `labelPrefs`; read only while `quietBundles` is on */
   bundleOff: string[];
-  /** whether the apps show todos, `settings.showTodos`: then a thread with one is never bundled */
+  /** whether the apps show todos, `settings.showTodos`: then an email's todo's tags bundle it too */
   showTodos: boolean;
 }
 
@@ -84,8 +93,8 @@ export interface Store {
   clearSnooze(uid: string, threadId: string): Promise<void>;
   /** A user's choices about which new mail notifies. */
   notifyPrefs(uid: string): Promise<NotifyPrefs>;
-  /** Whether the thread's email has a todo, which the apps show in its row. */
-  hasEmailTodo(uid: string, threadId: string): Promise<boolean>;
+  /** The text of the thread's email todo, or null when it has none. */
+  emailTodoText(uid: string, threadId: string): Promise<string | null>;
   /** FCM tokens of a user's devices. */
   deviceTokens(uid: string): Promise<string[]>;
   /** FCM tokens of a user's Android devices. */
@@ -508,9 +517,10 @@ async function clearNotifications(
 
 /**
  * Whether a message's thread counts as bundled (`bundledOnArrival`): its labels, the thread's other
- * messages' included, have one that bundles, and (while the apps show todos) it has no todo, which
- * keeps it out of every bundle. False when Gmail or the todos can't say, so a failed check never
- * costs a notification.
+ * messages' included, and (while the apps show todos) the labels its email todo's tags name, have
+ * one that bundles. The todo is read only when the thread's own labels don't bundle it and the
+ * account has a label that could (`readLabels`, Gmail's label list, read once a push). False when Gmail
+ * or the todo can't say, so a failed check never costs a notification.
  */
 async function landsInBundle(
   deps: Deps,
@@ -518,23 +528,36 @@ async function landsInBundle(
   gmail: GmailApi,
   message: GmailMessage,
   prefs: NotifyPrefs,
+  readLabels: () => Promise<GmailLabel[]>,
 ): Promise<boolean> {
   try {
     const thread = await gmail.getThread(message.threadId);
-    const labels = [
+    const threadLabels = [
       ...new Set([
         ...(message.labelIds ?? []),
         ...(thread.messages ?? []).flatMap((entry) => entry.labelIds ?? []),
       ]),
     ];
-    if (!bundledOnArrival(labels, prefs.bundleOff)) {
-      return false;
-    } else if (!prefs.showTodos) {
-      return true;
-    } else {
-      const hasTodo = await deps.store.hasEmailTodo(uid, message.threadId);
-      return bundledOnArrival(labels, prefs.bundleOff, hasTodo);
+    if (
+      bundledOnArrival(threadLabels, prefs.bundleOff) ||
+      !prefs.showTodos ||
+      threadLabels.includes(PINNED_LABEL)
+    ) {
+      return bundledOnArrival(threadLabels, prefs.bundleOff);
     }
+    const account = await readLabels();
+    const tags = labelTags(account);
+    // A tag names only user labels, so with none that bundles no todo could.
+    const userIds = account
+      .filter((label) => label.type === "user")
+      .map((label) => label.id);
+    if (!bundledOnArrival(userIds, prefs.bundleOff)) return false;
+    const text = await deps.store.emailTodoText(uid, message.threadId);
+    if (text === null || parseTags(text).length === 0) return false;
+    return bundledOnArrival(
+      [...threadLabels, ...todoLabelIds(text, tags)],
+      prefs.bundleOff,
+    );
   } catch (error) {
     deps.log.warn("bundle check failed", { uid, message: messageOf(error) });
     return false;
@@ -574,6 +597,11 @@ async function notifyNewMail(
   let tokens: readonly string[] = initialTokens;
   let readOrArchived = 0;
   let bundled = 0;
+  let labelList: Promise<GmailLabel[]> | null = null;
+  const readLabels = () => {
+    labelList ??= gmail.listLabels();
+    return labelList;
+  };
   for (const [index, settled] of fetched.entries()) {
     const messageId = messageIds[index];
     try {
@@ -586,7 +614,7 @@ async function notifyNewMail(
       }
       if (
         prefs.quietBundles &&
-        (await landsInBundle(deps, uid, gmail, message, prefs))
+        (await landsInBundle(deps, uid, gmail, message, prefs, readLabels))
       ) {
         bundled++;
         continue;

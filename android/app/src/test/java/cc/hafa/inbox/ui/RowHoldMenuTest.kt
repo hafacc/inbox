@@ -36,7 +36,6 @@ import cc.hafa.inbox.core.todo.Todo
 import cc.hafa.inbox.core.todo.TodoState
 import cc.hafa.inbox.data.TodoSnapshot
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -256,9 +255,18 @@ class RowHoldMenuTest {
     }
 
     @Test
-    fun anOpenBundlesHeaderHasNoMenu() {
-        show(listOf(ListEntry.Group("Label_1", listOf(row("b1", listOf("INBOX", "Label_1"))))), open = bundleRowKey("Label_1"))
+    fun anOpenBundlesHeaderOpensTheSameMenu() {
+        show(listOf(ListEntry.Group("Label_1", listOf(row("b1", listOf("INBOX", "Label_1")), row("b2", listOf("INBOX", "Label_1"))))), open = bundleRowKey("Label_1"))
         holdAt(compose.onAllNodesWithText("Errands")[0]) { width, height -> Offset(width / 2f, height / 2f) }
-        assertNull(menu.spec)
+        assertEquals(listOf("Pin all", "Delete all"), requireNotNull(menu.spec).wedges.map { it.item.label })
+        compose.onNodeWithContentDescription("Delete all").performClick()
+        compose.waitForIdle()
+        assertEquals(listOf("deleteBundle:Label_1:b1, b2"), calls)
+    }
+
+    @Test
+    fun talkBackOffersAnOpenBundlesMenuButNoSwipes() {
+        show(listOf(ListEntry.Group("Label_1", listOf(row("b1", listOf("INBOX", "Label_1")), row("b2", listOf("INBOX", "Label_1"))))), open = bundleRowKey("Label_1"))
+        assertEquals(listOf("Pin all", "Delete all"), talkBackLabels(compose.onNode(withActions("Pin all"))))
     }
 }

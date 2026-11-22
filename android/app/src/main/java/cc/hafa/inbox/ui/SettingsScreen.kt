@@ -205,7 +205,7 @@ fun SettingsScreen(
                     title = "Skip notifications for bundled mail",
                     checked = settings.quietBundles,
                     onChange = sending.account::setQuietBundles,
-                    detail = "New mail that goes into a bundle arrives without a notification. All other mail still notifies.",
+                    detail = "New mail that goes into a bundle, and bundled mail or todos coming back from snooze, arrive without a notification. Everything else still notifies.",
                     icon = Icons.Outlined.NotificationsPaused,
                     minHeight = 64.dp,
                     padding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),

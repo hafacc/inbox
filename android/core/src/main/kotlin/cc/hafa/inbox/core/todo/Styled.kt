@@ -78,3 +78,16 @@ fun styledTree(text: String): List<StyledNode> {
     }
     return build(text.length, 0)
 }
+
+/** A todo's text as a one-line summary shows it: its style markers dropped, its tags kept. */
+fun styledPlain(text: String): String {
+    fun flatten(nodes: List<StyledNode>): String = nodes.joinToString("") { node ->
+        when (node) {
+            is StyledNode.Span -> flatten(node.children)
+            is StyledNode.Marker -> ""
+            is StyledNode.Text -> node.text
+            is StyledNode.Tag -> node.text
+        }
+    }
+    return flatten(styledTree(text)).trim()
+}

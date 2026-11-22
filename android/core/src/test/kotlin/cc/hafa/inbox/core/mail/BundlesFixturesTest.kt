@@ -100,13 +100,20 @@ class BundlesFixturesTest {
     }
 
     @Test
+    fun line() {
+        for (case in Fixtures.cases(Fixtures.bundles, "line")) {
+            assertEquals(case["name"] as String, case["expect"], bundleLine(strings(case["texts"])))
+        }
+    }
+
+    @Test
     fun counts() {
         for (case in Fixtures.cases(Fixtures.bundles, "counts")) {
             val expected = case["expect"] as Map<*, *>
             assertEquals(
                 case["name"] as String,
                 BundleCounts(expected["threads"] as String, expected["unread"] as String?),
-                bundleCounts(case["threads"] as Int, case["unread"] as Int, case["more"] as Boolean),
+                bundleCounts(case["threads"] as Int, case["unread"] as Int, case["more"] as Boolean, case["todos"] as Int? ?: 0),
             )
         }
     }

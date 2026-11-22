@@ -16,14 +16,27 @@ export type LayoutThread<Thread> = {
   data: Thread;
 };
 
-/** One entry of a layout section: a thread, a todo, or a bundle of one label's threads. */
-export type LayoutEntry<Thread, Todo> =
+/** A todo as a layout gives it: its id and what the app draws it from. */
+export type LayoutTodo<Todo> = {
+  /** todo id */
+  id: string;
+  /** the app's own data for the row */
+  data: Todo;
+};
+
+/** One item of a bundle: a thread or a todo. */
+export type LayoutItem<Thread, Todo> =
   | ({ kind: "thread" } & LayoutThread<Thread>)
-  | { kind: "todo"; id: string; data: Todo }
+  | ({ kind: "todo" } & LayoutTodo<Todo>);
+
+/** One entry of a layout section: a thread, a todo, or a bundle of one label's threads and todos. */
+export type LayoutEntry<Thread, Todo> =
+  | LayoutItem<Thread, Todo>
   | {
       kind: "bundle";
       labelId: string;
-      threads: readonly LayoutThread<Thread>[];
+      /** its threads and todos, in the order it shows them */
+      items: readonly LayoutItem<Thread, Todo>[];
       /** whether Gmail has more of the label's inbox threads than were fetched */
       more: boolean;
       /** whether a next page is on its way */
@@ -60,14 +73,26 @@ export type ListRow<Thread, Todo> =
       bundle: string | null;
       data: Thread;
     }
-  | { kind: "todo"; key: string; id: string; section: string; data: Todo }
+  | {
+      kind: "todo";
+      key: string;
+      id: string;
+      section: string;
+      /** the open bundle it shows in, or null for a row of its own */
+      bundle: string | null;
+      data: Todo;
+    }
   | {
       kind: "bundle";
       key: string;
       labelId: string;
       section: string;
+      /** all its threads and todos, shown or not, in order */
+      items: readonly LayoutItem<Thread, Todo>[];
       /** all its threads, shown or not */
       threads: readonly LayoutThread<Thread>[];
+      /** all its todos, shown or not */
+      todos: readonly LayoutTodo<Todo>[];
       open: boolean;
       more: boolean;
       loading: boolean;
@@ -77,7 +102,7 @@ export type ListRow<Thread, Todo> =
       key: string;
       labelId: string;
       section: string;
-      /** loaded threads the preview leaves out */
+      /** loaded threads and todos the preview leaves out */
       hidden: number;
       more: boolean;
       loading: boolean;
@@ -105,7 +130,7 @@ export type ListTarget = {
   threads: readonly string[];
   /** todo ids */
   todos: readonly string[];
-  /** the label of a focused bundle, whose threads `threads` lists */
+  /** the label of a focused bundle, whose threads `threads` lists and whose todos `todos` does */
   bundle: string | null;
 };
 
@@ -239,6 +264,13 @@ export function bundleRowKey(labelId: string): string {
   return BUNDLE_PREFIX + labelId;
 }
 
+/** A bundle item's row key: its thread's or its todo's. */
+export function itemRowKey<Thread, Todo>(
+  item: LayoutItem<Thread, Todo>,
+): string {
+  return item.kind === "thread" ? threadRowKey(item.id) : todoRowKey(item.id);
+}
+
 /** A section heading's row key. */
 export function sectionRowKey(key: string): string {
   return SECTION_PREFIX + key;
@@ -365,7 +397,7 @@ export function listTarget<Thread, Todo>(
       return {
         from: "row",
         threads: row.threads.map((thread) => thread.id),
-        todos: [],
+        todos: row.todos.map((todo) => todo.id),
         bundle: row.labelId,
       };
     default:
@@ -449,20 +481,41 @@ function layoutKeys<Thread, Todo>(
   layout: readonly LayoutSection<Thread, Todo>[],
 ): Set<string> {
   const keys = new Set<string>();
-  const addThread = (thread: LayoutThread<Thread>) => {
-    keys.add(threadRowKey(thread.id));
-  };
   for (const section of layout) {
     for (const entry of section.entries) {
-      if (entry.kind === "thread") addThread(entry);
+      if (entry.kind === "thread") keys.add(threadRowKey(entry.id));
       else if (entry.kind === "todo") keys.add(todoRowKey(entry.id));
       else {
         keys.add(bundleRowKey(entry.labelId));
-        for (const thread of entry.threads) addThread(thread);
+        for (const item of entry.items) keys.add(itemRowKey(item));
       }
     }
   }
   return keys;
+}
+
+// The row of a thread or todo, on its own (`bundle` null) or inside the open bundle.
+function itemRow<Thread, Todo>(
+  item: LayoutItem<Thread, Todo>,
+  section: string,
+  bundle: string | null,
+): ListRow<Thread, Todo> {
+  const place = { key: itemRowKey(item), id: item.id, section, bundle };
+  return item.kind === "thread"
+    ? { kind: "thread", ...place, data: item.data }
+    : { kind: "todo", ...place, data: item.data };
+}
+
+// Whether `row` is a thread or todo shown inside the open bundle of `labelId`.
+function insideBundle<Thread, Todo>(
+  row: ListRow<Thread, Todo> | undefined,
+  labelId: string | undefined,
+): boolean {
+  return (
+    (row?.kind === "thread" || row?.kind === "todo") &&
+    labelId !== undefined &&
+    row.bundle === labelId
+  );
 }
 
 type Built<Thread, Todo> = {
@@ -481,59 +534,40 @@ function build<Thread, Todo>(
   const seen = new Set<string>();
   const rows: ListRow<Thread, Todo>[] = [];
   let openBundle: OpenBundle<Thread> | null = null;
-  // A thread, unless shown already or on its way out.
-  const take = (thread: LayoutThread<Thread>): LayoutThread<Thread> | null => {
-    const key = threadRowKey(thread.id);
-    if (seen.has(key) || removing.has(key)) return null;
+  // A row key, unless shown already or on its way out.
+  const take = (key: string): boolean => {
+    if (seen.has(key) || removing.has(key)) return false;
     seen.add(key);
-    return thread;
+    return true;
   };
   for (const section of layout) {
     const sectionRows: ListRow<Thread, Todo>[] = [];
     for (const entry of section.entries) {
-      if (entry.kind === "thread") {
-        const thread = take(entry);
-        if (thread === null) continue;
-        sectionRows.push({
-          kind: "thread",
-          key: threadRowKey(thread.id),
-          id: thread.id,
-          section: section.key,
-          bundle: null,
-          data: thread.data,
-        });
-      } else if (entry.kind === "todo") {
-        const key = todoRowKey(entry.id);
-        if (seen.has(key) || removing.has(key)) continue;
-        seen.add(key);
-        sectionRows.push({
-          kind: "todo",
-          key,
-          id: entry.id,
-          section: section.key,
-          data: entry.data,
-        });
+      if (entry.kind === "thread" || entry.kind === "todo") {
+        if (!take(itemRowKey<Thread, Todo>(entry))) continue;
+        sectionRows.push(itemRow<Thread, Todo>(entry, section.key, null));
       } else {
         const key = bundleRowKey(entry.labelId);
         if (seen.has(key)) continue;
         seen.add(key);
         const isOpen = bundle !== null && bundle.labelId === entry.labelId;
-        const threads = entry.threads.flatMap((thread) => {
-          const kept = take(thread);
-          return kept === null ? [] : [kept];
-        });
-        if (
-          threads.length === 0 &&
-          !(isOpen && (entry.more || entry.loading))
-        ) {
+        const items = entry.items.filter((item) => take(itemRowKey(item)));
+        if (items.length === 0 && !(isOpen && (entry.more || entry.loading))) {
           continue;
         }
+        const threads = items.flatMap((item) =>
+          item.kind === "thread" ? [{ id: item.id, data: item.data }] : [],
+        );
         sectionRows.push({
           kind: "bundle",
           key,
           labelId: entry.labelId,
           section: section.key,
+          items,
           threads,
+          todos: items.flatMap((item) =>
+            item.kind === "todo" ? [{ id: item.id, data: item.data }] : [],
+          ),
           open: isOpen,
           more: entry.more,
           loading: entry.loading,
@@ -543,18 +577,11 @@ function build<Thread, Todo>(
           open !== null && threads.some((thread) => thread.id === open);
         const showAll = bundle.showAll || holdsOpen;
         openBundle = { ...bundle, showAll, threads };
-        const shown = showAll ? threads : threads.slice(0, GROUP_PREVIEW);
-        for (const thread of shown) {
-          sectionRows.push({
-            kind: "thread",
-            key: threadRowKey(thread.id),
-            id: thread.id,
-            section: section.key,
-            bundle: entry.labelId,
-            data: thread.data,
-          });
+        const shown = showAll ? items : items.slice(0, GROUP_PREVIEW);
+        for (const item of shown) {
+          sectionRows.push(itemRow(item, section.key, entry.labelId));
         }
-        const hidden = threads.length - shown.length;
+        const hidden = items.length - shown.length;
         if (hidden > 0 || entry.more || entry.loading) {
           sectionRows.push({
             kind: "more",
@@ -611,9 +638,7 @@ function settle<Thread, Todo>(
           (row) =>
             row.kind === "bundle" &&
             !row.open &&
-            row.threads.some(
-              (thread) => threadRowKey(thread.id) === pendingFocus,
-            ),
+            row.items.some((item) => itemRowKey(item) === pendingFocus),
         );
   if (holder !== undefined && holder !== null) pendingFocus = holder.key;
   if (pendingFocus !== null && focusable.has(pendingFocus)) {
@@ -629,11 +654,17 @@ function settle<Thread, Todo>(
     const bundleRow = rows.find(
       (row) => row.kind === "bundle" && row.labelId === bundle!.labelId,
     );
-    // The page lands after the row focus left; new mail at the bundle's top doesn't count.
-    const inside = rows.filter(
-      (row) => row.kind === "thread" && row.bundle === bundle!.labelId,
+    // The page lands after the bundle's last known thread, which may come before the row focus
+    // left (an older todo the page's threads sort above); new mail at the bundle's top doesn't count.
+    const inside = rows.filter((row) => insideBundle(row, bundle!.labelId));
+    const left = inside.findIndex((row) => row.key === awaiting);
+    const lastKnown = inside.findLastIndex(
+      (row) => row.kind === "thread" && known.has(row.id),
     );
-    const from = inside.findIndex((row) => row.key === awaiting);
+    const from =
+      left === -1 || lastKnown === -1
+        ? Math.max(left, lastKnown)
+        : Math.min(left, lastKnown);
     const fresh = inside
       .slice(from + 1)
       .find((row) => row.kind === "thread" && !known.has(row.id));
@@ -675,10 +706,7 @@ function settle<Thread, Todo>(
       header.more &&
       bundleOf(before, lost) === bundle.labelId &&
       !rows.some(
-        (row) =>
-          row.key === focus &&
-          row.kind === "thread" &&
-          row.bundle === bundle!.labelId,
+        (row) => row.key === focus && insideBundle(row, bundle!.labelId),
       )
     ) {
       focus = header.key;
@@ -757,7 +785,7 @@ function bundleNeighbors<Thread, Todo>(
   labelId: string,
 ): { next: string | null; previous: string | null } {
   const inside = (row: ListRow<Thread, Todo> | undefined) =>
-    row?.kind === "thread" && row.bundle === labelId;
+    insideBundle(row, labelId);
   const shown = new Map(rows.map((row, index) => [row.key, index]));
   const at = before.rows.findIndex((row) => row.key === lost);
   let previous: string | null = null;
@@ -800,10 +828,8 @@ function bundleIn<Thread, Todo>(
   const row =
     key === null ? null : (rows.find((row) => row.key === key) ?? null);
   if (row === null) return null;
-  if (row.kind === "bundle") return row.labelId;
-  if (row.kind === "thread" || row.kind === "more") {
-    return row.kind === "thread" ? row.bundle : row.labelId;
-  }
+  if (row.kind === "bundle" || row.kind === "more") return row.labelId;
+  if (row.kind === "thread" || row.kind === "todo") return row.bundle;
   return null;
 }
 
@@ -887,9 +913,8 @@ function step<Thread, Todo>(
           : state;
       }
       if (forward && bundle !== null && row !== null) {
-        const inBundle = state.rows.filter(
-          (candidate) =>
-            candidate.kind === "thread" && candidate.bundle === bundle.labelId,
+        const inBundle = state.rows.filter((candidate) =>
+          insideBundle(candidate, bundle.labelId),
         );
         const last = inBundle.at(-1);
         const header = state.rows.find(
@@ -900,13 +925,13 @@ function step<Thread, Todo>(
           (last !== undefined && last.key === row.key) ||
           (last === undefined && header?.key === row.key);
         if (atEnd && header?.kind === "bundle") {
-          if (header.threads.length > inBundle.length) {
+          if (header.items.length > inBundle.length) {
             const shown = settle(state, {
               ...state,
               bundle: { ...bundle, showAll: true },
             });
-            const first = header.threads[inBundle.length]!;
-            return keyFocus(shown, threadRowKey(first.id));
+            const first = header.items[inBundle.length]!;
+            return keyFocus(shown, itemRowKey(first));
           }
           if (header.more) {
             return {
@@ -1080,13 +1105,11 @@ function step<Thread, Todo>(
     case "act": {
       const listed = layoutKeys(state.layout);
       const shown = new Set(state.rows.map((row) => row.key));
-      // A bundle goes with its threads: it shows again when Gmail has more of them.
+      // A bundle goes with its threads and todos: it shows again when Gmail has more of them.
       const removes = event.removes
         .flatMap((key) => {
           const row = rowOf(state, key);
-          return row?.kind === "bundle"
-            ? row.threads.map((thread) => threadRowKey(thread.id))
-            : [key];
+          return row?.kind === "bundle" ? row.items.map(itemRowKey) : [key];
         })
         .filter(
           (key) =>
@@ -1276,14 +1299,10 @@ export function listProblems<Thread, Todo>(
   const places = new Map<string, number>();
   const count = (key: string) => places.set(key, (places.get(key) ?? 0) + 1);
   for (const row of state.rows) {
-    if (row.kind === "thread") {
+    if (row.kind === "thread" || row.kind === "todo") {
       if (row.bundle === null) count(row.key);
-    } else if (row.kind === "todo") {
-      count(row.key);
     } else if (row.kind === "bundle") {
-      for (const thread of row.threads) {
-        count(threadRowKey(thread.id));
-      }
+      for (const item of row.items) count(itemRowKey(item));
     }
   }
   for (const [key, times] of places) {
@@ -1302,15 +1321,15 @@ export function listProblems<Thread, Todo>(
     if (header?.kind !== "bundle" || !header.open) {
       problems.push(`open bundle ${bundle.labelId} has no open row`);
     } else {
-      // Its shown threads follow its header, in its order.
+      // Its shown threads and todos follow its header, in its order.
       let at = index + 1;
-      for (const thread of header.threads) {
+      for (const item of header.items) {
         const row = state.rows[at];
-        if (row?.kind !== "thread" || row.id !== thread.id) break;
+        if (row?.key !== itemRowKey(item)) break;
         at += 1;
       }
       for (const row of state.rows.slice(at)) {
-        if (row.kind === "thread" && row.bundle === bundle.labelId) {
+        if (insideBundle(row, bundle.labelId)) {
           problems.push(`${row.key} is apart from its bundle`);
         }
       }
@@ -1331,7 +1350,7 @@ export function listProblems<Thread, Todo>(
   }
   for (const row of state.rows) {
     if (
-      row.kind === "thread" &&
+      (row.kind === "thread" || row.kind === "todo") &&
       row.bundle !== null &&
       row.bundle !== bundle?.labelId
     ) {

@@ -5081,6 +5081,394 @@
           }
         }
       ]
+    },
+    {
+      "name": "a bundle shows its todos among its threads, in its order; focus walks them and stays in the bundle when one goes",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "items": [
+                      {
+                        "kind": "thread",
+                        "id": "x1"
+                      },
+                      {
+                        "kind": "todo",
+                        "id": "t1"
+                      },
+                      {
+                        "kind": "thread",
+                        "id": "x2"
+                      }
+                    ],
+                    "more": false,
+                    "loading": false
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "z"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {
+            "rows": [
+              "section:today",
+              "a",
+              "bundle:L",
+              "z"
+            ]
+          }
+        },
+        {
+          "event": {
+            "type": "focus",
+            "key": "bundle:L",
+            "by": "pointer"
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "command",
+            "action": "done"
+          },
+          "expect": {
+            "effect": {
+              "kind": "act",
+              "action": "done",
+              "target": {
+                "from": "row",
+                "threads": [
+                  "x1",
+                  "x2"
+                ],
+                "todos": [
+                  "t1"
+                ],
+                "bundle": "L"
+              }
+            }
+          }
+        },
+        {
+          "event": {
+            "type": "enter"
+          },
+          "expect": {
+            "bundle": "L",
+            "rows": [
+              "section:today",
+              "a",
+              "bundle:L",
+              "x1",
+              "todo:t1",
+              "x2",
+              "z"
+            ]
+          }
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "focus": "x1"
+          }
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "focus": "todo:t1",
+            "bundle": "L"
+          }
+        },
+        {
+          "event": {
+            "type": "enter"
+          },
+          "expect": {
+            "effect": {
+              "kind": "edit",
+              "todoId": "t1"
+            },
+            "bundle": "L"
+          }
+        },
+        {
+          "event": {
+            "type": "act",
+            "removes": [
+              "todo:t1"
+            ],
+            "from": "row",
+            "undoable": true,
+            "clearSelection": false
+          },
+          "expect": {
+            "focus": "x2",
+            "bundle": "L",
+            "rows": [
+              "section:today",
+              "a",
+              "bundle:L",
+              "x1",
+              "x2",
+              "z"
+            ]
+          }
+        },
+        {
+          "event": {
+            "type": "undo"
+          },
+          "expect": {
+            "focus": "todo:t1",
+            "bundle": "L",
+            "rows": [
+              "section:today",
+              "a",
+              "bundle:L",
+              "x1",
+              "todo:t1",
+              "x2",
+              "z"
+            ]
+          }
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "focus": "x2"
+          }
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "focus": "z",
+            "bundle": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "Done all on a closed bundle takes its todos with its threads, and undo brings them back",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "items": [
+                      {
+                        "kind": "todo",
+                        "id": "t1"
+                      },
+                      {
+                        "kind": "thread",
+                        "id": "x1"
+                      }
+                    ],
+                    "more": false,
+                    "loading": false
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "z"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "focus",
+            "key": "bundle:L",
+            "by": "pointer"
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "act",
+            "removes": [
+              "bundle:L"
+            ],
+            "from": "row",
+            "undoable": true,
+            "clearSelection": false
+          },
+          "expect": {
+            "focus": "z",
+            "rows": [
+              "section:today",
+              "a",
+              "z"
+            ],
+            "removing": [
+              "todo:t1",
+              "x1"
+            ]
+          }
+        },
+        {
+          "event": {
+            "type": "undo"
+          },
+          "expect": {
+            "focus": "bundle:L",
+            "rows": [
+              "section:today",
+              "a",
+              "bundle:L",
+              "z"
+            ],
+            "removing": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "a bundle of todos alone opens, and its preview counts todos",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "items": [
+                      {
+                        "kind": "todo",
+                        "id": "t1"
+                      },
+                      {
+                        "kind": "todo",
+                        "id": "t2"
+                      },
+                      {
+                        "kind": "todo",
+                        "id": "t3"
+                      },
+                      {
+                        "kind": "todo",
+                        "id": "t4"
+                      },
+                      {
+                        "kind": "todo",
+                        "id": "t5"
+                      },
+                      {
+                        "kind": "todo",
+                        "id": "t6"
+                      }
+                    ],
+                    "more": false,
+                    "loading": false
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "tap",
+            "key": "bundle:L"
+          },
+          "expect": {
+            "bundle": "L",
+            "focus": "bundle:L",
+            "rows": [
+              "section:today",
+              "a",
+              "bundle:L",
+              "todo:t1",
+              "todo:t2",
+              "todo:t3",
+              "todo:t4",
+              "todo:t5",
+              "more:L"
+            ]
+          }
+        },
+        {
+          "event": {
+            "type": "focus",
+            "key": "todo:t5",
+            "by": "keyboard"
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "focus": "todo:t6",
+            "showAll": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "j past an open bundle's last todo pages it in, and focus goes to the new threads that sort above the todo",
+      "steps": [
+        { "event": { "type": "layout", "sections": [{ "key": "today", "title": "Today", "doneAll": true, "entries": [{ "kind": "thread", "id": "a" }, { "kind": "bundle", "labelId": "L", "items": [{ "kind": "thread", "id": "x1" }, { "kind": "todo", "id": "t1" }], "more": true, "loading": false }, { "kind": "thread", "id": "z" }] }] }, "expect": { "rows": ["section:today", "a", "bundle:L", "z"] } },
+        { "event": { "type": "focus", "key": "bundle:L", "by": "keyboard" }, "expect": {} },
+        { "event": { "type": "enter" }, "expect": { "bundle": "L", "rows": ["section:today", "a", "bundle:L", "x1", "todo:t1", "more:L", "z"] } },
+        { "event": { "type": "next" }, "expect": { "focus": "x1" } },
+        { "event": { "type": "next" }, "expect": { "focus": "todo:t1" } },
+        { "event": { "type": "next" }, "expect": { "focus": "bundle:L", "awaiting": "todo:t1", "effect": { "kind": "loadMore", "labelId": "L" } } },
+        { "event": { "type": "layout", "sections": [{ "key": "today", "title": "Today", "doneAll": true, "entries": [{ "kind": "thread", "id": "a" }, { "kind": "bundle", "labelId": "L", "items": [{ "kind": "thread", "id": "x1" }, { "kind": "thread", "id": "x2" }, { "kind": "todo", "id": "t1" }, { "kind": "thread", "id": "x3" }], "more": false, "loading": false }, { "kind": "thread", "id": "z" }] }] }, "expect": { "focus": "x2", "awaiting": null, "rows": ["section:today", "a", "bundle:L", "x1", "x2", "todo:t1", "x3", "z"] } },
+        { "event": { "type": "next" }, "expect": { "focus": "todo:t1" } },
+        { "event": { "type": "next" }, "expect": { "focus": "x3" } }
+      ]
     }
   ]
 }

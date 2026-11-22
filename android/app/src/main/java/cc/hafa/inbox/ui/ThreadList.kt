@@ -156,6 +156,8 @@ import androidx.compose.ui.zIndex
 import cc.hafa.inbox.core.gmail.GmailLabel
 import cc.hafa.inbox.core.mail.FocusSource
 import cc.hafa.inbox.core.mail.Labels
+import cc.hafa.inbox.core.mail.LayoutEntry
+import cc.hafa.inbox.core.mail.LayoutItem
 import cc.hafa.inbox.core.mail.ListAnchor
 import cc.hafa.inbox.core.mail.ListEvent
 import cc.hafa.inbox.core.mail.ListRow
@@ -172,6 +174,7 @@ import cc.hafa.inbox.core.mail.ThreadSummary
 import cc.hafa.inbox.core.mail.ThreadSwipeAction
 import cc.hafa.inbox.core.mail.View
 import cc.hafa.inbox.core.mail.bundleCounts
+import cc.hafa.inbox.core.mail.bundleLine
 import cc.hafa.inbox.core.mail.bundleRowKey
 import cc.hafa.inbox.core.mail.bundleSwipeAction
 import cc.hafa.inbox.core.mail.bundleSwipeLabel
@@ -192,12 +195,16 @@ import cc.hafa.inbox.core.pgp.OBSCURED_SUBJECT
 import cc.hafa.inbox.core.search.searchPlan
 import cc.hafa.inbox.core.theme.labelTone
 import cc.hafa.inbox.core.todo.EmailTodo
+import cc.hafa.inbox.core.todo.listDate
+import cc.hafa.inbox.core.todo.styledPlain
 import cc.hafa.inbox.core.todo.TODO_PAGE
 import cc.hafa.inbox.core.todo.Todo
 import cc.hafa.inbox.data.TodoSnapshot
 import cc.hafa.inbox.ui.theme.Geist
 import cc.hafa.inbox.ui.theme.paper
 import cc.hafa.inbox.ui.theme.rowHighlight
+import java.time.ZoneId
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
@@ -836,11 +843,14 @@ private class LayoutSeen {
     var rows: Set<String> = emptySet()
 }
 
-// The key of the open bundle's header when row [key] is one of its threads, whose header is held
-// over the top of the list while they scroll under it.
+// The key of the open bundle's header when row [key] is one of its threads or todos, whose header
+// is held over the top of the list while they scroll under it.
 private fun openBundleHeader(list: ListState<*, *>, key: String): String? {
-    val row = list.rows.firstOrNull { it.key == key } as? ListRow.Thread<*>
-    val labelId = row?.bundle ?: return null
+    val labelId = when (val row = list.rows.firstOrNull { it.key == key }) {
+        is ListRow.Thread<*> -> row.bundle
+        is ListRow.Todo<*> -> row.bundle
+        else -> null
+    } ?: return null
     return bundleRowKey(labelId).takeIf { list.bundle?.labelId == labelId }
 }
 
@@ -1010,6 +1020,7 @@ private sealed interface RowItem {
 private fun ListRow<*, *>.raised(): Boolean = when (this) {
     is ListRow.Bundle -> open
     is ListRow.Thread -> bundle != null
+    is ListRow.Todo -> bundle != null
     is ListRow.More -> true
     else -> false
 }
@@ -1018,6 +1029,7 @@ private fun ListRow<*, *>.raised(): Boolean = when (this) {
 private fun ListRow<*, *>.openBundle(): String? = when (this) {
     is ListRow.Bundle -> labelId.takeIf { open }
     is ListRow.Thread -> bundle
+    is ListRow.Todo -> bundle
     is ListRow.More -> labelId
     else -> null
 }
@@ -1112,7 +1124,15 @@ private fun LazyListScope.listRows(
                             Piece(first = false, last = false, dim = dim, raised = true, part = RaisedPart.MIDDLE) {
                                 Column {
                                     Box(Modifier.fillMaxWidth().height(1.dp).background(paper.separator))
-                                    FocusRow(row.key, list, actions) { SwipeRow(row.key, row.data, frame.context, actions) }
+                                    FocusRow(row.key, list, actions) {
+                                        SwipeRow(
+                                            row.key,
+                                            row.data,
+                                            frame.context,
+                                            actions,
+                                            emailTodo = if (todos != null) frame.emailTodo(row.id) else null,
+                                        )
+                                    }
                                 }
                             }
                         } else {
@@ -1136,16 +1156,27 @@ private fun LazyListScope.listRows(
                         val selection = TodoSelection(row.key in frame.context.selected, frame.context.selected.isNotEmpty()) {
                             actions.list(ListEvent.Pick(row.key, range = false))
                         }
+                        val todoRow = @Composable {
+                            FocusRow(row.key, list, actions) {
+                                TodoRow(
+                                    row.data,
+                                    todos.context,
+                                    todos.actions,
+                                    selection = selection,
+                                )
+                            }
+                        }
                         Box(Modifier.animateItem(LIST_FADE, ROW_MOVE, LIST_FADE)) {
-                            Piece(item.first, item.last, dim) {
-                                FocusRow(row.key, list, actions) {
-                                    TodoRow(
-                                        row.data,
-                                        todos.context,
-                                        todos.actions,
-                                        selection = selection,
-                                    )
+                            // Inside the open bundle it sits among its threads, as one of them does.
+                            if (item.raised) {
+                                Piece(first = false, last = false, dim = dim, raised = true, part = RaisedPart.MIDDLE) {
+                                    Column {
+                                        Box(Modifier.fillMaxWidth().height(1.dp).background(paper.separator))
+                                        todoRow()
+                                    }
                                 }
+                            } else {
+                                Piece(item.first, item.last, dim, content = todoRow)
                             }
                         }
                     }
@@ -1154,13 +1185,16 @@ private fun LazyListScope.listRows(
                     val head = @Composable {
                         FocusRow(row.key, list, actions) {
                             val rows = row.threads.map { it.data }
-                            BundleSwipe(row.labelId, rows, row.open, frame.context, actions) { swiping, talkBackActions, hold ->
+                            val bundleTodos = row.todos.map { it.data }
+                            BundleSwipe(row.labelId, rows, bundleTodos.size, row.open, frame.context, actions) { swiping, talkBackActions, hold ->
                                 LabelGroupHead(
                                     row.key,
                                     frame.labels[row.labelId],
                                     frame.icons[row.labelId],
                                     row.labelId,
                                     rows,
+                                    bundleTodos,
+                                    row.items,
                                     row.open,
                                     lines.of(row.key, row.open),
                                     frame.context,
@@ -1806,7 +1840,7 @@ internal fun SnoozedMarker(text: String, modifier: Modifier = Modifier) {
 @Composable
 fun labelColor(label: GmailLabel?): Color = paper.labelTones.getValue(labelTone(label?.color?.backgroundColor))
 
-/** A label's threads folded into one row, drawn like a thread row; the header of the bundle when open. */
+/** A label's threads and todos folded into one row, drawn like a thread row; the header of the bundle when open. */
 @Composable
 private fun LabelGroupHead(
     key: String,
@@ -1814,6 +1848,8 @@ private fun LabelGroupHead(
     icon: String?,
     labelId: String,
     rows: List<MailRow>,
+    bundleTodos: List<Todo>,
+    items: List<LayoutItem<MailRow, Todo>>,
     expanded: Boolean,
     line: MutableTransitionState<Boolean>,
     context: RowContext,
@@ -1829,14 +1865,22 @@ private fun LabelGroupHead(
     val people = remember(rows, context.email) {
         rows.mapNotNull { it.thread.senders.firstOrNull() }.distinctBy { it.email }.joinToString(", ") { sendersLabel(listOf(it), context.email) }
     }
-    val subjects = remember(rows, context.previews) {
-        rows.map { shownSubject(it.thread, context.previews[it.thread.id]) }.distinct().joinToString(" · ")
+    // In the bundle's own order, newest first, todos among the emails by their time.
+    val subjects = remember(items, context.previews) {
+        bundleLine(
+            items.map { item ->
+                when (item) {
+                    is LayoutEntry.Thread -> item.thread.data.thread.let { shownSubject(it, context.previews[it.id]) }
+                    is LayoutEntry.Todo -> styledPlain(item.data.text)
+                }
+            },
+        )
     }
     val unread = rows.count { it.thread.unread }
     val more = labelId in context.bundlesWithMore
-    val counts = bundleCounts(rows.size, unread, more)
-    // An open bundle whose threads are all gone stays until it closes, with no date to show.
-    val newest = rows.maxOfOrNull { it.thread.lastDate }
+    val counts = bundleCounts(rows.size, unread, more, bundleTodos.size)
+    // An open bundle whose threads and todos are all gone stays until it closes, with no date to show.
+    val newest = (rows.map { it.thread.lastDate } + bundleTodos.map { it.listDate(ZoneId.systemDefault()) }).maxOrNull()
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(ROW_GAP),
@@ -1846,7 +1890,7 @@ private fun LabelGroupHead(
             .then(if (swiping) Modifier.background(paper.raised) else Modifier)
             .rowHighlight()
             .clickable(onClickLabel = if (expanded) "Close" else "Open") { actions.list(ListEvent.Tap(key)) }
-            .bundleHold(rowMenu, expanded, name, hold) { mark }
+            .bundleHold(rowMenu, name, hold) { mark }
             .semantics { customActions = talkBackActions }
             .padding(horizontal = 20.dp, vertical = 14.dp),
     ) {
@@ -1900,23 +1944,24 @@ private fun LabelGroupHead(
 }
 
 /**
- * A bundle's row, swiped as a thread's row is ([bundleSwipeAction]): leftward marks every thread in
- * it done, as its Done all does, rightward opens the snooze sheet for them all, the strip under it
- * saying how many ("Done · 14"). An open bundle's header doesn't swipe. [content] draws the row,
- * given whether it is being swiped, the swipes and its round menu's Pin all and Delete all as
- * TalkBack actions, and what runs a pick from that menu ([ThreadAction.PIN] or [ThreadAction.DELETE]).
+ * A bundle's row, swiped as a thread's row is ([bundleSwipeAction]): leftward marks every thread and
+ * todo in it done, as its Done all does, rightward opens the snooze sheet for them all, the strip
+ * under it saying how many, its [todoCount] todos included ("Done · 14"). An open bundle's header doesn't swipe. [content] draws the row,
+ * given whether it is being swiped, the swipes (none while open) and its round menu's Pin all and
+ * Delete all as TalkBack actions, and what runs a pick from that menu ([ThreadAction.PIN] or [ThreadAction.DELETE]).
  */
 @Composable
 private fun BundleSwipe(
     labelId: String,
     rows: List<MailRow>,
+    todoCount: Int,
     open: Boolean,
     context: RowContext,
     actions: RowActions,
     content: @Composable (swiping: Boolean, talkBackActions: List<CustomAccessibilityAction>, hold: (ThreadAction) -> Unit) -> Unit,
 ) {
     val ids = rows.map { it.thread.id }
-    val threads = bundleCounts(rows.size, 0, labelId in context.bundlesWithMore).threads
+    val threads = bundleCounts(rows.size, 0, labelId in context.bundlesWithMore, todoCount).threads
     val run: (BundleSwipeAction?) -> Unit = { action ->
         when (action) {
             BundleSwipeAction.DONE -> actions.doneBundle(labelId, ids)
@@ -1929,9 +1974,20 @@ private fun BundleSwipe(
     }
     val rightAction = bundleSwipeAction(SwipeSide.START, open)
     val leftAction = bundleSwipeAction(SwipeSide.END, open)
-    // TalkBack can't swipe or hold; it offers the same as actions on the row.
+    // TalkBack can't swipe or hold; it offers the same as actions on the row: an open bundle's
+    // header doesn't swipe, so only its menu's.
+    val menuActions = listOf(
+        CustomAccessibilityAction(BUNDLE_PIN_LABEL) {
+            hold(ThreadAction.PIN)
+            true
+        },
+        CustomAccessibilityAction(BUNDLE_DELETE_LABEL) {
+            hold(ThreadAction.DELETE)
+            true
+        },
+    )
     val talkBackActions = if (open) {
-        emptyList()
+        menuActions
     } else {
         listOf(
             CustomAccessibilityAction("Done all") {
@@ -1942,15 +1998,7 @@ private fun BundleSwipe(
                 run(BundleSwipeAction.SNOOZE)
                 true
             },
-            CustomAccessibilityAction(BUNDLE_PIN_LABEL) {
-                hold(ThreadAction.PIN)
-                true
-            },
-            CustomAccessibilityAction(BUNDLE_DELETE_LABEL) {
-                hold(ThreadAction.DELETE)
-                true
-            },
-        )
+        ) + menuActions
     }
     // The strip keeps the count it was let go with while the row settles, though the threads go at once.
     SwipeFrame(
@@ -2103,20 +2151,17 @@ private const val BUNDLE_PIN_LABEL = "Pin all"
 private const val BUNDLE_DELETE_LABEL = "Delete all"
 
 /**
- * A long press on a closed bundle's row opens its round menu around the finger, TalkBack's long
- * click on its label's mark ([mark]), as an email's does: Pin all and Delete all placed by
- * [rowHoldWedges], each run by [hold] ([ThreadAction.PIN] or [ThreadAction.DELETE]), the bundle's
- * [name] in the pill. An [open] bundle's header has none.
+ * A long press on a bundle's row, closed or the open bundle's header, opens its round menu around
+ * the finger, TalkBack's long click on its label's mark ([mark]), as an email's does: Pin all and
+ * Delete all placed by [rowHoldWedges], each run by [hold] ([ThreadAction.PIN] or
+ * [ThreadAction.DELETE]), the bundle's [name] in the pill.
  */
 private fun Modifier.bundleHold(
     menu: HoldMenuState?,
-    open: Boolean,
     name: String,
     hold: (ThreadAction) -> Unit,
     mark: () -> LayoutCoordinates?,
-): Modifier = if (open) {
-    this
-} else {
+): Modifier =
     rowMenuHold(menu, "Bundle actions", mark) { center, place ->
         val items = listOf(
             HoldMenuItem(ThreadAction.PIN.name, BUNDLE_PIN_LABEL, Icons.Outlined.PushPin),
@@ -2131,7 +2176,6 @@ private fun Modifier.bundleHold(
             onPick = { item -> hold(ThreadAction.valueOf(item.id)) },
         )
     }
-}
 
 // A long press on a row opens the round menu [build] lays out around the finger, TalkBack's long
 // click (named [label]) around [anchor]'s middle: [build] gets that point in root pixels and what

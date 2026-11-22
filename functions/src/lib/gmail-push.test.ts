@@ -5,6 +5,7 @@ import {
   GmailError,
   type GmailHeader,
   type GmailHistoryPage,
+  type GmailLabel,
   type GmailMessage,
   type GmailThread,
 } from "./gmail-api.js";
@@ -75,8 +76,8 @@ class MemoryStore implements Store {
   async clearSnooze(_uid: string, threadId: string) {
     this.snoozed.delete(threadId);
   }
-  /** the threads whose email has a todo */
-  emailTodos = new Set<string>();
+  /** each thread's email todo text */
+  emailTodos = new Map<string, string>();
   prefs: NotifyPrefs = { quietBundles: false, bundleOff: [], showTodos: true };
   prefsError = false;
   async notifyPrefs() {
@@ -84,9 +85,11 @@ class MemoryStore implements Store {
     return this.prefs;
   }
   todoError = false;
-  async hasEmailTodo(_uid: string, threadId: string) {
+  todoReads = 0;
+  async emailTodoText(_uid: string, threadId: string) {
+    this.todoReads++;
     if (this.todoError) throw new Error("unavailable");
-    return this.emailTodos.has(threadId);
+    return this.emailTodos.get(threadId) ?? null;
   }
   tokensError = false;
   async deviceTokens() {
@@ -148,6 +151,12 @@ class FakeGmail implements GmailApi {
     return message;
   }
   threadError = false;
+  labels: GmailLabel[] = [{ id: "Label_1", name: "Work", type: "user" }];
+  labelReads = 0;
+  async listLabels() {
+    this.labelReads++;
+    return this.labels;
+  }
   async getThread(id: string) {
     if (this.threadError) throw new GmailError(500, "backend error");
     const thread = this.threads.get(id);
@@ -797,22 +806,47 @@ describe("quiet bundles", () => {
     expect(sent.map(({ data }) => data.threadId)).toEqual(["t1"]);
   });
 
-  it("notifies a thread with a todo, which never sits in a bundle", async () => {
-    store.emailTodos.add("t1");
-    await arrive(inboxMessage("m1", "t1", ["Label_1"]));
-    expect(sent.map(({ data }) => data.threadId)).toEqual(["t1"]);
-  });
-
-  it("keeps a thread with a todo quiet while the apps hide todos", async () => {
-    store.prefs = { quietBundles: true, bundleOff: [], showTodos: false };
-    store.emailTodos.add("t1");
-    await arrive(inboxMessage("m1", "t1", ["Label_1"]));
+  it("sends nothing for mail whose todo's tag names a label that bundles", async () => {
+    store.emailTodos.set("t1", "reply #work");
+    await arrive(inboxMessage("m1", "t1"));
     expect(sent).toEqual([]);
   });
 
-  it("notifies when the todos can't be read", async () => {
+  it("notifies mail whose todo's tags name no label", async () => {
+    store.emailTodos.set("t1", "reply #home");
+    await arrive(inboxMessage("m1", "t1"));
+    expect(sent.map(({ data }) => data.threadId)).toEqual(["t1"]);
+  });
+
+  it("reads no todo when no label of the account bundles", async () => {
+    gmail.labels = [{ id: "INBOX", name: "INBOX", type: "system" }];
+    store.emailTodos.set("t1", "reply #work");
+    await arrive(inboxMessage("m1", "t1"));
+    expect(sent.map(({ data }) => data.threadId)).toEqual(["t1"]);
+    expect(store.todoReads).toBe(0);
+  });
+
+  it("reads the label list once a push, however many messages it checks", async () => {
+    store.emailTodos.set("t2", "reply #work");
+    await arrive(
+      inboxMessage("m1", "t1"),
+      inboxMessage("m2", "t2"),
+      inboxMessage("m3", "t3"),
+    );
+    expect(sent.map(({ data }) => data.threadId)).toEqual(["t1", "t3"]);
+    expect(gmail.labelReads).toBe(1);
+  });
+
+  it("goes by the todo's tags only while the apps show todos", async () => {
+    store.prefs = { quietBundles: true, bundleOff: [], showTodos: false };
+    store.emailTodos.set("t1", "reply #work");
+    await arrive(inboxMessage("m1", "t1"));
+    expect(sent.map(({ data }) => data.threadId)).toEqual(["t1"]);
+  });
+
+  it("notifies when the todo can't be read", async () => {
     store.todoError = true;
-    await arrive(inboxMessage("m1", "t1", ["Label_1"]));
+    await arrive(inboxMessage("m1", "t1"));
     expect(sent.map(({ data }) => data.threadId)).toEqual(["t1"]);
   });
 

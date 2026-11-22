@@ -38,6 +38,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -73,6 +74,8 @@ import cc.hafa.inbox.core.label.nestedName
 import cc.hafa.inbox.core.label.parentName
 import cc.hafa.inbox.core.mail.MailModel
 import cc.hafa.inbox.core.theme.labelTone
+import cc.hafa.inbox.core.todo.LabelTags
+import cc.hafa.inbox.core.todo.TodoState
 import cc.hafa.inbox.mail.MailState
 import cc.hafa.inbox.ui.theme.fieldFrame
 import cc.hafa.inbox.ui.theme.paper
@@ -288,6 +291,49 @@ fun LabelsSettingsScreen(state: MailState, model: MailModel, onBack: () -> Unit,
                             Icon(Icons.Outlined.Tune, contentDescription = "${label.name} settings", tint = paper.textSecondary)
                         }
                     }
+                }
+            }
+            UnlabeledTagsCard(state, model)
+        }
+    }
+}
+
+// The tags of the todos a label could bundle (of their own, not done) that name no label yet, each
+// with a button that makes its label; nothing while todos are hidden, before the labels have loaded,
+// or when every tag names one.
+@Composable
+private fun UnlabeledTagsCard(state: MailState, model: MailModel) {
+    val tags = remember(model.todosOn, model.todos, model.labels, model.labelsLoaded) {
+        if (model.todosOn && model.labelsLoaded) {
+            LabelTags.unlabeledTags(model.todos.filter { it.state != TodoState.DONE }.map { it.text }, model.labels)
+        } else {
+            emptyList()
+        }
+    }
+    if (tags.isEmpty()) return
+    SectionHeading("Tags without a label", Modifier.padding(start = 4.dp, top = 20.dp, bottom = 4.dp))
+    Text(
+        "Make a label from a tag to bundle its todos with its mail.",
+        style = MaterialTheme.typography.bodyMedium,
+        color = paper.textSecondary,
+        modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 12.dp),
+    )
+    SettingsCard {
+        tags.forEachIndexed { index, tag ->
+            if (index > 0) HorizontalDivider(color = paper.separator, modifier = Modifier.padding(start = 16.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(start = 16.dp, end = 8.dp),
+            ) {
+                Text(
+                    "#${tag.tag}",
+                    color = paper.text,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(onClick = { state.createLabel(tag.label, null) }) {
+                    Text("Make label", color = paper.accentStrong)
                 }
             }
         }

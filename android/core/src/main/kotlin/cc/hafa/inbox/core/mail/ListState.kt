@@ -17,33 +17,43 @@ data class LayoutThread<out ThreadData>(
     val data: ThreadData,
 )
 
-/** One entry of a layout section: a thread, a todo, or a bundle of one label's threads. */
+/** One item of a bundle: a thread ([LayoutEntry.Thread]) or a todo ([LayoutEntry.Todo]). */
+sealed interface LayoutItem<out ThreadData, out TodoData> {
+    /** its row key: its thread's or its todo's */
+    val rowKey: String
+}
+
+/** One entry of a layout section: a thread, a todo, or a bundle of one label's threads and todos. */
 sealed interface LayoutEntry<out ThreadData, out TodoData> {
-    /** A thread with a row of its own. */
+    /** A thread with a row of its own, or in a bundle. */
     data class Thread<out ThreadData>(
         /** the thread */
         val thread: LayoutThread<ThreadData>,
-    ) : LayoutEntry<ThreadData, Nothing>
+    ) : LayoutEntry<ThreadData, Nothing>, LayoutItem<ThreadData, Nothing> {
+        override val rowKey: String get() = threadRowKey(thread.id)
+    }
 
-    /** A todo with a row of its own. */
+    /** A todo with a row of its own, or in a bundle. */
     data class Todo<out TodoData>(
         /** todo id */
         val id: String,
         /** the app's own data for the row */
         val data: TodoData,
-    ) : LayoutEntry<Nothing, TodoData>
+    ) : LayoutEntry<Nothing, TodoData>, LayoutItem<Nothing, TodoData> {
+        override val rowKey: String get() = todoRowKey(id)
+    }
 
-    /** A bundle of one label's threads. */
-    data class Bundle<out ThreadData>(
+    /** A bundle of one label's threads and todos. */
+    data class Bundle<out ThreadData, out TodoData>(
         /** the label */
         val labelId: String,
-        /** its threads, in order */
-        val threads: List<LayoutThread<ThreadData>>,
+        /** its threads and todos, in the order it shows them */
+        val items: List<LayoutItem<ThreadData, TodoData>>,
         /** whether Gmail has more of the label's inbox threads than were fetched */
         val more: Boolean,
         /** whether a next page is on its way */
         val loading: Boolean,
-    ) : LayoutEntry<ThreadData, Nothing>
+    ) : LayoutEntry<ThreadData, TodoData>
 }
 
 /** One section of a layout: what the app's data says the list holds, in order. */
@@ -88,31 +98,39 @@ sealed interface ListRow<out ThreadData, out TodoData> {
         val data: ThreadData,
     ) : ListRow<ThreadData, Nothing>
 
-    /** A todo's own row. */
+    /** A todo's row. */
     data class Todo<out TodoData>(
         override val key: String,
         /** todo id */
         val id: String,
         override val section: String,
+        /** the open bundle it shows in, or null for a row of its own */
+        val bundle: String?,
         /** the app's own data for the row */
         val data: TodoData,
     ) : ListRow<Nothing, TodoData>
 
     /** A bundle's header. */
-    data class Bundle<out ThreadData>(
+    data class Bundle<out ThreadData, out TodoData>(
         override val key: String,
         /** the label */
         val labelId: String,
         override val section: String,
-        /** all its threads, shown or not */
-        val threads: List<LayoutThread<ThreadData>>,
+        /** all its threads and todos, shown or not, in order */
+        val items: List<LayoutItem<ThreadData, TodoData>>,
         /** whether it is the open bundle */
         val open: Boolean,
         /** whether Gmail has more of its threads */
         val more: Boolean,
         /** whether a next page is on its way */
         val loading: Boolean,
-    ) : ListRow<ThreadData, Nothing>
+    ) : ListRow<ThreadData, TodoData> {
+        /** all its threads, shown or not */
+        val threads: List<LayoutThread<ThreadData>> get() = items.mapNotNull { (it as? LayoutEntry.Thread)?.thread }
+
+        /** all its todos, shown or not */
+        val todos: List<LayoutEntry.Todo<TodoData>> get() = items.filterIsInstance<LayoutEntry.Todo<TodoData>>()
+    }
 
     /** The "Show more" row under an open bundle. */
     data class More(
@@ -120,7 +138,7 @@ sealed interface ListRow<out ThreadData, out TodoData> {
         /** the bundle's label */
         val labelId: String,
         override val section: String,
-        /** loaded threads the preview leaves out */
+        /** loaded threads and todos the preview leaves out */
         val hidden: Int,
         /** whether Gmail has more of its threads */
         val more: Boolean,
@@ -170,7 +188,7 @@ data class ListTarget(
     val threads: List<String>,
     /** todo ids */
     val todos: List<String>,
-    /** the label of a focused bundle, whose threads [threads] lists */
+    /** the label of a focused bundle, whose threads [threads] lists and whose todos [todos] does */
     val bundle: String?,
 )
 
@@ -446,7 +464,7 @@ fun listTarget(state: ListState<*, *>): ListTarget? {
         else -> when (val row = state.rowOf(state.focus)) {
             is ListRow.Thread -> ListTarget(TargetSource.ROW, listOf(row.id), emptyList(), null)
             is ListRow.Todo -> ListTarget(TargetSource.ROW, emptyList(), listOf(row.id), null)
-            is ListRow.Bundle -> ListTarget(TargetSource.ROW, row.threads.map { it.id }, emptyList(), row.labelId)
+            is ListRow.Bundle -> ListTarget(TargetSource.ROW, row.threads.map { it.id }, row.todos.map { it.id }, row.labelId)
             else -> null
         }
     }
@@ -488,7 +506,7 @@ data class OpenBundleTail(
 fun openBundleTail(state: ListState<*, *>): OpenBundleTail? {
     val open = state.open?.let { state.rowOf(threadRowKey(it)) } as? ListRow.Thread<*> ?: return null
     val labelId = open.bundle ?: return null
-    val header = state.rows.firstOrNull { it is ListRow.Bundle<*> && it.labelId == labelId } as? ListRow.Bundle<*>
+    val header = state.rows.firstOrNull { it is ListRow.Bundle<*, *> && it.labelId == labelId } as? ListRow.Bundle<*, *>
         ?: return null
     val at = header.threads.indexOfFirst { it.id == open.id }
     return OpenBundleTail(labelId, header.threads.size - at - 1)
@@ -507,23 +525,39 @@ private fun survivor(order: List<String>, key: String, alive: (String) -> Boolea
 /** Every key [layout] holds anywhere, rows or not: threads (in bundles too), todos, bundles. */
 fun layoutKeys(layout: List<LayoutSection<*, *>>): Set<String> {
     val keys = hashSetOf<String>()
-    fun addThread(thread: LayoutThread<*>) {
-        keys += threadRowKey(thread.id)
-    }
     for (section in layout) {
         for (entry in section.entries) {
             when (entry) {
-                is LayoutEntry.Thread -> addThread(entry.thread)
-                is LayoutEntry.Todo -> keys += todoRowKey(entry.id)
+                is LayoutEntry.Thread -> keys += entry.rowKey
+                is LayoutEntry.Todo -> keys += entry.rowKey
                 is LayoutEntry.Bundle -> {
                     keys += bundleRowKey(entry.labelId)
-                    entry.threads.forEach(::addThread)
+                    entry.items.forEach { keys += it.rowKey }
                 }
             }
         }
     }
     return keys
 }
+
+// The row of a thread or todo, on its own (`bundle` null) or inside the open bundle.
+private fun <ThreadData, TodoData> itemRow(
+    item: LayoutItem<ThreadData, TodoData>,
+    section: String,
+    bundle: String?,
+): ListRow<ThreadData, TodoData> = when (item) {
+    is LayoutEntry.Thread -> ListRow.Thread(item.rowKey, item.thread.id, section, bundle, item.thread.data)
+    is LayoutEntry.Todo -> ListRow.Todo(item.rowKey, item.id, section, bundle, item.data)
+}
+
+// Whether `row` is a thread or todo shown inside the open bundle of `labelId`.
+private fun insideBundle(row: ListRow<*, *>?, labelId: String?): Boolean =
+    labelId != null &&
+        when (row) {
+            is ListRow.Thread -> row.bundle == labelId
+            is ListRow.Todo -> row.bundle == labelId
+            else -> false
+        }
 
 private data class Built<ThreadData, TodoData>(
     val rows: List<ListRow<ThreadData, TodoData>>,
@@ -542,47 +576,37 @@ private fun <ThreadData, TodoData> build(
     val seen = hashSetOf<String>()
     val rows = mutableListOf<ListRow<ThreadData, TodoData>>()
     var openBundle: OpenBundle<ThreadData>? = null
-    // A thread, unless shown already or on its way out.
-    fun take(thread: LayoutThread<ThreadData>): LayoutThread<ThreadData>? {
-        val key = threadRowKey(thread.id)
-        return if (key in seen || key in removing) {
-            null
+    // A row key, unless shown already or on its way out.
+    fun take(key: String): Boolean =
+        if (key in seen || key in removing) {
+            false
         } else {
             seen += key
-            thread
+            true
         }
-    }
     for (section in layout) {
         val sectionRows = mutableListOf<ListRow<ThreadData, TodoData>>()
         for (entry in section.entries) {
             when (entry) {
-                is LayoutEntry.Thread -> {
-                    val thread = take(entry.thread) ?: continue
-                    sectionRows += ListRow.Thread(threadRowKey(thread.id), thread.id, section.key, null, thread.data)
-                }
-                is LayoutEntry.Todo -> {
-                    val key = todoRowKey(entry.id)
-                    if (key in seen || key in removing) continue
-                    seen += key
-                    sectionRows += ListRow.Todo(key, entry.id, section.key, entry.data)
-                }
+                is LayoutEntry.Thread -> if (take(entry.rowKey)) sectionRows += itemRow(entry, section.key, null)
+                is LayoutEntry.Todo -> if (take(entry.rowKey)) sectionRows += itemRow(entry, section.key, null)
                 is LayoutEntry.Bundle -> {
                     val key = bundleRowKey(entry.labelId)
                     if (key in seen) continue
                     seen += key
                     val isOpen = bundle != null && bundle.labelId == entry.labelId
-                    val threads = entry.threads.mapNotNull(::take)
-                    if (threads.isEmpty() && !(isOpen && (entry.more || entry.loading))) continue
-                    sectionRows += ListRow.Bundle(key, entry.labelId, section.key, threads, isOpen, entry.more, entry.loading)
+                    val items = entry.items.filter { take(it.rowKey) }
+                    if (items.isEmpty() && !(isOpen && (entry.more || entry.loading))) continue
+                    val header = ListRow.Bundle(key, entry.labelId, section.key, items, isOpen, entry.more, entry.loading)
+                    sectionRows += header
                     if (bundle == null || !isOpen) continue
+                    val threads = header.threads
                     val holdsOpen = open != null && threads.any { it.id == open }
                     val showAll = bundle.showAll || holdsOpen
                     openBundle = bundle.copy(showAll = showAll, threads = threads)
-                    val shown = if (showAll) threads else threads.take(GROUP_PREVIEW)
-                    for (thread in shown) {
-                        sectionRows += ListRow.Thread(threadRowKey(thread.id), thread.id, section.key, entry.labelId, thread.data)
-                    }
-                    val hidden = threads.size - shown.size
+                    val shown = if (showAll) items else items.take(GROUP_PREVIEW)
+                    for (item in shown) sectionRows += itemRow(item, section.key, entry.labelId)
+                    val hidden = items.size - shown.size
                     if (hidden > 0 || entry.more || entry.loading) {
                         sectionRows += ListRow.More(MORE_PREFIX + entry.labelId, entry.labelId, section.key, hidden, entry.more, entry.loading)
                     }
@@ -625,7 +649,7 @@ private fun <ThreadData, TodoData> settle(
     // A row waited for that came back inside a closed bundle is found at the bundle.
     val waited = pendingFocus
     if (waited != null && waited != open && waited !in focusable) {
-        val holder = rows.firstOrNull { row -> row is ListRow.Bundle && !row.open && row.threads.any { threadRowKey(it.id) == waited } }
+        val holder = rows.firstOrNull { row -> row is ListRow.Bundle && !row.open && row.items.any { it.rowKey == waited } }
         if (holder != null) pendingFocus = holder.key
     }
     if (pendingFocus != null && pendingFocus in focusable) {
@@ -637,11 +661,14 @@ private fun <ThreadData, TodoData> settle(
     if (bundle != null && awaiting != null) {
         val labelId = bundle.labelId
         val known = before.bundle?.threads.orEmpty().mapTo(hashSetOf()) { it.id }
-        val bundleRow = rows.firstOrNull { it is ListRow.Bundle && it.labelId == labelId } as ListRow.Bundle?
-        // The page lands after the row focus left; new mail at the bundle's top doesn't count.
-        val inside = rows.mapNotNull { row -> (row as? ListRow.Thread)?.takeIf { it.bundle == labelId } }
-        val from = inside.indexOfFirst { it.key == awaiting }
-        val fresh = inside.drop(from + 1).firstOrNull { it.id !in known }
+        val bundleRow = rows.firstOrNull { it is ListRow.Bundle && it.labelId == labelId } as ListRow.Bundle<*, *>?
+        // The page lands after the bundle's last known thread, which may come before the row focus
+        // left (an older todo the page's threads sort above); new mail at the bundle's top doesn't count.
+        val inside = rows.filter { insideBundle(it, labelId) }
+        val left = inside.indexOfFirst { it.key == awaiting }
+        val lastKnown = inside.indexOfLast { it is ListRow.Thread && it.id in known }
+        val from = if (left == -1 || lastKnown == -1) maxOf(left, lastKnown) else minOf(left, lastKnown)
+        val fresh = inside.drop(from + 1).firstOrNull { it is ListRow.Thread && it.id !in known }
         if (fresh != null) {
             focus = fresh.key
             reveal += 1
@@ -661,14 +688,14 @@ private fun <ThreadData, TodoData> settle(
         if (near?.next != null && bundleIn(rows, focus) != bundle.labelId) focus = near.next
         // The open bundle's last shown thread went while Gmail has more: focus waits on its header
         // for the next page rather than leaving the bundle.
-        val header = bundle?.let { open -> rows.firstOrNull { it is ListRow.Bundle && it.labelId == open.labelId } as ListRow.Bundle? }
+        val header = bundle?.let { open -> rows.firstOrNull { it is ListRow.Bundle && it.labelId == open.labelId } as ListRow.Bundle<*, *>? }
         if (
             bundle != null &&
             bundle.awaiting == null &&
             header != null &&
             header.more &&
             bundleOf(before, lost) == bundle.labelId &&
-            rows.none { it.key == focus && it is ListRow.Thread && it.bundle == bundle.labelId }
+            rows.none { it.key == focus && insideBundle(it, bundle.labelId) }
         ) {
             focus = header.key
             reveal += 1
@@ -730,7 +757,7 @@ private fun <ThreadData, TodoData> settle(
 private data class BundleNeighbors(val next: String?, val previous: String?)
 
 private fun bundleNeighbors(before: ListState<*, *>, rows: List<ListRow<*, *>>, lost: String, labelId: String): BundleNeighbors {
-    fun inside(row: ListRow<*, *>?) = row is ListRow.Thread && row.bundle == labelId
+    fun inside(row: ListRow<*, *>?) = insideBundle(row, labelId)
     val shown = rows.withIndex().associate { (index, row) -> row.key to index }
     val at = before.rows.indexOfFirst { it.key == lost }
     val previous = before.rows.subList(0, at.coerceAtLeast(0)).asReversed()
@@ -748,6 +775,7 @@ private fun bundleIn(rows: List<ListRow<*, *>>, key: String?): String? =
     when (val row = if (key == null) null else rows.firstOrNull { it.key == key }) {
         is ListRow.Bundle -> row.labelId
         is ListRow.Thread -> row.bundle
+        is ListRow.Todo -> row.bundle
         is ListRow.More -> row.labelId
         else -> null
     }
@@ -757,7 +785,7 @@ private fun bundleListing(state: ListState<*, *>, id: String): String? =
     state.rows.firstNotNullOfOrNull { row -> (row as? ListRow.Bundle)?.takeIf { bundle -> bundle.threads.any { it.id == id } }?.labelId }
 
 private fun <ThreadData> openBundle(state: ListState<ThreadData, *>, labelId: String): OpenBundle<ThreadData> {
-    val row = state.rows.firstOrNull { it is ListRow.Bundle && it.labelId == labelId } as ListRow.Bundle<ThreadData>?
+    val row = state.rows.firstOrNull { it is ListRow.Bundle && it.labelId == labelId } as ListRow.Bundle<ThreadData, *>?
     return OpenBundle(labelId, showAll = false, awaiting = null, threads = row?.threads.orEmpty())
 }
 
@@ -793,14 +821,14 @@ private fun <ThreadData, TodoData> moveFocus(state: ListState<ThreadData, TodoDa
         return if (header != null && !header.loading && header.more) state.copy(effect = ListEffect.LoadMore(bundle.labelId)) else state
     }
     if (forward && bundle != null && row != null) {
-        val inBundle = state.rows.filter { it is ListRow.Thread && it.bundle == bundle.labelId }
+        val inBundle = state.rows.filter { insideBundle(it, bundle.labelId) }
         val last = inBundle.lastOrNull()
-        val header = state.rows.firstOrNull { it is ListRow.Bundle && it.labelId == bundle.labelId } as ListRow.Bundle?
+        val header = state.rows.firstOrNull { it is ListRow.Bundle && it.labelId == bundle.labelId } as ListRow.Bundle<*, *>?
         val atEnd = (last != null && last.key == row.key) || (last == null && header?.key == row.key)
         if (atEnd && header != null) {
-            if (header.threads.size > inBundle.size) {
+            if (header.items.size > inBundle.size) {
                 val shown = settle(state, state.copy(bundle = bundle.copy(showAll = true)))
-                return keyFocus(shown, threadRowKey(header.threads[inBundle.size].id))
+                return keyFocus(shown, header.items[inBundle.size].rowKey)
             }
             if (header.more) {
                 return keyFocus(state, header.key).copy(
@@ -856,11 +884,11 @@ private fun <ThreadData, TodoData> focusRow(state: ListState<ThreadData, TodoDat
 private fun <ThreadData, TodoData> act(state: ListState<ThreadData, TodoData>, event: ListEvent.Act): ListState<ThreadData, TodoData> {
     val listed = layoutKeys(state.layout)
     val shown = state.rows.mapTo(hashSetOf()) { it.key }
-    // A bundle goes with its threads: it shows again when Gmail has more of them.
+    // A bundle goes with its threads and todos: it shows again when Gmail has more of them.
     val removes = event.removes
         .flatMap { key ->
             when (val row = state.rowOf(key)) {
-                is ListRow.Bundle -> row.threads.map { threadRowKey(it.id) }
+                is ListRow.Bundle -> row.items.map { it.rowKey }
                 else -> listOf(key)
             }
         }
@@ -1093,8 +1121,8 @@ fun listProblems(state: ListState<*, *>): List<String> {
     for (row in state.rows) {
         when (row) {
             is ListRow.Thread -> if (row.bundle == null) count(row.key)
-            is ListRow.Todo -> count(row.key)
-            is ListRow.Bundle -> for (thread in row.threads) count(threadRowKey(thread.id))
+            is ListRow.Todo -> if (row.bundle == null) count(row.key)
+            is ListRow.Bundle -> for (item in row.items) count(item.rowKey)
             else -> Unit
         }
     }
@@ -1110,15 +1138,14 @@ fun listProblems(state: ListState<*, *>): List<String> {
         if (header == null || !header.open) {
             problems += "open bundle ${bundle.labelId} has no open row"
         } else {
-            // Its shown threads follow its header, in its order.
+            // Its shown threads and todos follow its header, in its order.
             var at = index + 1
-            for (thread in header.threads) {
-                val row = state.rows.getOrNull(at)
-                if (row !is ListRow.Thread || row.id != thread.id) break
+            for (item in header.items) {
+                if (state.rows.getOrNull(at)?.key != item.rowKey) break
                 at += 1
             }
             for (row in state.rows.drop(at)) {
-                if (row is ListRow.Thread && row.bundle == bundle.labelId) problems += "${row.key} is apart from its bundle"
+                if (insideBundle(row, bundle.labelId)) problems += "${row.key} is apart from its bundle"
             }
         }
         if (bundleOf(state, state.focus) != bundle.labelId) {
@@ -1131,8 +1158,9 @@ fun listProblems(state: ListState<*, *>): List<String> {
         problems += "a bundle row is open with no open bundle"
     }
     for (row in state.rows) {
-        if (row is ListRow.Thread && row.bundle != null && row.bundle != bundle?.labelId) {
-            problems += "${row.key} shows inside closed bundle ${row.bundle}"
+        val shownIn = (row as? ListRow.Thread)?.bundle ?: (row as? ListRow.Todo)?.bundle
+        if (shownIn != null && shownIn != bundle?.labelId) {
+            problems += "${row.key} shows inside closed bundle $shownIn"
         }
     }
     // A heading heads at least one row.

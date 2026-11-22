@@ -20,10 +20,12 @@ import cc.hafa.inbox.core.mail.Row
 import cc.hafa.inbox.core.mail.SectionModel
 import cc.hafa.inbox.core.mail.SnoozeStatus
 import cc.hafa.inbox.core.mail.ThreadSummary
+import cc.hafa.inbox.core.mail.TodoEntry
 import cc.hafa.inbox.core.mail.View
 import cc.hafa.inbox.core.gmail.GmailLabel
 import cc.hafa.inbox.core.mail.bundleKey
 import cc.hafa.inbox.core.mail.bundleRowKey
+import cc.hafa.inbox.core.todo.Todo
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -102,6 +104,22 @@ class BundleSwipeTest {
 
     private fun customActions(label: String) = SemanticsMatcher("has $label") { node ->
         node.config.getOrNull(SemanticsActions.CustomActions)?.any { it.label == label } == true
+    }
+
+    @Test
+    fun aBundleCountsItsTodosAndNamesThemOnItsLineInItsOrder() {
+        val todo = Todo.new("t1", "Buy *milk* #Label_1", now - 90_000L)
+        val items = listOf(ListEntry.Single(row("b1", 1)), TodoEntry(todo), ListEntry.Single(row("b2", 2)))
+        val group = ListEntry.Group("Label_1", listOf(row("b1", 1), row("b2", 2)), listOf(todo), items)
+        val sections = listOf(SectionModel("today", "Today", listOf(group), canDoneAll = true))
+        val model = MailModel(email = "me@example.com", now = now, lists = mapOf(View.INBOX.key to LoadedList(loaded = true))).listing(sections)
+        compose.setContent { ThreadList(model, actions, PaddingValues()) }
+        compose.waitForIdle()
+        compose.onNodeWithText("3").assertExists()
+        compose.onNodeWithText("Subject b1 · Buy milk #Label_1 · Subject b2", substring = true).assertExists()
+        compose.onNodeWithText("Label_1").performTouchInput { swipeLeft(startX = right - 10f, endX = left) }
+        compose.waitForIdle()
+        assertEquals(listOf("doneBundle:Label_1:b1, b2"), calls)
     }
 
     @Test

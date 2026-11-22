@@ -122,20 +122,41 @@ fun bundlesToRemember(bundles: List<BundleList>): List<String> = bundles.filter 
 
 /** What a bundle row counts. */
 data class BundleCounts(
-    /** threads, as "12" or "50+" */
+    /** threads and todos, as "12" or "50+" */
     val threads: String,
     /** unread threads, as "3 new" or "50+ new"; null when none */
     val unread: String?,
 )
 
 /**
- * A bundle row's counts. When Gmail has more of the label's inbox threads than were fetched,
- * both counts are lower bounds and read "N+".
+ * A bundle row's counts: its threads and [todos] together, and its unread threads. When Gmail has
+ * more of the label's inbox threads than were fetched, both counts are lower bounds and read "N+".
  */
-fun bundleCounts(threads: Int, unread: Int, more: Boolean): BundleCounts {
+fun bundleCounts(threads: Int, unread: Int, more: Boolean, todos: Int = 0): BundleCounts {
     val plus = if (more) "+" else ""
-    return BundleCounts("$threads$plus", if (unread > 0) "$unread$plus new" else null)
+    return BundleCounts("${threads + todos}$plus", if (unread > 0) "$unread$plus new" else null)
 }
+
+/**
+ * Whether a thread or todo coming back from its snooze counts as bundled, when the user asks not to
+ * be notified about bundled mail: it isn't [pinned] and one of its labels ([labelIds]: a thread's
+ * own, or those a todo's tags name, see [cc.hafa.inbox.core.todo.LabelTags.labelIds]) is one that
+ * bundles ([bundleLabelIds]), however many inbox items carry that label. Web's `bundledOnWake` is
+ * the same.
+ */
+fun bundledOnWake(labelIds: List<String>, pinned: Boolean, bundleLabelIds: Collection<String>): Boolean =
+    !pinned && labelIds.any { it in bundleLabelIds }
+
+/** How many subjects and todo texts a closed bundle row's line names. */
+const val BUNDLE_LINE_ITEMS = 3
+
+/**
+ * A closed bundle row's line after its senders: [texts] (its emails' subjects and its todos' plain
+ * texts, in the bundle's order) trimmed, blank and repeated ones left out, the first
+ * [BUNDLE_LINE_ITEMS] joined by " · ". Web's `bundleLine` is the same.
+ */
+fun bundleLine(texts: List<String>): String =
+    texts.map { it.trim() }.filter { it.isNotEmpty() }.distinct().take(BUNDLE_LINE_ITEMS).joinToString(" · ")
 
 /** A loaded thread of a bundle, as Done all and a bundle's swipe see it. */
 data class SweptThread(

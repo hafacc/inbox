@@ -10,7 +10,7 @@ import {
   NO_HELD_PLACES,
   type ThreadPlace,
 } from "./held-places";
-import { groupByLabel, type ListEntry, MIN_GROUP_SIZE } from "./label-groups";
+import { groupByLabel, MIN_GROUP_SIZE } from "./label-groups";
 import {
   bundleRowKey,
   type LayoutEntry,
@@ -66,10 +66,54 @@ export type TodoEntry = {
   todo: Todo;
 };
 
+/** A thread of its own among a list's rows. */
+export type ThreadEntry<Thread extends ListThread = ListThread> = {
+  /** one thread */
+  kind: "thread";
+  /** the thread */
+  thread: Row<Thread>;
+};
+
+/** One item of a label group: a thread or a todo. */
+export type GroupItem<Thread extends ListThread = ListThread> =
+  | ThreadEntry<Thread>
+  | TodoEntry;
+
+/** The threads and todos of one label folded into one row: a bundle. */
+export type GroupEntry<Thread extends ListThread = ListThread> = {
+  /** threads and todos of one label, folded */
+  kind: "group";
+  /** the label */
+  labelId: string;
+  /** its threads and todos, newest first */
+  items: GroupItem<Thread>[];
+  /** its threads, newest first */
+  threads: Row<Thread>[];
+  /** its todos, newest first */
+  todos: Todo[];
+};
+
 /** A list entry: a thread, a label group, or a todo. */
 export type SectionEntry<Thread extends ListThread = ListThread> =
-  | ListEntry<Row<Thread>>
+  | ThreadEntry<Thread>
+  | GroupEntry<Thread>
   | TodoEntry;
+
+/** A label group of `items`, newest first. */
+function groupEntry<Thread extends ListThread>(
+  labelId: string,
+  items: GroupItem<Thread>[],
+): GroupEntry<Thread> {
+  return {
+    kind: "group",
+    labelId,
+    items,
+    threads: items.flatMap((item) =>
+      item.kind === "thread" ? [item.thread] : [],
+    ),
+    todos: items.flatMap((item) => (item.kind === "todo" ? [item.todo] : [])),
+  };
+}
 
 /** One section of a list, ready to render. */
 export type SectionModel<Thread extends ListThread = ListThread> = {
@@ -91,10 +135,6 @@ export function rowInboxAction<Thread extends ListThread>(
     labelIds: row.thread.labelIds,
     snoozed: row.status === "snoozed",
   });
-}
-
-function todoEntries(todos: readonly Todo[]): TodoEntry[] {
-  return todos.map((todo) => ({ kind: "todo", todo }));
 }
 
 /** The todo of a row's email (any of its Gmail threads, lead first), or null. */
@@ -134,14 +174,21 @@ function newestFirst<Thread extends ListThread>(
   );
 }
 
+/** Whether a todo sits with the pinned rows: its held pinning while focused, else its own. */
+function todoPinned(todo: Todo, held: HeldPlaces): boolean {
+  return held.pins.get(todoRowKey(todo.id)) ?? todo.pinned;
+}
+
 /**
  * Inbox: pinned threads and todos first, then time sections; a big label folds into one group, in
- * the section of its newest thread. An open thread or bundle in `held` keeps its held place: a held
- * thread its date, its pinning and its own row; a held bundle its date, and stays a bundle however
- * few threads are left in it, even none, until Gmail is known to have no more of its label
- * (`exhausted`), when an empty one leaves. Active `todos` sit among the threads by
- * `todoListDate`. An email with a todo (in `emailTodos`, by thread) shows it inside its row, and is
- * never folded into a group, nor counts toward one.
+ * the section of its newest thread or todo. Active `todos` sit among the threads by
+ * `todoListDate`, and an unpinned one joins the groups of the labels its tags name (`todoLabels`,
+ * see `todoLabelIds`) as a thread joins its labels': it counts toward a group and takes part in
+ * choosing one. An email groups by its own labels and those its todo's tags name (`rowTodoLabels`),
+ * together, by the same rule. An open thread or bundle in `held`
+ * keeps its held place: a held thread its date, its pinning and its own row; a held bundle its
+ * date, and stays a bundle however few items are left in it, even none, until Gmail is known to
+ * have no more of its label (`exhausted`), when an empty one leaves.
  */
 export function inboxSections<Thread extends ListThread>(
   rows: readonly Row<Thread>[],
@@ -150,7 +197,8 @@ export function inboxSections<Thread extends ListThread>(
   held: HeldPlaces = NO_HELD_PLACES,
   todos: readonly Todo[] = [],
   exhausted: ReadonlySet<string> = new Set(),
-  emailTodos: ReadonlyMap<string, EmailTodo> = new Map(),
+  todoLabels: (todo: Todo) => readonly string[] = () => [],
+  rowTodoLabels: (row: Row<Thread>) => readonly string[] = () => [],
 ): SectionModel<Thread>[] {
   const placed = newestFirst(rows, held);
   const pinned = placed.filter(({ place }) => place.pinned);
@@ -158,19 +206,39 @@ export function inboxSections<Thread extends ListThread>(
   const kept = new Set(
     userLabelIds.filter((labelId) => held.bundles.has(labelId)),
   );
-  const hasTodo = (row: Row<Thread>): boolean =>
-    rowTodo(emailTodos, row) !== null;
-  const entries = groupByLabel(
-    rest.map(({ row }) => row),
-    (row) =>
-      placeOf(row, held).single || hasTodo(row) ? [] : row.thread.labelIds,
-    userLabelIds,
-    MIN_GROUP_SIZE,
-    kept,
-  );
   const loose = newestTodosFirst(todos);
   const todoDates = new Map(loose.map((todo) => [todo.id, todoListDate(todo)]));
   const todoDate = (todo: Todo): number => todoDates.get(todo.id) ?? 0;
+  const dates = new Map(placed.map(({ row, place }) => [row, place.date]));
+  const itemDate = (item: GroupItem<Thread>): number =>
+    item.kind === "thread" ? dates.get(item.thread)! : todoDate(item.todo);
+  const items: GroupItem<Thread>[] = [
+    ...rest.map(({ row }) => ({ kind: "thread" as const, thread: row })),
+    ...loose
+      .filter((todo) => !todoPinned(todo, held))
+      .map((todo) => ({ kind: "todo" as const, todo })),
+  ].sort((left, right) => itemDate(right) - itemDate(left));
+  const entries: SectionEntry<Thread>[] = groupByLabel(
+    items,
+    (item) =>
+      item.kind === "todo"
+        ? todoLabels(item.todo)
+        : placeOf(item.thread, held).single
+          ? []
+          : [
+              ...new Set([
+                ...item.thread.thread.labelIds,
+                ...rowTodoLabels(item.thread),
+              ]),
+            ],
+    userLabelIds,
+    MIN_GROUP_SIZE,
+    kept,
+  ).map((entry) =>
+    entry.kind === "thread"
+      ? entry.thread
+      : groupEntry(entry.labelId, entry.threads),
+  );
   const out: SectionModel<Thread>[] = [];
   const pinnedEntries: { entry: SectionEntry<Thread>; date: number }[] = [
     ...pinned.map(({ row, place }) => ({
@@ -178,7 +246,7 @@ export function inboxSections<Thread extends ListThread>(
       date: place.date,
     })),
     ...loose
-      .filter((todo) => todo.pinned)
+      .filter((todo) => todoPinned(todo, held))
       .map((todo) => ({
         entry: { kind: "todo" as const, todo },
         date: todoDate(todo),
@@ -192,7 +260,6 @@ export function inboxSections<Thread extends ListThread>(
       canDoneAll: false,
     });
   }
-  const dates = new Map(placed.map(({ row, place }) => [row, place.date]));
   for (const labelId of kept) {
     if (
       !exhausted.has(labelId) &&
@@ -200,20 +267,14 @@ export function inboxSections<Thread extends ListThread>(
         (entry) => entry.kind === "group" && entry.labelId === labelId,
       )
     ) {
-      entries.push({ kind: "group", labelId, threads: [] });
+      entries.push(groupEntry(labelId, []));
     }
   }
-  const dateOf = (entry: SectionEntry<Thread>): number => {
-    if (entry.kind === "thread") return dates.get(entry.thread)!;
-    else if (entry.kind === "todo") return todoDate(entry.todo);
-    else
-      return held.bundles.get(entry.labelId) ?? dates.get(entry.threads[0]!)!;
-  };
-  const all: SectionEntry<Thread>[] = [
-    ...entries,
-    ...todoEntries(loose.filter((todo) => !todo.pinned)),
-  ];
-  all.sort((left, right) => dateOf(right) - dateOf(left));
+  const dateOf = (entry: SectionEntry<Thread>): number =>
+    entry.kind === "group"
+      ? (held.bundles.get(entry.labelId) ?? itemDate(entry.items[0]!))
+      : itemDate(entry);
+  const all = [...entries].sort((left, right) => dateOf(right) - dateOf(left));
   for (const section of sectionize(all, (entry) =>
     pastSection(dateOf(entry), now),
   )) {
@@ -230,13 +291,15 @@ export function inboxSections<Thread extends ListThread>(
 /**
  * The open thread and bundle at the places `sections` shows them: the open thread on its own row
  * or in a bundle, and the open bundle by its label and the date of its newest thread; and the
- * focused thread, when it isn't the open one, by whether it is pinned now.
+ * focused thread, when it isn't the open one, by whether it is pinned now; and the focused todo
+ * (`focusedTodo`) the same way, under its row key.
  */
 export function openPlaces<Thread extends ListThread>(
   sections: readonly SectionModel<Thread>[],
   openBundle: string | null,
   openId: string | null,
   focusedId: string | null = null,
+  focusedTodo: string | null = null,
 ): HeldPlaces {
   const threads = new Map<string, ThreadPlace>();
   const bundles = new Map<string, number>();
@@ -248,10 +311,14 @@ export function openPlaces<Thread extends ListThread>(
       pins.set(pinFocused, isPinned(row.thread));
     }
   };
+  const placeTodo = (todo: Todo): void => {
+    if (todo.id === focusedTodo) pins.set(todoRowKey(todo.id), todo.pinned);
+  };
   for (const section of sections) {
     for (const entry of section.entries) {
-      if (entry.kind === "todo") continue;
-      if (entry.kind === "thread") {
+      if (entry.kind === "todo") {
+        placeTodo(entry.todo);
+      } else if (entry.kind === "thread") {
         place(entry.thread, {
           date: entry.thread.sortDate,
           pinned: section.key === "pinned",
@@ -259,11 +326,20 @@ export function openPlaces<Thread extends ListThread>(
         });
       } else {
         if (entry.labelId === openBundle) {
-          bundles.set(entry.labelId, entry.threads[0]?.sortDate ?? 0);
+          const [first] = entry.items;
+          bundles.set(
+            entry.labelId,
+            first === undefined
+              ? 0
+              : first.kind === "thread"
+                ? first.thread.sortDate
+                : todoListDate(first.todo),
+          );
         }
         for (const row of entry.threads) {
           place(row, { date: row.sortDate, pinned: false, single: false });
         }
+        for (const todo of entry.todos) placeTodo(todo);
       }
     }
   }
@@ -367,10 +443,11 @@ export function layoutSections<Thread extends ListThread>(
         return {
           kind: "bundle",
           labelId: entry.labelId,
-          threads: entry.threads.map((row) => ({
-            id: row.thread.id,
-            data: row,
-          })),
+          items: entry.items.map((item) =>
+            item.kind === "thread"
+              ? { kind: "thread", id: item.thread.thread.id, data: item.thread }
+              : { kind: "todo", id: item.todo.id, data: item.todo },
+          ),
           ...paging(entry.labelId),
         };
       }
@@ -385,15 +462,13 @@ export function layoutKeys<Thread extends ListThread>(
   const keys = new Set<string>();
   for (const section of sections) {
     for (const entry of section.entries) {
-      const threads =
-        entry.kind === "thread"
-          ? [entry]
-          : entry.kind === "bundle"
-            ? entry.threads
-            : [];
-      if (entry.kind === "todo") keys.add(todoRowKey(entry.id));
+      const items = entry.kind === "bundle" ? entry.items : [entry];
       if (entry.kind === "bundle") keys.add(bundleRowKey(entry.labelId));
-      for (const thread of threads) keys.add(threadRowKey(thread.id));
+      for (const item of items) {
+        keys.add(
+          item.kind === "thread" ? threadRowKey(item.id) : todoRowKey(item.id),
+        );
+      }
     }
   }
   return keys;
@@ -414,12 +489,17 @@ export function doneAllIds<Thread extends ListThread>(
   return ids;
 }
 
-/** The unpinned todos a section's "Done all" sweeps: its todo rows. */
+/** The unpinned todos a section's "Done all" sweeps: its todo rows and its bundles' todos. */
 export function doneAllTodos<Thread extends ListThread>(
   section: SectionModel<Thread>,
 ): Todo[] {
   return section.entries.flatMap((entry) =>
-    entry.kind === "todo" && !entry.todo.pinned ? [entry.todo] : [],
+    (entry.kind === "todo"
+      ? [entry.todo]
+      : entry.kind === "group"
+        ? entry.todos
+        : []
+    ).filter((todo) => !todo.pinned),
   );
 }
 
@@ -442,7 +522,12 @@ export function focusInboxSections<Thread extends ListThread>(
           labelIds: entry.thread.thread.labelIds,
         };
       } else if (entry.kind === "todo") {
-        return { kind: "todo", pinned: entry.todo.pinned };
+        return {
+          kind: "todo",
+          pinned:
+            entry.todo.pinned ||
+            held.pins.get(todoRowKey(entry.todo.id)) === true,
+        };
       } else {
         return {
           kind: "bundle",

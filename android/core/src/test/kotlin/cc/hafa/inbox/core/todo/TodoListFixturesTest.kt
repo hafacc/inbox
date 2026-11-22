@@ -94,4 +94,12 @@ class TodoListFixturesTest {
             assertEquals(text, case["tree"], styledTree(text).map(::plain))
         }
     }
+
+    @Test
+    fun plain() {
+        for (case in cases("plain")) {
+            val text = case["in"] as String
+            assertEquals(text, case["out"], styledPlain(text))
+        }
+    }
 }
