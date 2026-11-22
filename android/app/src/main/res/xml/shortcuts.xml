@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- What holding the app's icon offers. Each opens MainActivity with its own action, which waits for
+     sign-in when signed out (LauncherShortcut.kt). New todo is added from code, only while todos are
+     on (offerTodoShortcut). -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_compose"
+        android:shortcutId="new_email"
+        android:shortcutLongLabel="@string/shortcut_new_email"
+        android:shortcutShortLabel="@string/shortcut_new_email">
+        <intent
+            android:action="cc.hafa.inbox.action.NEW_EMAIL"
+            android:targetClass="cc.hafa.inbox.MainActivity"
+            android:targetPackage="cc.hafa.inbox" />
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_search"
+        android:shortcutId="search"
+        android:shortcutLongLabel="@string/shortcut_search"
+        android:shortcutShortLabel="@string/shortcut_search">
+        <intent
+            android:action="cc.hafa.inbox.action.SEARCH"
+            android:targetClass="cc.hafa.inbox.MainActivity"
+            android:targetPackage="cc.hafa.inbox" />
+    </shortcut>
+</shortcuts>
