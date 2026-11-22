@@ -18,16 +18,14 @@ permissions:
   contents: read
 
 jobs:
-  gate:
+  test:
     # run from another branch, the push below could fast-forward main onto that branch; checked
-    # before the build, and a skipped gate skips the cut too
+    # before the tests, and skipped tests skip the cut too
     if: github.ref == 'refs/heads/main'
-    uses: ./.github/workflows/build.yml
-    with:
-      product: android
+    uses: ./.github/workflows/android-tests.yml
 
   cut:
-    needs: gate
+    needs: test
     runs-on: ubuntu-latest
     # one cut at a time; another waits its turn
     concurrency:
@@ -38,7 +36,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.sha }} # the commit the gate built; a moved main rejects the push below
+          ref: ${{ github.sha }} # the commit tested; a moved main rejects the push below
       - name: Bump
         id: bump
         env:
