@@ -1,0 +1,64 @@
+# Run the tests for what a pull request or a push to main changed: android-tests.yml for android/,
+# web-tests.yml for the TypeScript packages, the Firestore rules, the root tooling and the docs the
+# web build imports (privacy and support), both for shared/, .github/ and bun's and TypeScript's
+# root files, neither for other docs alone.
+name: gate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      android: ${{ steps.paths.outputs.android }}
+      web: ${{ steps.paths.outputs.web }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - id: paths
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          android=false
+          web=false
+          # a new branch has no previous commit, and a force push's may be gone
+          if [ -z "$BASE" ] || [ "$BASE" = 0000000000000000000000000000000000000000 ] \
+              || ! git cat-file -e "$BASE^{commit}" 2> /dev/null; then
+            android=true
+            web=true
+          else
+            while read -r path; do
+              case "$path" in
+                android/*) android=true ;;
+                # android's tests run a shared/ script under bun, so bun's root files count for both
+                shared/* | .github/* | package.json | bun.lock | bunfig.toml | tsconfig.base.json)
+                  android=true; web=true ;;
+                # the web build prerenders these at /privacy and /support
+                web/* | functions/* | workers/* | firebase/* | scripts/* | docs/privacy.md | docs/support.md)
+                  web=true ;;
+                */* | *.md | LICENSE) ;;
+                # other root tooling: biome.json, eslint.config.js, ...
+                *) web=true ;;
+              esac
+            # a rename counts as both its old and new path
+            done < <(git diff --no-renames --name-only "$BASE" HEAD)
+          fi
+          echo "android=$android" >> "$GITHUB_OUTPUT"
+          echo "web=$web" >> "$GITHUB_OUTPUT"
+
+  android:
+    needs: changes
+    if: needs.changes.outputs.android == 'true'
+    uses: ./.github/workflows/android-tests.yml
+
+  web:
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    uses: ./.github/workflows/web-tests.yml

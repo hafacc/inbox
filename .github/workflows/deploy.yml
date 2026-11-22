@@ -26,38 +26,16 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # The commit to build and deploy: a release's own, or main's when started by hand, whatever branch
-  # was picked. Resolved once, so every job uses the same commit even if main moves meanwhile.
-  ref:
-    runs-on: ubuntu-latest
-    outputs:
-      sha: ${{ steps.sha.outputs.sha }}
-    steps:
-      - id: sha
-        env:
-          GH_TOKEN: ${{ github.token }}
-          EVENT: ${{ github.event_name }}
-          RELEASE_SHA: ${{ github.sha }}
-        run: |
-          if [ "$EVENT" = release ]; then
-            sha="$RELEASE_SHA"
-          else
-            sha="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
-          fi
-          echo "sha=$sha" >> "$GITHUB_OUTPUT"
-
-  # Every job below needs this one.
-  gate:
-    needs: ref
-    uses: ./.github/workflows/build.yml
-    with:
-      product: web
-      ref: ${{ needs.ref.outputs.sha }}
+  # Every job below needs this one, and each checks out the commit the run started on: a release's
+  # own, or main's when started by hand. Started by hand from another branch, nothing runs.
+  test:
+    if: github.event_name == 'release' || github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/web-tests.yml
 
   # Auth is Workload Identity Federation: no key is stored, and the provider accepts only this
   # repo's OIDC tokens.
   firebase:
-    needs: [ref, gate]
+    needs: test
     if: (inputs.target || 'all') == 'all' || inputs.target == 'firebase'
     runs-on: ubuntu-latest
     permissions:
@@ -65,8 +43,6 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ needs.ref.outputs.sha }}
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "22"
@@ -84,9 +60,9 @@ jobs:
         working-directory: firebase
 
   workers:
-    needs: [ref, gate, firebase]
+    needs: [test, firebase]
     if: >-
-      !cancelled() && needs.gate.result == 'success' && needs.firebase.result != 'failure'
+      !cancelled() && needs.test.result == 'success' && needs.firebase.result != 'failure'
       && ((inputs.target || 'all') == 'all' || inputs.target == 'workers')
     runs-on: ubuntu-latest
     env:
@@ -94,8 +70,6 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ needs.ref.outputs.sha }}
       - uses: ./.github/actions/setup-bun
       # Until the KV namespace id is filled in, skip only this Worker so the rest still deploys.
       - name: Deploy the WKD Worker
@@ -107,23 +81,33 @@ jobs:
             bun run deploy
           fi
 
-  # The site is the one the gate built and uploaded. No base path: the custom domain serves the app
-  # at its root. The Firebase web config is committed (public by design), so the build needs no
-  # environment.
+  # No base path: the custom domain serves the app at its root. The Firebase web config is
+  # committed (public by design), so the build needs no environment.
   pages:
-    needs: [gate, firebase, workers]
+    needs: [test, firebase, workers]
     if: >-
-      !cancelled() && needs.gate.result == 'success'
+      !cancelled() && needs.test.result == 'success'
       && needs.firebase.result != 'failure' && needs.workers.result != 'failure'
       && ((inputs.target || 'all') == 'all' || inputs.target == 'web')
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       pages: write
       id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup-bun
+      # builds the site into web/out, service worker included
+      - run: bun run export
+        working-directory: web
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: web/out
+          # .well-known/assetlinks.json, which passkeys on Android need
+          include-hidden-files: true
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
       - id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
