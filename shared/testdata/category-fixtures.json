@@ -1,0 +1,120 @@
+{
+  "_doc": "Moving a thread between Gmail's categories (shared/src/categories.ts, Android :core Categories.kt). `current`: threadCategory(labelIds). `change`: categoryChange(labelIds, chosen). `keepListed`: keepListed(ids, id, dates), where an id missing from `dates` has no date.",
+  "current": [
+    {
+      "name": "no category is Primary",
+      "labelIds": ["INBOX", "UNREAD"],
+      "expect": "CATEGORY_PERSONAL"
+    },
+    {
+      "name": "Primary",
+      "labelIds": ["CATEGORY_PERSONAL", "INBOX"],
+      "expect": "CATEGORY_PERSONAL"
+    },
+    {
+      "name": "Promotions",
+      "labelIds": ["CATEGORY_PROMOTIONS", "INBOX"],
+      "expect": "CATEGORY_PROMOTIONS"
+    },
+    {
+      "name": "another category wins over Primary",
+      "labelIds": ["CATEGORY_PERSONAL", "CATEGORY_UPDATES", "INBOX"],
+      "expect": "CATEGORY_UPDATES"
+    },
+    {
+      "name": "two categories: the first in menu order",
+      "labelIds": ["CATEGORY_FORUMS", "CATEGORY_SOCIAL"],
+      "expect": "CATEGORY_SOCIAL"
+    },
+    {
+      "name": "user labels don't count",
+      "labelIds": ["Label_1", "IMPORTANT"],
+      "expect": "CATEGORY_PERSONAL"
+    }
+  ],
+  "change": [
+    {
+      "name": "Promotions to Primary",
+      "labelIds": ["CATEGORY_PROMOTIONS", "INBOX", "Label_1"],
+      "chosen": "CATEGORY_PERSONAL",
+      "expect": { "add": ["CATEGORY_PERSONAL"], "remove": ["CATEGORY_PROMOTIONS"] }
+    },
+    {
+      "name": "Primary to Social",
+      "labelIds": ["CATEGORY_PERSONAL", "INBOX"],
+      "chosen": "CATEGORY_SOCIAL",
+      "expect": { "add": ["CATEGORY_SOCIAL"], "remove": ["CATEGORY_PERSONAL"] }
+    },
+    {
+      "name": "no category to Updates",
+      "labelIds": ["INBOX"],
+      "chosen": "CATEGORY_UPDATES",
+      "expect": { "add": ["CATEGORY_UPDATES"], "remove": [] }
+    },
+    {
+      "name": "already Forums: nothing",
+      "labelIds": ["CATEGORY_FORUMS", "INBOX"],
+      "chosen": "CATEGORY_FORUMS",
+      "expect": { "add": [], "remove": [] }
+    },
+    {
+      "name": "no category is already Primary: nothing",
+      "labelIds": ["INBOX"],
+      "chosen": "CATEGORY_PERSONAL",
+      "expect": { "add": [], "remove": [] }
+    },
+    {
+      "name": "mixed messages: the others go",
+      "labelIds": ["CATEGORY_PERSONAL", "CATEGORY_PROMOTIONS", "CATEGORY_SOCIAL"],
+      "chosen": "CATEGORY_PROMOTIONS",
+      "expect": {
+        "add": ["CATEGORY_PROMOTIONS"],
+        "remove": ["CATEGORY_PERSONAL", "CATEGORY_SOCIAL"]
+      }
+    }
+  ],
+  "keepListed": [
+    {
+      "name": "placed by date",
+      "ids": ["a", "b", "c"],
+      "dates": { "a": 300, "b": 200, "c": 100, "x": 250 },
+      "id": "x",
+      "expect": ["a", "x", "b", "c"]
+    },
+    {
+      "name": "newest goes first",
+      "ids": ["a", "b"],
+      "dates": { "a": 300, "b": 200, "x": 400 },
+      "id": "x",
+      "expect": ["x", "a", "b"]
+    },
+    {
+      "name": "oldest goes last",
+      "ids": ["a", "b"],
+      "dates": { "a": 300, "b": 200, "x": 50 },
+      "id": "x",
+      "expect": ["a", "b", "x"]
+    },
+    {
+      "name": "already listed: unchanged",
+      "ids": ["a", "x", "b"],
+      "dates": { "a": 300, "b": 200, "x": 50 },
+      "id": "x",
+      "expect": ["a", "x", "b"]
+    },
+    {
+      "name": "ids without a date are passed over",
+      "ids": ["a", "b", "c"],
+      "dates": { "a": 300, "c": 100, "x": 250 },
+      "id": "x",
+      "expect": ["a", "b", "x", "c"]
+    },
+    {
+      "name": "empty list",
+      "ids": [],
+      "dates": { "x": 250 },
+      "id": "x",
+      "expect": ["x"]
+    }
+  ]
+}

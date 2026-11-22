@@ -1,0 +1,20 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "inbox-wkd",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-01",
+  // Creates the openpgpkey.hafa.cc DNS record and certificate on the hafa.cc zone (WKD's advanced
+  // method). The direct method (hafa.cc/.well-known/openpgpkey/...) is only a fallback for clients
+  // when openpgpkey.hafa.cc doesn't exist, so it isn't routed.
+  "routes": [{ "pattern": "openpgpkey.hafa.cc", "custom_domain": true }],
+  "workers_dev": false,
+  "observability": { "enabled": true },
+  // Public keys by WKD hash ("hu/<hash>"), written by the publishKey function through the
+  // Cloudflare API. Fill in the id from `bunx wrangler kv namespace create inbox-wkd-keys`.
+  "kv_namespaces": [{ "binding": "KEYS", "id": "b2593ffee878428cbb1603a760f8c5db" }],
+  // /lookup calls that fetch another domain's WKD, per client IP. A compose looks up each recipient
+  // once a week at most, so this only stops the Worker being used as a fetcher.
+  "ratelimits": [
+    { "name": "LOOKUP_LIMIT", "namespace_id": "1001", "simple": { "limit": 30, "period": 60 } }
+  ]
+}

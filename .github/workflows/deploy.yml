@@ -1,0 +1,129 @@
+# Deploy the backend and the web app: Firebase (functions, Firestore rules and indexes), then the
+# Cloudflare Workers, then the site on GitHub Pages (inbox.hafa.cc). Backend first, so a release
+# can never publish a web app that expects functions or rules that aren't live yet.
+name: deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: What to deploy
+        type: choice
+        default: all
+        options:
+          - all
+          - firebase
+          - workers
+          - web
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  # The commit to build and deploy: a release's own, or main's when started by hand, whatever branch
+  # was picked. Resolved once, so every job uses the same commit even if main moves meanwhile.
+  ref:
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.sha.outputs.sha }}
+    steps:
+      - id: sha
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          if [ "$EVENT" = release ]; then
+            sha="$RELEASE_SHA"
+          else
+            sha="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+  # Every job below needs this one.
+  gate:
+    needs: ref
+    uses: ./.github/workflows/build.yml
+    with:
+      product: web
+      ref: ${{ needs.ref.outputs.sha }}
+
+  # Auth is Workload Identity Federation: no key is stored, and the provider accepts only this
+  # repo's OIDC tokens.
+  firebase:
+    needs: [ref, gate]
+    if: (inputs.target || 'all') == 'all' || inputs.target == 'firebase'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.ref.outputs.sha }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+      - uses: ./.github/actions/setup-bun
+      # firebase-tools is the one pinned in firebase/package.json.
+      # --force answers what a non-interactive deploy can't: deleting a function that has left the
+      # source (remember it when renaming one) and the retry policies of event-triggered functions.
+      - run: >-
+          bun run firebase deploy --config ../firebase.json --project hafa-inbox --non-interactive
+          --force --only functions,firestore:rules,firestore:indexes
+        working-directory: firebase
+
+  workers:
+    needs: [ref, gate, firebase]
+    if: >-
+      !cancelled() && needs.gate.result == 'success' && needs.firebase.result != 'failure'
+      && ((inputs.target || 'all') == 'all' || inputs.target == 'workers')
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.ref.outputs.sha }}
+      - uses: ./.github/actions/setup-bun
+      # Until the KV namespace id is filled in, skip only this Worker so the rest still deploys.
+      - name: Deploy the WKD Worker
+        working-directory: workers/wkd
+        run: |
+          if grep -q REPLACE_WITH_KV_NAMESPACE_ID wrangler.jsonc; then
+            echo "::warning file=workers/wkd/wrangler.jsonc::WKD Worker not deployed: create the inbox-wkd-keys KV namespace and put its id in kv_namespaces[0].id."
+          else
+            bun run deploy
+          fi
+
+  # The site is the one the gate built and uploaded. No base path: the custom domain serves the app
+  # at its root. The Firebase web config is committed (public by design), so the build needs no
+  # environment.
+  pages:
+    needs: [gate, firebase, workers]
+    if: >-
+      !cancelled() && needs.gate.result == 'success'
+      && needs.firebase.result != 'failure' && needs.workers.result != 'failure'
+      && ((inputs.target || 'all') == 'all' || inputs.target == 'web')
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

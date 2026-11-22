@@ -1,0 +1,118 @@
+{
+  "_doc": "Row swipes (shared/src/swipe.ts, Android :core Swipe.kt). `threads`: threadSwipeAction for each side of `row` {status, inInbox, spamOrTrash, inSnoozedView}; `expect` {start (rightward), end (leftward)} is the action or null where that direction doesn't move. A pin doesn't change a swipe. `todos`: todoSwipeAction for each side of `row` {done, snoozed}; a pin doesn't change it. Neither looks at a selection: while rows are selected, a swipe acts on its own row only. `commit`: committedSide(dx, width, velocity), velocity in dp (CSS px) per second, rightward positive. `progress`: swipeProgress(dx, width). `bundles`: bundleSwipeAction for each side of a bundle's row that is `open` or closed, and bundleSwipeLabel for each action with `threads`, its thread count as bundleCounts writes it.",
+  "threads": [
+    {
+      "name": "inbox thread",
+      "row": { "status": "none", "inInbox": true, "spamOrTrash": false, "inSnoozedView": false },
+      "expect": { "start": "snooze", "end": "done" }
+    },
+    {
+      "name": "woken thread in the inbox",
+      "row": { "status": "woken", "inInbox": true, "spamOrTrash": false, "inSnoozedView": false },
+      "expect": { "start": "snooze", "end": "done" }
+    },
+    {
+      "name": "snoozed thread in the Snoozed view",
+      "row": { "status": "snoozed", "inInbox": false, "spamOrTrash": false, "inSnoozedView": true },
+      "expect": { "start": "wake", "end": "done" }
+    },
+    {
+      "name": "any row in the Snoozed view counts as snoozed",
+      "row": { "status": "lapsed", "inInbox": false, "spamOrTrash": false, "inSnoozedView": true },
+      "expect": { "start": "wake", "end": "done" }
+    },
+    {
+      "name": "snoozed thread in search results",
+      "row": { "status": "snoozed", "inInbox": false, "spamOrTrash": false, "inSnoozedView": false },
+      "expect": { "start": "wake", "end": "done" }
+    },
+    {
+      "name": "lapsed snooze outside the inbox label",
+      "row": { "status": "lapsed", "inInbox": false, "spamOrTrash": false, "inSnoozedView": false },
+      "expect": { "start": "snooze", "end": "done" }
+    },
+    {
+      "name": "done thread moves back to the inbox",
+      "row": { "status": "none", "inInbox": false, "spamOrTrash": false, "inSnoozedView": false },
+      "expect": { "start": "snooze", "end": "inbox" }
+    },
+    {
+      "name": "woken thread out of the inbox moves back to it",
+      "row": { "status": "woken", "inInbox": false, "spamOrTrash": false, "inSnoozedView": false },
+      "expect": { "start": "snooze", "end": "inbox" }
+    },
+    {
+      "name": "spam thread has no leftward swipe",
+      "row": { "status": "none", "inInbox": false, "spamOrTrash": true, "inSnoozedView": false },
+      "expect": { "start": "snooze", "end": null }
+    },
+    {
+      "name": "search result in the inbox",
+      "row": { "status": "none", "inInbox": true, "spamOrTrash": false, "inSnoozedView": false },
+      "expect": { "start": "snooze", "end": "done" }
+    }
+  ],
+  "todos": [
+    {
+      "name": "active todo",
+      "row": { "done": false, "snoozed": false },
+      "expect": { "start": "snooze", "end": "done" }
+    },
+    {
+      "name": "snoozed todo",
+      "row": { "done": false, "snoozed": true },
+      "expect": { "start": "reactivate", "end": "done" }
+    },
+    {
+      "name": "done todo",
+      "row": { "done": true, "snoozed": false },
+      "expect": { "start": "reactivate", "end": "delete" }
+    },
+    {
+      "name": "done todo with a snooze still ahead",
+      "row": { "done": true, "snoozed": true },
+      "expect": { "start": "reactivate", "end": "delete" }
+    }
+  ],
+  "commit": [
+    { "name": "at the threshold", "dx": 160, "width": 400, "velocity": 0, "expect": "start" },
+    { "name": "just short of it", "dx": 159, "width": 400, "velocity": 0, "expect": null },
+    { "name": "leftward at the threshold", "dx": -160, "width": 400, "velocity": 0, "expect": "end" },
+    { "name": "a narrow row's threshold", "dx": 120, "width": 300, "velocity": 0, "expect": "start" },
+    { "name": "a fling the way it went", "dx": 30, "width": 400, "velocity": 125, "expect": "start" },
+    { "name": "just too slow to be a fling", "dx": 30, "width": 400, "velocity": 124, "expect": null },
+    { "name": "a leftward fling", "dx": -30, "width": 400, "velocity": -300, "expect": "end" },
+    { "name": "a fling back puts it back", "dx": 200, "width": 400, "velocity": -200, "expect": null },
+    { "name": "slow drift back past the threshold still acts", "dx": 200, "width": 400, "velocity": -100, "expect": "start" },
+    { "name": "at rest", "dx": 0, "width": 400, "velocity": 500, "expect": null }
+  ],
+  "progress": [
+    { "name": "halfway", "dx": 80, "width": 400, "expect": 0.5 },
+    { "name": "leftward at the threshold", "dx": -160, "width": 400, "expect": 1 },
+    { "name": "past the threshold", "dx": 300, "width": 400, "expect": 1 },
+    { "name": "no width yet", "dx": 10, "width": 0, "expect": 0 }
+  ],
+  "bundles": [
+    {
+      "name": "closed bundle",
+      "open": false,
+      "threads": "14",
+      "expect": { "start": "snooze", "end": "done" },
+      "labels": { "snooze": "Snooze · 14", "done": "Done · 14" }
+    },
+    {
+      "name": "closed bundle Gmail has more of",
+      "open": false,
+      "threads": "10+",
+      "expect": { "start": "snooze", "end": "done" },
+      "labels": { "snooze": "Snooze · 10+", "done": "Done · 10+" }
+    },
+    {
+      "name": "open bundle's header doesn't swipe",
+      "open": true,
+      "threads": "3",
+      "expect": { "start": null, "end": null },
+      "labels": { "snooze": "Snooze · 3", "done": "Done · 3" }
+    }
+  ]
+}

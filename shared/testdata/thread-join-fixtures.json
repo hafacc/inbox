@@ -1,0 +1,653 @@
+{
+  "_doc": {
+    "joins": "joinThreads(threads): groups of thread ids shown as one row, each oldest first by firstDate (list order breaks ties), groups ordered by their lead's list position; singletons omitted. A thread with hiddenSubject joins the loaded thread holding any id in its answers; joins chain.",
+    "summaries": "joinSummaries(members), lead first: lead's fields, with historyId the largest (as integers), snippet of the member with the latest lastDate, senders in member order once each by email (an empty name filled by a later one), messageCount summed, lastDate and sentDate the largest, labelIds the sorted union, unread if any.",
+    "snooze": "joinedSnooze(members): none if every member is none; woken if any member is woken, or a none member in the inbox has a historyId above some snoozed member's watermark; else snoozed if any member is snoozed; else lapsed. snoozeUntil is the latest of the snoozed members'.",
+    "answered": "answeredSearch(answers): a summary's answers (with angle brackets), the first 20 as rfc822msgid: terms without the brackets, joined with \" OR \"; null when there are none."
+  },
+  "joins": [
+    {
+      "name": "an encrypted reply Gmail split off joins the thread it answers",
+      "threads": [
+        {
+          "id": "A",
+          "hiddenSubject": true,
+          "messageIds": [
+            "<a1@x>"
+          ],
+          "answers": [],
+          "firstDate": 100
+        },
+        {
+          "id": "B",
+          "hiddenSubject": true,
+          "messageIds": [
+            "<b1@x>"
+          ],
+          "answers": [
+            "<a1@x>"
+          ],
+          "firstDate": 200
+        }
+      ],
+      "expect": [
+        [
+          "A",
+          "B"
+        ]
+      ]
+    },
+    {
+      "name": "the older thread leads, whichever comes first in the list",
+      "threads": [
+        {
+          "id": "B",
+          "hiddenSubject": true,
+          "messageIds": [
+            "<b1@x>"
+          ],
+          "answers": [
+            "<a1@x>"
+          ],
+          "firstDate": 200
+        },
+        {
+          "id": "A",
+          "hiddenSubject": true,
+          "messageIds": [
+            "<a1@x>"
+          ],
+          "answers": [],
+          "firstDate": 100
+        }
+      ],
+      "expect": [
+        [
+          "A",
+          "B"
+        ]
+      ]
+    },
+    {
+      "name": "a reply to a reply lands in the same row",
+      "threads": [
+        {
+          "id": "A",
+          "hiddenSubject": true,
+          "messageIds": [
+            "<a1@x>"
+          ],
+          "answers": [],
+          "firstDate": 100
+        },
+        {
+          "id": "B",
+          "hiddenSubject": true,
+          "messageIds": [
+            "<b1@x>"
+          ],
+          "answers": [
+            "<a1@x>"
+          ],
+          "firstDate": 200
+        },
+        {
+          "id": "C",
+          "hiddenSubject": true,
+          "messageIds": [
+            "<c1@x>"
+          ],
+          "answers": [
+            "<a1@x>",
+            "<b1@x>"
+          ],
+          "firstDate": 300
+        }
+      ],
+      "expect": [
+        [
+          "A",
+          "B",
+          "C"
+        ]
+      ]
+    },
+    {
+      "name": "an encrypted reply to plain mail joins it",
+      "threads": [
+        {
+          "id": "A",
+          "hiddenSubject": false,
+          "messageIds": [
+            "<a1@x>",
+            "<a2@x>"
+          ],
+          "answers": [],
+          "firstDate": 100
+        },
+        {
+          "id": "B",
+          "hiddenSubject": true,
+          "messageIds": [
+            "<b1@x>"
+          ],
+          "answers": [
+            "<a2@x>"
+          ],
+          "firstDate": 200
+        }
+      ],
+      "expect": [
+        [
+          "A",
+          "B"
+        ]
+      ]
+    },
+    {
+      "name": "a thread with a readable subject joins nothing, whatever it answers",
+      "threads": [
+        {
+          "id": "A",
+          "hiddenSubject": true,
+          "messageIds": [
+            "<a1@x>"
+          ],
+          "answers": [],
+          "firstDate": 100
+        },
+        {
+          "id": "B",
+          "hiddenSubject": false,
+          "messageIds": [
+            "<b1@x>"
+          ],
+          "answers": [
+            "<a1@x>"
+          ],
+          "firstDate": 200
+        }
+      ],
+      "expect": []
+    },
+    {
+      "name": "a reply whose original isn't loaded shows alone",
+      "threads": [
+        {
+          "id": "B",
+          "hiddenSubject": true,
+          "messageIds": [
+            "<b1@x>"
+          ],
+          "answers": [
+            "<gone@x>"
+          ],
+          "firstDate": 200
+        },
+        {
+          "id": "C",
+          "hiddenSubject": true,
+          "messageIds": [
+            "<c1@x>"
+          ],
+          "answers": [],
+          "firstDate": 300
+        }
+      ],
+      "expect": []
+    },
+    {
+      "name": "two conversations stay two rows",
+      "threads": [
+        {
+          "id": "A",
+          "hiddenSubject": true,
+          "messageIds": [
+            "<a1@x>"
+          ],
+          "answers": [],
+          "firstDate": 100
+        },
+        {
+          "id": "X",
+          "hiddenSubject": true,
+          "messageIds": [
+            "<x1@x>"
+          ],
+          "answers": [],
+          "firstDate": 150
+        },
+        {
+          "id": "B",
+          "hiddenSubject": true,
+          "messageIds": [
+            "<b1@x>"
+          ],
+          "answers": [
+            "<a1@x>"
+          ],
+          "firstDate": 200
+        },
+        {
+          "id": "Y",
+          "hiddenSubject": true,
+          "messageIds": [
+            "<y1@x>"
+          ],
+          "answers": [
+            "<x1@x>"
+          ],
+          "firstDate": 250
+        }
+      ],
+      "expect": [
+        [
+          "A",
+          "B"
+        ],
+        [
+          "X",
+          "Y"
+        ]
+      ]
+    },
+    {
+      "name": "a thread naming its own message joins nothing",
+      "threads": [
+        {
+          "id": "B",
+          "hiddenSubject": false,
+          "messageIds": [
+            "<b1@x>"
+          ],
+          "answers": [],
+          "firstDate": 50
+        },
+        {
+          "id": "A",
+          "hiddenSubject": true,
+          "messageIds": [
+            "<a1@x>",
+            "<a2@x>"
+          ],
+          "answers": [
+            "<a1@x>"
+          ],
+          "firstDate": 100
+        }
+      ],
+      "expect": []
+    }
+  ],
+  "summaries": [
+    {
+      "name": "a joined row: the lead's id and subject, the newest snippet, every sender once, counts added, latest dates, every label, unread if any",
+      "members": [
+        {
+          "id": "A",
+          "historyId": "900",
+          "subject": "...",
+          "snippet": "old",
+          "senders": [
+            {
+              "name": "Ana",
+              "email": "ana@x"
+            },
+            {
+              "name": "",
+              "email": "bob@x"
+            }
+          ],
+          "messageCount": 2,
+          "lastDate": 1000,
+          "sentDate": 900,
+          "labelIds": [
+            "INBOX",
+            "Label_1"
+          ],
+          "unread": false
+        },
+        {
+          "id": "B",
+          "historyId": "1200",
+          "subject": "...",
+          "snippet": "new",
+          "senders": [
+            {
+              "name": "Bob",
+              "email": "bob@x"
+            },
+            {
+              "name": "Cy",
+              "email": "cy@x"
+            }
+          ],
+          "messageCount": 1,
+          "lastDate": 2000,
+          "sentDate": 0,
+          "labelIds": [
+            "INBOX",
+            "UNREAD"
+          ],
+          "unread": true
+        }
+      ],
+      "expect": {
+        "id": "A",
+        "historyId": "1200",
+        "subject": "...",
+        "snippet": "new",
+        "senders": [
+          {
+            "name": "Ana",
+            "email": "ana@x"
+          },
+          {
+            "name": "Bob",
+            "email": "bob@x"
+          },
+          {
+            "name": "Cy",
+            "email": "cy@x"
+          }
+        ],
+        "messageCount": 3,
+        "lastDate": 2000,
+        "sentDate": 900,
+        "labelIds": [
+          "INBOX",
+          "Label_1",
+          "UNREAD"
+        ],
+        "unread": true
+      }
+    },
+    {
+      "name": "history ids compare as numbers, not text",
+      "members": [
+        {
+          "id": "A",
+          "historyId": "10000000000000000001",
+          "subject": "...",
+          "snippet": "a",
+          "senders": [],
+          "messageCount": 1,
+          "lastDate": 5,
+          "sentDate": 0,
+          "labelIds": [],
+          "unread": false
+        },
+        {
+          "id": "B",
+          "historyId": "9",
+          "subject": "...",
+          "snippet": "b",
+          "senders": [],
+          "messageCount": 1,
+          "lastDate": 4,
+          "sentDate": 0,
+          "labelIds": [],
+          "unread": false
+        }
+      ],
+      "expect": {
+        "id": "A",
+        "historyId": "10000000000000000001",
+        "subject": "...",
+        "snippet": "a",
+        "senders": [],
+        "messageCount": 2,
+        "lastDate": 5,
+        "sentDate": 0,
+        "labelIds": [],
+        "unread": false
+      }
+    }
+  ],
+  "snooze": [
+    {
+      "name": "never snoozed",
+      "members": [
+        {
+          "status": "none",
+          "snoozeUntil": null,
+          "watermark": null,
+          "historyId": "5",
+          "inInbox": true
+        },
+        {
+          "status": "none",
+          "snoozeUntil": null,
+          "watermark": null,
+          "historyId": "6",
+          "inInbox": true
+        }
+      ],
+      "expect": {
+        "status": "none",
+        "snoozeUntil": null
+      }
+    },
+    {
+      "name": "each member snoozed: the row is snoozed",
+      "members": [
+        {
+          "status": "snoozed",
+          "snoozeUntil": 5000,
+          "watermark": "10",
+          "historyId": "10",
+          "inInbox": true
+        },
+        {
+          "status": "snoozed",
+          "snoozeUntil": 5000,
+          "watermark": "10",
+          "historyId": "9",
+          "inInbox": true
+        }
+      ],
+      "expect": {
+        "status": "snoozed",
+        "snoozeUntil": 5000
+      }
+    },
+    {
+      "name": "a new message in any member wakes the row",
+      "members": [
+        {
+          "status": "snoozed",
+          "snoozeUntil": 5000,
+          "watermark": "10",
+          "historyId": "10",
+          "inInbox": true
+        },
+        {
+          "status": "woken",
+          "snoozeUntil": 5000,
+          "watermark": "10",
+          "historyId": "12",
+          "inInbox": true
+        }
+      ],
+      "expect": {
+        "status": "woken",
+        "snoozeUntil": 5000
+      }
+    },
+    {
+      "name": "a reply Gmail split off after the snooze wakes the row",
+      "members": [
+        {
+          "status": "snoozed",
+          "snoozeUntil": 5000,
+          "watermark": "10",
+          "historyId": "10",
+          "inInbox": true
+        },
+        {
+          "status": "snoozed",
+          "snoozeUntil": 5000,
+          "watermark": "10",
+          "historyId": "9",
+          "inInbox": true
+        },
+        {
+          "status": "none",
+          "snoozeUntil": null,
+          "watermark": null,
+          "historyId": "15",
+          "inInbox": true
+        }
+      ],
+      "expect": {
+        "status": "woken",
+        "snoozeUntil": 5000
+      }
+    },
+    {
+      "name": "a split-off reply a filter kept out of the inbox doesn't",
+      "members": [
+        {
+          "status": "snoozed",
+          "snoozeUntil": 5000,
+          "watermark": "10",
+          "historyId": "10",
+          "inInbox": true
+        },
+        {
+          "status": "none",
+          "snoozeUntil": null,
+          "watermark": null,
+          "historyId": "15",
+          "inInbox": false
+        }
+      ],
+      "expect": {
+        "status": "snoozed",
+        "snoozeUntil": 5000
+      }
+    },
+    {
+      "name": "a member older than the snooze with none of its own doesn't",
+      "members": [
+        {
+          "status": "snoozed",
+          "snoozeUntil": 5000,
+          "watermark": "10",
+          "historyId": "10",
+          "inInbox": true
+        },
+        {
+          "status": "none",
+          "snoozeUntil": null,
+          "watermark": null,
+          "historyId": "8",
+          "inInbox": true
+        }
+      ],
+      "expect": {
+        "status": "snoozed",
+        "snoozeUntil": 5000
+      }
+    },
+    {
+      "name": "lapsed once every member has",
+      "members": [
+        {
+          "status": "lapsed",
+          "snoozeUntil": 5000,
+          "watermark": "10",
+          "historyId": "10",
+          "inInbox": true
+        },
+        {
+          "status": "lapsed",
+          "snoozeUntil": 5000,
+          "watermark": "10",
+          "historyId": "9",
+          "inInbox": true
+        }
+      ],
+      "expect": {
+        "status": "lapsed",
+        "snoozeUntil": 5000
+      }
+    },
+    {
+      "name": "snoozed while any member still is",
+      "members": [
+        {
+          "status": "lapsed",
+          "snoozeUntil": 4000,
+          "watermark": "10",
+          "historyId": "10",
+          "inInbox": true
+        },
+        {
+          "status": "snoozed",
+          "snoozeUntil": 5000,
+          "watermark": "10",
+          "historyId": "9",
+          "inInbox": true
+        }
+      ],
+      "expect": {
+        "status": "snoozed",
+        "snoozeUntil": 5000
+      }
+    }
+  ],
+  "answered": [
+    {
+      "name": "one term per answered id, in order",
+      "answers": [
+        "<a2@x>",
+        "<a1@x>"
+      ],
+      "search": "rfc822msgid:a2@x OR rfc822msgid:a1@x"
+    },
+    {
+      "name": "a single id",
+      "answers": [
+        "<c1@x>"
+      ],
+      "search": "rfc822msgid:c1@x"
+    },
+    {
+      "name": "nothing answered, no search",
+      "answers": [],
+      "search": null
+    },
+    {
+      "name": "at most twenty ids",
+      "answers": [
+        "<m0@x>",
+        "<m1@x>",
+        "<m2@x>",
+        "<m3@x>",
+        "<m4@x>",
+        "<m5@x>",
+        "<m6@x>",
+        "<m7@x>",
+        "<m8@x>",
+        "<m9@x>",
+        "<m10@x>",
+        "<m11@x>",
+        "<m12@x>",
+        "<m13@x>",
+        "<m14@x>",
+        "<m15@x>",
+        "<m16@x>",
+        "<m17@x>",
+        "<m18@x>",
+        "<m19@x>",
+        "<m20@x>",
+        "<m21@x>",
+        "<m22@x>",
+        "<m23@x>",
+        "<m24@x>"
+      ],
+      "search": "rfc822msgid:m0@x OR rfc822msgid:m1@x OR rfc822msgid:m2@x OR rfc822msgid:m3@x OR rfc822msgid:m4@x OR rfc822msgid:m5@x OR rfc822msgid:m6@x OR rfc822msgid:m7@x OR rfc822msgid:m8@x OR rfc822msgid:m9@x OR rfc822msgid:m10@x OR rfc822msgid:m11@x OR rfc822msgid:m12@x OR rfc822msgid:m13@x OR rfc822msgid:m14@x OR rfc822msgid:m15@x OR rfc822msgid:m16@x OR rfc822msgid:m17@x OR rfc822msgid:m18@x OR rfc822msgid:m19@x"
+    }
+  ]
+}

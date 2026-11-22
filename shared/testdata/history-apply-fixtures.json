@@ -1,0 +1,1405 @@
+{
+  "apply": [
+    {
+      "name": "a label added to a saved message",
+      "saved": {
+        "t1": {
+          "m1": [
+            "INBOX"
+          ],
+          "m2": [
+            "INBOX",
+            "UNREAD"
+          ]
+        }
+      },
+      "days": 30,
+      "records": [
+        {
+          "id": "1",
+          "labelsAdded": [
+            {
+              "message": {
+                "id": "m1",
+                "threadId": "t1"
+              },
+              "labelIds": [
+                "STARRED"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": {
+        "relabeled": {
+          "t1": {
+            "m1": [
+              "INBOX",
+              "STARRED"
+            ],
+            "m2": [
+              "INBOX",
+              "UNREAD"
+            ]
+          }
+        },
+        "added": {},
+        "removed": [],
+        "fetch": [],
+        "touched": [],
+        "check": []
+      }
+    },
+    {
+      "name": "archiving removes INBOX from each message",
+      "saved": {
+        "t1": {
+          "m1": [
+            "INBOX"
+          ],
+          "m2": [
+            "INBOX",
+            "UNREAD"
+          ]
+        }
+      },
+      "days": 30,
+      "records": [
+        {
+          "id": "1",
+          "labelsRemoved": [
+            {
+              "message": {
+                "id": "m1",
+                "threadId": "t1"
+              },
+              "labelIds": [
+                "INBOX"
+              ]
+            },
+            {
+              "message": {
+                "id": "m2",
+                "threadId": "t1"
+              },
+              "labelIds": [
+                "INBOX"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": {
+        "relabeled": {
+          "t1": {
+            "m1": [],
+            "m2": [
+              "UNREAD"
+            ]
+          }
+        },
+        "added": {},
+        "removed": [],
+        "fetch": [],
+        "touched": [],
+        "check": []
+      }
+    },
+    {
+      "name": "a label already there changes nothing",
+      "saved": {
+        "t1": {
+          "m1": [
+            "INBOX"
+          ],
+          "m2": [
+            "INBOX",
+            "UNREAD"
+          ]
+        }
+      },
+      "days": 30,
+      "records": [
+        {
+          "id": "1",
+          "labelsAdded": [
+            {
+              "message": {
+                "id": "m1",
+                "threadId": "t1"
+              },
+              "labelIds": [
+                "INBOX"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": {
+        "relabeled": {},
+        "added": {},
+        "removed": [],
+        "fetch": [],
+        "touched": [],
+        "check": []
+      }
+    },
+    {
+      "name": "new mail on a saved thread reads only the new message",
+      "saved": {
+        "t1": {
+          "m1": [
+            "INBOX"
+          ],
+          "m2": [
+            "INBOX",
+            "UNREAD"
+          ]
+        }
+      },
+      "days": 30,
+      "records": [
+        {
+          "id": "1",
+          "messagesAdded": [
+            {
+              "message": {
+                "id": "m3",
+                "threadId": "t1",
+                "labelIds": [
+                  "INBOX",
+                  "UNREAD"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "labelsAdded": [
+            {
+              "message": {
+                "id": "m1",
+                "threadId": "t1"
+              },
+              "labelIds": [
+                "STARRED"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": {
+        "relabeled": {
+          "t1": {
+            "m1": [
+              "INBOX",
+              "STARRED"
+            ],
+            "m2": [
+              "INBOX",
+              "UNREAD"
+            ],
+            "m3": [
+              "INBOX",
+              "UNREAD"
+            ]
+          }
+        },
+        "added": {
+          "t1": [
+            "m3"
+          ]
+        },
+        "removed": [],
+        "fetch": [],
+        "touched": [],
+        "check": []
+      }
+    },
+    {
+      "name": "a new message deleted again is not read",
+      "saved": {
+        "t1": {
+          "m1": [
+            "INBOX"
+          ],
+          "m2": [
+            "INBOX",
+            "UNREAD"
+          ]
+        }
+      },
+      "days": 30,
+      "records": [
+        {
+          "id": "1",
+          "messagesAdded": [
+            {
+              "message": {
+                "id": "m3",
+                "threadId": "t1",
+                "labelIds": [
+                  "INBOX",
+                  "UNREAD"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "messagesDeleted": [
+            {
+              "message": {
+                "id": "m3",
+                "threadId": "t1"
+              }
+            }
+          ]
+        }
+      ],
+      "expect": {
+        "relabeled": {
+          "t1": {
+            "m1": [
+              "INBOX"
+            ],
+            "m2": [
+              "INBOX",
+              "UNREAD"
+            ]
+          }
+        },
+        "added": {},
+        "removed": [],
+        "fetch": [],
+        "touched": [],
+        "check": []
+      }
+    },
+    {
+      "name": "a label change on a new message applies to it",
+      "saved": {
+        "t1": {
+          "m1": [
+            "INBOX"
+          ],
+          "m2": [
+            "INBOX",
+            "UNREAD"
+          ]
+        }
+      },
+      "days": 30,
+      "records": [
+        {
+          "id": "1",
+          "messagesAdded": [
+            {
+              "message": {
+                "id": "m3",
+                "threadId": "t1",
+                "labelIds": [
+                  "INBOX",
+                  "UNREAD"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "labelsRemoved": [
+            {
+              "message": {
+                "id": "m3",
+                "threadId": "t1"
+              },
+              "labelIds": [
+                "UNREAD"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": {
+        "relabeled": {
+          "t1": {
+            "m1": [
+              "INBOX"
+            ],
+            "m2": [
+              "INBOX",
+              "UNREAD"
+            ],
+            "m3": [
+              "INBOX"
+            ]
+          }
+        },
+        "added": {
+          "t1": [
+            "m3"
+          ]
+        },
+        "removed": [],
+        "fetch": [],
+        "touched": [],
+        "check": []
+      }
+    },
+    {
+      "name": "a message the saved thread already has is not read again",
+      "saved": {
+        "t1": {
+          "m1": [
+            "INBOX"
+          ],
+          "m2": [
+            "INBOX",
+            "UNREAD"
+          ]
+        }
+      },
+      "days": 30,
+      "records": [
+        {
+          "id": "1",
+          "messagesAdded": [
+            {
+              "message": {
+                "id": "m2",
+                "threadId": "t1",
+                "labelIds": [
+                  "INBOX",
+                  "UNREAD"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "expect": {
+        "relabeled": {},
+        "added": {},
+        "removed": [],
+        "fetch": [],
+        "touched": [],
+        "check": []
+      }
+    },
+    {
+      "name": "new mail in the inbox reads a thread not saved",
+      "saved": {
+        "t1": {
+          "m1": [
+            "INBOX"
+          ],
+          "m2": [
+            "INBOX",
+            "UNREAD"
+          ]
+        }
+      },
+      "days": 0,
+      "records": [
+        {
+          "id": "1",
+          "messagesAdded": [
+            {
+              "message": {
+                "id": "m9",
+                "threadId": "t9",
+                "labelIds": [
+                  "INBOX"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "expect": {
+        "relabeled": {},
+        "added": {},
+        "removed": [],
+        "fetch": [
+          "t9"
+        ],
+        "touched": [],
+        "check": []
+      }
+    },
+    {
+      "name": "new mail elsewhere is read while days are kept",
+      "saved": {
+        "t1": {
+          "m1": [
+            "INBOX"
+          ],
+          "m2": [
+            "INBOX",
+            "UNREAD"
+          ]
+        }
+      },
+      "days": 30,
+      "records": [
+        {
+          "id": "1",
+          "messagesAdded": [
+            {
+              "message": {
+                "id": "m9",
+                "threadId": "t9",
+                "labelIds": [
+                  "Label_2"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "expect": {
+        "relabeled": {},
+        "added": {},
+        "removed": [],
+        "fetch": [
+          "t9"
+        ],
+        "touched": [],
+        "check": []
+      }
+    },
+    {
+      "name": "with no days, new mail out of the inbox touches its thread and checks it for encryption",
+      "saved": {
+        "t1": {
+          "m1": [
+            "INBOX"
+          ],
+          "m2": [
+            "INBOX",
+            "UNREAD"
+          ]
+        }
+      },
+      "days": 0,
+      "records": [
+        {
+          "id": "1",
+          "messagesAdded": [
+            {
+              "message": {
+                "id": "m9",
+                "threadId": "t9",
+                "labelIds": [
+                  "Label_2"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "expect": {
+        "relabeled": {},
+        "added": {},
+        "removed": [],
+        "fetch": [],
+        "touched": [
+          "t9"
+        ],
+        "check": [
+          "t9"
+        ]
+      }
+    },
+    {
+      "name": "a checked thread that then enters the inbox is only read",
+      "saved": {
+        "t1": {
+          "m1": [
+            "INBOX"
+          ],
+          "m2": [
+            "INBOX",
+            "UNREAD"
+          ]
+        }
+      },
+      "days": 0,
+      "records": [
+        {
+          "id": "1",
+          "messagesAdded": [
+            {
+              "message": {
+                "id": "m9",
+                "threadId": "t9",
+                "labelIds": [
+                  "Label_2"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "labelsAdded": [
+            {
+              "message": {
+                "id": "m9",
+                "threadId": "t9"
+              },
+              "labelIds": [
+                "INBOX"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": {
+        "relabeled": {},
+        "added": {},
+        "removed": [],
+        "fetch": [
+          "t9"
+        ],
+        "touched": [],
+        "check": []
+      }
+    },
+    {
+      "name": "new spam isn't read",
+      "saved": {
+        "t1": {
+          "m1": [
+            "INBOX"
+          ],
+          "m2": [
+            "INBOX",
+            "UNREAD"
+          ]
+        }
+      },
+      "days": 30,
+      "records": [
+        {
+          "id": "1",
+          "messagesAdded": [
+            {
+              "message": {
+                "id": "m9",
+                "threadId": "t9",
+                "labelIds": [
+                  "SPAM"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "expect": {
+        "relabeled": {},
+        "added": {},
+        "removed": [],
+        "fetch": [],
+        "touched": [
+          "t9"
+        ],
+        "check": []
+      }
+    },
+    {
+      "name": "a thread entering the inbox is read",
+      "saved": {
+        "t1": {
+          "m1": [
+            "INBOX"
+          ],
+          "m2": [
+            "INBOX",
+            "UNREAD"
+          ]
+        }
+      },
+      "days": 0,
+      "records": [
+        {
+          "id": "1",
+          "labelsAdded": [
+            {
+              "message": {
+                "id": "m9",
+                "threadId": "t9"
+              },
+              "labelIds": [
+                "INBOX"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": {
+        "relabeled": {},
+        "added": {},
+        "removed": [],
+        "fetch": [
+          "t9"
+        ],
+        "touched": [],
+        "check": []
+      }
+    },
+    {
+      "name": "a thread pinned out of the inbox only touches it",
+      "saved": {
+        "t1": {
+          "m1": [
+            "INBOX"
+          ],
+          "m2": [
+            "INBOX",
+            "UNREAD"
+          ]
+        }
+      },
+      "days": 0,
+      "records": [
+        {
+          "id": "1",
+          "labelsAdded": [
+            {
+              "message": {
+                "id": "m9",
+                "threadId": "t9"
+              },
+              "labelIds": [
+                "STARRED"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": {
+        "relabeled": {},
+        "added": {},
+        "removed": [],
+        "fetch": [],
+        "touched": [
+          "t9"
+        ],
+        "check": []
+      }
+    },
+    {
+      "name": "another label on a thread not saved only touches it",
+      "saved": {
+        "t1": {
+          "m1": [
+            "INBOX"
+          ],
+          "m2": [
+            "INBOX",
+            "UNREAD"
+          ]
+        }
+      },
+      "days": 30,
+      "records": [
+        {
+          "id": "1",
+          "labelsAdded": [
+            {
+              "message": {
+                "id": "m9",
+                "threadId": "t9"
+              },
+              "labelIds": [
+                "Label_1"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": {
+        "relabeled": {},
+        "added": {},
+        "removed": [],
+        "fetch": [],
+        "touched": [
+          "t9"
+        ],
+        "check": []
+      }
+    },
+    {
+      "name": "out of spam is read while days are kept",
+      "saved": {
+        "t1": {
+          "m1": [
+            "INBOX"
+          ],
+          "m2": [
+            "INBOX",
+            "UNREAD"
+          ]
+        }
+      },
+      "days": 30,
+      "records": [
+        {
+          "id": "1",
+          "labelsRemoved": [
+            {
+              "message": {
+                "id": "m9",
+                "threadId": "t9"
+              },
+              "labelIds": [
+                "SPAM"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": {
+        "relabeled": {},
+        "added": {},
+        "removed": [],
+        "fetch": [
+          "t9"
+        ],
+        "touched": [],
+        "check": []
+      }
+    },
+    {
+      "name": "out of spam with no days touches and checks for encryption",
+      "saved": {
+        "t1": {
+          "m1": [
+            "INBOX"
+          ],
+          "m2": [
+            "INBOX",
+            "UNREAD"
+          ]
+        }
+      },
+      "days": 0,
+      "records": [
+        {
+          "id": "1",
+          "labelsRemoved": [
+            {
+              "message": {
+                "id": "m9",
+                "threadId": "t9"
+              },
+              "labelIds": [
+                "SPAM"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": {
+        "relabeled": {},
+        "added": {},
+        "removed": [],
+        "fetch": [],
+        "touched": [
+          "t9"
+        ],
+        "check": [
+          "t9"
+        ]
+      }
+    },
+    {
+      "name": "a change to a message not saved reads its thread",
+      "saved": {
+        "t1": {
+          "m1": [
+            "INBOX"
+          ],
+          "m2": [
+            "INBOX",
+            "UNREAD"
+          ]
+        }
+      },
+      "days": 30,
+      "records": [
+        {
+          "id": "1",
+          "labelsAdded": [
+            {
+              "message": {
+                "id": "m7",
+                "threadId": "t1"
+              },
+              "labelIds": [
+                "STARRED"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": {
+        "relabeled": {},
+        "added": {},
+        "removed": [],
+        "fetch": [
+          "t1"
+        ],
+        "touched": [],
+        "check": []
+      }
+    },
+    {
+      "name": "every message deleted removes the thread",
+      "saved": {
+        "t1": {
+          "m1": [
+            "INBOX"
+          ],
+          "m2": [
+            "INBOX",
+            "UNREAD"
+          ]
+        }
+      },
+      "days": 30,
+      "records": [
+        {
+          "id": "1",
+          "messagesDeleted": [
+            {
+              "message": {
+                "id": "m1",
+                "threadId": "t1"
+              }
+            },
+            {
+              "message": {
+                "id": "m2",
+                "threadId": "t1"
+              }
+            }
+          ]
+        }
+      ],
+      "expect": {
+        "relabeled": {},
+        "added": {},
+        "removed": [
+          "t1"
+        ],
+        "fetch": [],
+        "touched": [],
+        "check": []
+      }
+    },
+    {
+      "name": "one message deleted leaves the rest",
+      "saved": {
+        "t1": {
+          "m1": [
+            "INBOX"
+          ],
+          "m2": [
+            "INBOX",
+            "UNREAD"
+          ]
+        }
+      },
+      "days": 30,
+      "records": [
+        {
+          "id": "1",
+          "messagesDeleted": [
+            {
+              "message": {
+                "id": "m2",
+                "threadId": "t1"
+              }
+            }
+          ]
+        }
+      ],
+      "expect": {
+        "relabeled": {
+          "t1": {
+            "m1": [
+              "INBOX"
+            ]
+          }
+        },
+        "added": {},
+        "removed": [],
+        "fetch": [],
+        "touched": [],
+        "check": []
+      }
+    },
+    {
+      "name": "a deletion on a thread not saved touches it",
+      "saved": {
+        "t1": {
+          "m1": [
+            "INBOX"
+          ],
+          "m2": [
+            "INBOX",
+            "UNREAD"
+          ]
+        }
+      },
+      "days": 30,
+      "records": [
+        {
+          "id": "1",
+          "messagesDeleted": [
+            {
+              "message": {
+                "id": "m9",
+                "threadId": "t9"
+              }
+            }
+          ]
+        }
+      ],
+      "expect": {
+        "relabeled": {},
+        "added": {},
+        "removed": [],
+        "fetch": [],
+        "touched": [
+          "t9"
+        ],
+        "check": []
+      }
+    },
+    {
+      "name": "a thread touched and then read is only read",
+      "saved": {
+        "t1": {
+          "m1": [
+            "INBOX"
+          ],
+          "m2": [
+            "INBOX",
+            "UNREAD"
+          ]
+        }
+      },
+      "days": 30,
+      "records": [
+        {
+          "id": "1",
+          "labelsAdded": [
+            {
+              "message": {
+                "id": "m9",
+                "threadId": "t9"
+              },
+              "labelIds": [
+                "Label_1"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "messagesAdded": [
+            {
+              "message": {
+                "id": "m10",
+                "threadId": "t9",
+                "labelIds": [
+                  "INBOX"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "expect": {
+        "relabeled": {},
+        "added": {},
+        "removed": [],
+        "fetch": [
+          "t9"
+        ],
+        "touched": [],
+        "check": []
+      }
+    },
+    {
+      "name": "lists follow history's order",
+      "saved": {
+        "t1": {
+          "m1": [
+            "INBOX"
+          ],
+          "m2": [
+            "INBOX",
+            "UNREAD"
+          ]
+        }
+      },
+      "days": 30,
+      "records": [
+        {
+          "id": "1",
+          "messagesAdded": [
+            {
+              "message": {
+                "id": "m9",
+                "threadId": "t9",
+                "labelIds": [
+                  "INBOX"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "labelsAdded": [
+            {
+              "message": {
+                "id": "m8",
+                "threadId": "t8"
+              },
+              "labelIds": [
+                "Label_1"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "labelsAdded": [
+            {
+              "message": {
+                "id": "m1",
+                "threadId": "t1"
+              },
+              "labelIds": [
+                "STARRED"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": {
+        "relabeled": {
+          "t1": {
+            "m1": [
+              "INBOX",
+              "STARRED"
+            ],
+            "m2": [
+              "INBOX",
+              "UNREAD"
+            ]
+          }
+        },
+        "added": {},
+        "removed": [],
+        "fetch": [
+          "t9"
+        ],
+        "touched": [
+          "t8"
+        ],
+        "check": []
+      }
+    },
+    {
+      "name": "a change undone within the same history comes back as it was",
+      "saved": {
+        "t1": {
+          "m1": [
+            "INBOX"
+          ],
+          "m2": [
+            "INBOX",
+            "UNREAD"
+          ]
+        }
+      },
+      "days": 30,
+      "records": [
+        {
+          "id": "1",
+          "labelsAdded": [
+            {
+              "message": {
+                "id": "m1",
+                "threadId": "t1"
+              },
+              "labelIds": [
+                "STARRED"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "labelsRemoved": [
+            {
+              "message": {
+                "id": "m1",
+                "threadId": "t1"
+              },
+              "labelIds": [
+                "STARRED"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": {
+        "relabeled": {
+          "t1": {
+            "m1": [
+              "INBOX"
+            ],
+            "m2": [
+              "INBOX",
+              "UNREAD"
+            ]
+          }
+        },
+        "added": {},
+        "removed": [],
+        "fetch": [],
+        "touched": [],
+        "check": []
+      }
+    },
+    {
+      "name": "a new draft on a thread not saved is read whole with no days",
+      "saved": {},
+      "days": 0,
+      "records": [
+        {
+          "id": "1",
+          "messagesAdded": [
+            {
+              "message": {
+                "id": "m1",
+                "threadId": "t1",
+                "labelIds": [
+                  "DRAFT"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "expect": {
+        "relabeled": {},
+        "added": {},
+        "removed": [],
+        "fetch": [
+          "t1"
+        ],
+        "touched": [],
+        "check": []
+      }
+    },
+    {
+      "name": "other new mail on a thread not saved is only checked with no days",
+      "saved": {},
+      "days": 0,
+      "records": [
+        {
+          "id": "1",
+          "messagesAdded": [
+            {
+              "message": {
+                "id": "m1",
+                "threadId": "t1",
+                "labelIds": [
+                  "SENT"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "expect": {
+        "relabeled": {},
+        "added": {},
+        "removed": [],
+        "fetch": [],
+        "touched": [
+          "t1"
+        ],
+        "check": [
+          "t1"
+        ]
+      }
+    }
+  ],
+  "order": [
+    {
+      "name": "the inbox first, then the rest, each most recently named first",
+      "records": [
+        {
+          "id": "1",
+          "messagesAdded": [
+            {
+              "message": {
+                "id": "a1",
+                "threadId": "a",
+                "labelIds": [
+                  "INBOX"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "messagesAdded": [
+            {
+              "message": {
+                "id": "b1",
+                "threadId": "b",
+                "labelIds": [
+                  "Label_2"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "labelsAdded": [
+            {
+              "message": {
+                "id": "c1",
+                "threadId": "c"
+              },
+              "labelIds": [
+                "INBOX"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "4",
+          "messagesAdded": [
+            {
+              "message": {
+                "id": "d1",
+                "threadId": "d",
+                "labelIds": [
+                  "SENT"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "fetch": [
+        "a",
+        "b",
+        "c",
+        "d"
+      ],
+      "expect": [
+        "c",
+        "a",
+        "d",
+        "b"
+      ]
+    },
+    {
+      "name": "a thread named again later counts from its last record",
+      "records": [
+        {
+          "id": "1",
+          "messagesAdded": [
+            {
+              "message": {
+                "id": "a1",
+                "threadId": "a",
+                "labelIds": [
+                  "Label_2"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "messagesAdded": [
+            {
+              "message": {
+                "id": "b1",
+                "threadId": "b",
+                "labelIds": [
+                  "Label_2"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "labelsRemoved": [
+            {
+              "message": {
+                "id": "a1",
+                "threadId": "a"
+              },
+              "labelIds": [
+                "UNREAD"
+              ]
+            }
+          ]
+        }
+      ],
+      "fetch": [
+        "a",
+        "b"
+      ],
+      "expect": [
+        "a",
+        "b"
+      ]
+    }
+  ],
+  "labels": [
+    {
+      "name": "every message's labels, first seen first",
+      "messages": {
+        "m1": [
+          "INBOX",
+          "UNREAD"
+        ],
+        "m2": [
+          "INBOX",
+          "STARRED"
+        ]
+      },
+      "expect": [
+        "INBOX",
+        "UNREAD",
+        "STARRED"
+      ]
+    },
+    {
+      "name": "none",
+      "messages": {},
+      "expect": []
+    }
+  ]
+}

@@ -1,0 +1,100 @@
+{
+  "_doc": {
+    "about": "A todo's #tags read as the user's Gmail labels (shared/src/todos/label-tags.ts, Android :core todo/LabelTags.kt). Every case reads `labels`; only type \"user\" labels count.",
+    "keys": "tagKey(in): lower case, each run of anything but letters, digits, marks and '_' as one '-', '-' and '_' trimmed from each '/' part, empty parts dropped. tag: labelTag(in), the key, or null when it has no letter.",
+    "carried": "todoLabelIds(text): the ids of the labels the text's tags name, in tag order, each once; labels sharing a key are all named, in name order.",
+    "color": "tagLabel(tag): the id of the first label (by name) the tag names, or null.",
+    "suggest": "suggestTags(countTags(texts), own, prefix, limit ?? 5, labelTagNames(labels)): tags in use first, by use, then label tags no text uses, by key.",
+    "rename": "renameTags(in, from, to): tags naming label `from` (or a label nested under it) rewritten for `to`.",
+    "list": "labelTodos(todos, labelId): the ids of the todos whose tags name the label, in order.",
+    "threads": "taggedThreadIds(threadIds, listed): the thread ids that listed lacks, each once, in order.",
+    "filter": "taggedFilter(filter, labels): the filter with the user labels' ids dropped from requires."
+  },
+  "labels": [
+    { "id": "L1", "name": "Read Later", "type": "user" },
+    { "id": "L2", "name": "Work", "type": "user" },
+    { "id": "L3", "name": "Work/Projects", "type": "user" },
+    { "id": "CATEGORY_PROMOTIONS", "name": "CATEGORY_PROMOTIONS", "type": "system" },
+    { "id": "INBOX", "name": "INBOX", "type": "system" },
+    { "id": "L5", "name": "2024", "type": "user" },
+    { "id": "L6", "name": "Bills & Receipts", "type": "user" },
+    { "id": "L7", "name": "Read-Later", "type": "user" },
+    { "id": "L8", "name": "Café", "type": "user" }
+  ],
+  "keys": [
+    { "name": "spaces as hyphens", "in": "Read Later", "key": "read-later", "tag": "read-later" },
+    { "name": "hyphen runs as one", "in": "read--later", "key": "read-later", "tag": "read-later" },
+    { "name": "nesting kept", "in": "Work/Projects", "key": "work/projects", "tag": "work/projects" },
+    { "name": "punctuation as a hyphen", "in": "Bills & Receipts", "key": "bills-receipts", "tag": "bills-receipts" },
+    { "name": "no letter, no tag", "in": "2024", "key": "2024", "tag": null },
+    { "name": "accents kept", "in": "Café", "key": "café", "tag": "café" },
+    { "name": "edges trimmed", "in": " Trim me! ", "key": "trim-me", "tag": "trim-me" },
+    { "name": "empty parts dropped", "in": "a/ /b", "key": "a/b", "tag": "a/b" },
+    { "name": "underscores kept inside", "in": "_Read_Later_", "key": "read_later", "tag": "read_later" },
+    { "name": "digits inside a nested label", "in": "2024/Taxes", "key": "2024/taxes", "tag": "2024/taxes" }
+  ],
+  "carried": [
+    { "name": "hyphens for spaces, both labels with that key", "text": "#read-later book", "ids": ["L1", "L7"] },
+    { "name": "any case", "text": "#Read-Later", "ids": ["L1", "L7"] },
+    { "name": "nested by full path, in tag order", "text": "#work/projects and #work", "ids": ["L3", "L2"] },
+    { "name": "a hyphen doesn't name a nested label", "text": "#work-projects", "ids": [] },
+    { "name": "categories don't count", "text": "#category_promotions", "ids": [] },
+    { "name": "a number isn't a tag", "text": "#2024", "ids": [] },
+    { "name": "punctuation in the label", "text": "#bills-receipts", "ids": ["L6"] },
+    { "name": "accents must match", "text": "#cafe #Café", "ids": ["L8"] },
+    { "name": "no such label", "text": "#errand", "ids": [] },
+    { "name": "each once", "text": "call #work, then #WORK", "ids": ["L2"] }
+  ],
+  "color": [
+    { "name": "first by name", "tag": "read-later", "id": "L1" },
+    { "name": "any case", "tag": "WORK", "id": "L2" },
+    { "name": "none", "tag": "home", "id": null }
+  ],
+  "suggest": [
+    { "name": "labels after tags in use", "texts": ["#home a", "#home b", "#read-later x"], "own": "", "prefix": "", "out": ["home", "read-later", "bills-receipts", "café", "work"] },
+    { "name": "labels by prefix", "texts": [], "own": "", "prefix": "wo", "out": ["work", "work/projects"] },
+    { "name": "exact name left out", "texts": [], "own": "", "prefix": "work", "out": ["work/projects"] },
+    { "name": "own tags left out", "texts": [], "own": "#Work today", "prefix": "wo", "out": ["work/projects"] },
+    { "name": "a tag in use keeps its spelling", "texts": ["#Read-Later"], "own": "", "prefix": "read", "out": ["Read-Later"] },
+    { "name": "tags in use come first", "texts": ["#workout", "#workout"], "own": "", "prefix": "wo", "out": ["workout", "work", "work/projects"] },
+    { "name": "limit", "texts": [], "own": "", "prefix": "", "limit": 2, "out": ["bills-receipts", "café"] }
+  ],
+  "rename": [
+    { "name": "a tag for a renamed label", "in": "#read-later book", "from": "Read Later", "to": "Someday", "out": "#someday book" },
+    { "name": "any spelling, others kept", "in": "#Read-Later and #read_later", "from": "Read Later", "to": "Someday", "out": "#someday and #read_later" },
+    { "name": "nested labels follow", "in": "#work/projects #work #workout", "from": "Work", "to": "Job", "out": "#job/projects #job #workout" },
+    { "name": "nested parts keep their spelling", "in": "#Work/Big-Projects", "from": "Work", "to": "Job Stuff", "out": "#job-stuff/Big-Projects" },
+    { "name": "a nested label renamed", "in": "#work/projects #work", "from": "Work/Projects", "to": "Work/Active", "out": "#work/active #work" },
+    { "name": "a name with no letter leaves the text", "in": "#work", "from": "Work", "to": "2025", "out": "#work" },
+    { "name": "inside brackets", "in": "(#work) done", "from": "Work", "to": "Job", "out": "(#job) done" },
+    { "name": "a trailing hyphen stays outside", "in": "#work- now", "from": "Work", "to": "Job", "out": "#job- now" }
+  ],
+  "list": [
+    {
+      "name": "a label's own todos",
+      "labelId": "L2",
+      "todos": [{ "id": "a", "text": "#work x" }, { "id": "b", "text": "#work/projects" }, { "id": "c", "text": "#home" }],
+      "ids": ["a"]
+    },
+    {
+      "name": "a nested label's",
+      "labelId": "L3",
+      "todos": [{ "id": "a", "text": "#work x" }, { "id": "b", "text": "#work/projects" }],
+      "ids": ["b"]
+    },
+    {
+      "name": "a category has none",
+      "labelId": "CATEGORY_PROMOTIONS",
+      "todos": [{ "id": "a", "text": "#category_promotions" }],
+      "ids": []
+    }
+  ],
+  "threads": [
+    { "name": "threads the list lacks, each once", "threadIds": ["t1", "t2", "t1"], "listed": ["t2", "t3"], "ids": ["t1"] },
+    { "name": "none", "threadIds": [], "listed": [], "ids": [] }
+  ],
+  "filter": [
+    { "name": "a label's list", "filter": { "requires": ["L2"], "excludes": ["SPAM", "TRASH"], "snoozed": "either" }, "out": { "requires": [], "excludes": ["SPAM", "TRASH"], "snoozed": "either" } },
+    { "name": "other requirements kept", "filter": { "requires": ["INBOX", "L1", "CATEGORY_PROMOTIONS"], "excludes": [], "snoozed": "never" }, "out": { "requires": ["INBOX", "CATEGORY_PROMOTIONS"], "excludes": [], "snoozed": "never" } }
+  ]
+}

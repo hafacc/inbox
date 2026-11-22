@@ -1,0 +1,655 @@
+{
+ "_doc": "Typing in the search field around chips (shared/src/chip-or.ts typeFree, Android :core ChipOr.kt). Each case starts from `chips` (default none) and `spot` (default null) and types each step's text with its cursor (null: field not focused); `expect` is the chips, free text, cursor in it and spot after the step. `tags` turns finished #tags into chips.",
+ "type": [
+  {
+   "name": "a chip followed by a typed OR goes back into the text in place",
+   "steps": [
+    {
+     "text": "hello from:alice ",
+     "cursor": 17,
+     "expect": {
+      "chips": [
+       {
+        "operator": "from",
+        "value": "alice",
+        "negated": false
+       }
+      ],
+      "free": "hello ",
+      "cursor": 6,
+      "spot": {
+       "chip": {
+        "operator": "from",
+        "value": "alice",
+        "negated": false
+       },
+       "index": 0,
+       "before": "hello "
+      }
+     }
+    },
+    {
+     "text": "hello OR",
+     "cursor": 8,
+     "expect": {
+      "chips": [],
+      "free": "hello from:alice OR",
+      "cursor": 19,
+      "spot": null
+     }
+    },
+    {
+     "text": "hello from:alice OR world",
+     "cursor": 25,
+     "expect": {
+      "chips": [],
+      "free": "hello from:alice OR world",
+      "cursor": 25,
+      "spot": null
+     }
+    }
+   ]
+  },
+  {
+   "name": "a word starting with OR keeps the chip",
+   "steps": [
+    {
+     "text": "hello from:alice ",
+     "cursor": 17,
+     "expect": {
+      "chips": [
+       {
+        "operator": "from",
+        "value": "alice",
+        "negated": false
+       }
+      ],
+      "free": "hello ",
+      "cursor": 6,
+      "spot": {
+       "chip": {
+        "operator": "from",
+        "value": "alice",
+        "negated": false
+       },
+       "index": 0,
+       "before": "hello "
+      }
+     }
+    },
+    {
+     "text": "hello ORANGE",
+     "cursor": 12,
+     "expect": {
+      "chips": [
+       {
+        "operator": "from",
+        "value": "alice",
+        "negated": false
+       }
+      ],
+      "free": "hello ORANGE",
+      "cursor": 12,
+      "spot": {
+       "chip": {
+        "operator": "from",
+        "value": "alice",
+        "negated": false
+       },
+       "index": 0,
+       "before": "hello "
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "OR after another word keeps the chip",
+   "steps": [
+    {
+     "text": "hello from:alice ",
+     "cursor": 17,
+     "expect": {
+      "chips": [
+       {
+        "operator": "from",
+        "value": "alice",
+        "negated": false
+       }
+      ],
+      "free": "hello ",
+      "cursor": 6,
+      "spot": {
+       "chip": {
+        "operator": "from",
+        "value": "alice",
+        "negated": false
+       },
+       "index": 0,
+       "before": "hello "
+      }
+     }
+    },
+    {
+     "text": "hello world OR",
+     "cursor": 14,
+     "expect": {
+      "chips": [
+       {
+        "operator": "from",
+        "value": "alice",
+        "negated": false
+       }
+      ],
+      "free": "hello world OR",
+      "cursor": 14,
+      "spot": {
+       "chip": {
+        "operator": "from",
+        "value": "alice",
+        "negated": false
+       },
+       "index": 0,
+       "before": "hello "
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "text before the chip changed keeps the chip",
+   "steps": [
+    {
+     "text": "hello from:alice ",
+     "cursor": 17,
+     "expect": {
+      "chips": [
+       {
+        "operator": "from",
+        "value": "alice",
+        "negated": false
+       }
+      ],
+      "free": "hello ",
+      "cursor": 6,
+      "spot": {
+       "chip": {
+        "operator": "from",
+        "value": "alice",
+        "negated": false
+       },
+       "index": 0,
+       "before": "hello "
+      }
+     }
+    },
+    {
+     "text": "bye OR",
+     "cursor": 6,
+     "expect": {
+      "chips": [
+       {
+        "operator": "from",
+        "value": "alice",
+        "negated": false
+       }
+      ],
+      "free": "bye OR",
+      "cursor": 6,
+      "spot": {
+       "chip": {
+        "operator": "from",
+        "value": "alice",
+        "negated": false
+       },
+       "index": 0,
+       "before": "hello "
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "lower-case or keeps the chip",
+   "steps": [
+    {
+     "text": "hello from:alice ",
+     "cursor": 17,
+     "expect": {
+      "chips": [
+       {
+        "operator": "from",
+        "value": "alice",
+        "negated": false
+       }
+      ],
+      "free": "hello ",
+      "cursor": 6,
+      "spot": {
+       "chip": {
+        "operator": "from",
+        "value": "alice",
+        "negated": false
+       },
+       "index": 0,
+       "before": "hello "
+      }
+     }
+    },
+    {
+     "text": "hello or",
+     "cursor": 8,
+     "expect": {
+      "chips": [
+       {
+        "operator": "from",
+        "value": "alice",
+        "negated": false
+       }
+      ],
+      "free": "hello or",
+      "cursor": 8,
+      "spot": {
+       "chip": {
+        "operator": "from",
+        "value": "alice",
+        "negated": false
+       },
+       "index": 0,
+       "before": "hello "
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "a chip formed mid-text goes back before the OR",
+   "steps": [
+    {
+     "text": "hello from:alice world",
+     "cursor": 17,
+     "expect": {
+      "chips": [
+       {
+        "operator": "from",
+        "value": "alice",
+        "negated": false
+       }
+      ],
+      "free": "hello world",
+      "cursor": 6,
+      "spot": {
+       "chip": {
+        "operator": "from",
+        "value": "alice",
+        "negated": false
+       },
+       "index": 0,
+       "before": "hello "
+      }
+     }
+    },
+    {
+     "text": "hello OR world",
+     "cursor": 8,
+     "expect": {
+      "chips": [],
+      "free": "hello from:alice OR world",
+      "cursor": 19,
+      "spot": null
+     }
+    }
+   ]
+  },
+  {
+   "name": "a chip at the start goes back with no leading space",
+   "steps": [
+    {
+     "text": "from:alice ",
+     "cursor": 11,
+     "expect": {
+      "chips": [
+       {
+        "operator": "from",
+        "value": "alice",
+        "negated": false
+       }
+      ],
+      "free": "",
+      "cursor": 0,
+      "spot": {
+       "chip": {
+        "operator": "from",
+        "value": "alice",
+        "negated": false
+       },
+       "index": 0,
+       "before": ""
+      }
+     }
+    },
+    {
+     "text": "OR",
+     "cursor": 2,
+     "expect": {
+      "chips": [],
+      "free": "from:alice OR",
+      "cursor": 13,
+      "spot": null
+     }
+    }
+   ]
+  },
+  {
+   "name": "a negated chip goes back negated",
+   "steps": [
+    {
+     "text": "-from:alice ",
+     "cursor": 12,
+     "expect": {
+      "chips": [
+       {
+        "operator": "from",
+        "value": "alice",
+        "negated": true
+       }
+      ],
+      "free": "",
+      "cursor": 0,
+      "spot": {
+       "chip": {
+        "operator": "from",
+        "value": "alice",
+        "negated": true
+       },
+       "index": 0,
+       "before": ""
+      }
+     }
+    },
+    {
+     "text": "OR",
+     "cursor": 2,
+     "expect": {
+      "chips": [],
+      "free": "-from:alice OR",
+      "cursor": 14,
+      "spot": null
+     }
+    }
+   ]
+  },
+  {
+   "name": "a tag chip followed by a typed OR goes back into the text too",
+   "tags": true,
+   "steps": [
+    {
+     "text": "#home ",
+     "cursor": 6,
+     "expect": {
+      "chips": [
+       {
+        "operator": "#",
+        "value": "home",
+        "negated": false
+       }
+      ],
+      "free": "",
+      "cursor": 0,
+      "spot": {
+       "chip": {
+        "operator": "#",
+        "value": "home",
+        "negated": false
+       },
+       "index": 0,
+       "before": ""
+      }
+     }
+    },
+    {
+     "text": "OR",
+     "cursor": 2,
+     "expect": {
+      "chips": [],
+      "free": "#home OR",
+      "cursor": 8,
+      "spot": null
+     }
+    }
+   ]
+  },
+  {
+   "name": "without a cursor the OR is looked for at the end",
+   "steps": [
+    {
+     "text": "hello from:alice ",
+     "cursor": 17,
+     "expect": {
+      "chips": [
+       {
+        "operator": "from",
+        "value": "alice",
+        "negated": false
+       }
+      ],
+      "free": "hello ",
+      "cursor": 6,
+      "spot": {
+       "chip": {
+        "operator": "from",
+        "value": "alice",
+        "negated": false
+       },
+       "index": 0,
+       "before": "hello "
+      }
+     }
+    },
+    {
+     "text": "hello OR",
+     "cursor": null,
+     "expect": {
+      "chips": [],
+      "free": "hello from:alice OR",
+      "cursor": 19,
+      "spot": null
+     }
+    }
+   ]
+  },
+  {
+   "name": "a spot for a chip no longer last is ignored",
+   "chips": [
+    {
+     "operator": "from",
+     "value": "alice",
+     "negated": false
+    },
+    {
+     "operator": "from",
+     "value": "bob",
+     "negated": false
+    }
+   ],
+   "spot": {
+    "chip": {
+     "operator": "from",
+     "value": "alice",
+     "negated": false
+    },
+    "index": 0,
+    "before": "hello "
+   },
+   "steps": [
+    {
+     "text": "hello OR",
+     "cursor": 8,
+     "expect": {
+      "chips": [
+       {
+        "operator": "from",
+        "value": "alice",
+        "negated": false
+       },
+       {
+        "operator": "from",
+        "value": "bob",
+        "negated": false
+       }
+      ],
+      "free": "hello OR",
+      "cursor": 8,
+      "spot": {
+       "chip": {
+        "operator": "from",
+        "value": "alice",
+        "negated": false
+       },
+       "index": 0,
+       "before": "hello "
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "a spot whose chip was taken away is ignored",
+   "chips": [],
+   "spot": {
+    "chip": {
+     "operator": "from",
+     "value": "alice",
+     "negated": false
+    },
+    "index": 0,
+    "before": "hello "
+   },
+   "steps": [
+    {
+     "text": "hello OR",
+     "cursor": 8,
+     "expect": {
+      "chips": [],
+      "free": "hello OR",
+      "cursor": 8,
+      "spot": {
+       "chip": {
+        "operator": "from",
+        "value": "alice",
+        "negated": false
+       },
+       "index": 0,
+       "before": "hello "
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "two chips at once leave no spot",
+   "steps": [
+    {
+     "text": "from:a to:b ",
+     "cursor": 12,
+     "expect": {
+      "chips": [
+       {
+        "operator": "from",
+        "value": "a",
+        "negated": false
+       },
+       {
+        "operator": "to",
+        "value": "b",
+        "negated": false
+       }
+      ],
+      "free": "",
+      "cursor": 0,
+      "spot": null
+     }
+    },
+    {
+     "text": "OR",
+     "cursor": 2,
+     "expect": {
+      "chips": [
+       {
+        "operator": "from",
+        "value": "a",
+        "negated": false
+       },
+       {
+        "operator": "to",
+        "value": "b",
+        "negated": false
+       }
+      ],
+      "free": "OR",
+      "cursor": 2,
+      "spot": null
+     }
+    }
+   ]
+  },
+  {
+   "name": "chips already there come first",
+   "chips": [
+    {
+     "operator": "is",
+     "value": "unread",
+     "negated": false
+    }
+   ],
+   "spot": null,
+   "steps": [
+    {
+     "text": "from:alice ",
+     "cursor": 11,
+     "expect": {
+      "chips": [
+       {
+        "operator": "is",
+        "value": "unread",
+        "negated": false
+       },
+       {
+        "operator": "from",
+        "value": "alice",
+        "negated": false
+       }
+      ],
+      "free": "",
+      "cursor": 0,
+      "spot": {
+       "chip": {
+        "operator": "from",
+        "value": "alice",
+        "negated": false
+       },
+       "index": 1,
+       "before": ""
+      }
+     }
+    },
+    {
+     "text": "OR",
+     "cursor": 2,
+     "expect": {
+      "chips": [
+       {
+        "operator": "is",
+        "value": "unread",
+        "negated": false
+       }
+      ],
+      "free": "from:alice OR",
+      "cursor": 13,
+      "spot": null
+     }
+    }
+   ]
+  }
+ ]
+}

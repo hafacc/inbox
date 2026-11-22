@@ -1,0 +1,70 @@
+{
+  "checks": [
+    { "name": "plain name", "input": "ana", "expect": { "ok": true, "name": "ana" } },
+    { "name": "trimmed and lowercased", "input": "  Ana.Lee-2 ", "expect": { "ok": true, "name": "ana.lee-2" } },
+    { "name": "drops the domain, any case, before the other checks", "input": " Test@HAFA.cc ", "expect": { "ok": false, "problem": "reserved" } },
+    { "name": "two characters", "input": "a1", "expect": { "ok": true, "name": "a1" } },
+    {
+      "name": "thirty-two characters",
+      "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expect": { "ok": true, "name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }
+    },
+    { "name": "one character", "input": "a", "expect": { "ok": false, "problem": "length" } },
+    { "name": "empty", "input": "   ", "expect": { "ok": false, "problem": "length" } },
+    { "name": "only the domain", "input": "@hafa.cc", "expect": { "ok": false, "problem": "length" } },
+    {
+      "name": "thirty-three characters",
+      "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expect": { "ok": false, "problem": "length" }
+    },
+    { "name": "plus", "input": "ana+x", "expect": { "ok": false, "problem": "characters" } },
+    { "name": "underscore", "input": "ana_lee", "expect": { "ok": false, "problem": "characters" } },
+    { "name": "space", "input": "ana lee", "expect": { "ok": false, "problem": "characters" } },
+    { "name": "accented letter", "input": "anä", "expect": { "ok": false, "problem": "characters" } },
+    { "name": "another domain", "input": "ana@x.example.com", "expect": { "ok": false, "problem": "characters" } },
+    { "name": "leading dot", "input": ".ana", "expect": { "ok": false, "problem": "edges" } },
+    { "name": "trailing dot", "input": "ana.", "expect": { "ok": false, "problem": "edges" } },
+    { "name": "leading hyphen", "input": "-ana", "expect": { "ok": false, "problem": "edges" } },
+    { "name": "trailing hyphen", "input": "ana-", "expect": { "ok": false, "problem": "edges" } },
+    { "name": "two dots", "input": "an..a", "expect": { "ok": false, "problem": "punctuation" } },
+    { "name": "dot then hyphen", "input": "an.-a", "expect": { "ok": false, "problem": "punctuation" } },
+    { "name": "two hyphens", "input": "an--a", "expect": { "ok": false, "problem": "punctuation" } },
+    { "name": "role address", "input": "postmaster", "expect": { "ok": false, "problem": "reserved" } },
+    { "name": "role address with a hyphen", "input": "no-reply", "expect": { "ok": false, "problem": "reserved" } },
+    { "name": "role address with a dot", "input": "Post.Master", "expect": { "ok": false, "problem": "reserved" } },
+    { "name": "split role address", "input": "mailer-daemon", "expect": { "ok": false, "problem": "reserved" } },
+    { "name": "common role", "input": "billing", "expect": { "ok": false, "problem": "reserved" } },
+    { "name": "subdomain", "input": "openpgpkey", "expect": { "ok": false, "problem": "reserved" } },
+    { "name": "app", "input": "latr", "expect": { "ok": false, "problem": "reserved" } },
+    { "name": "reserved name with the domain", "input": "support@hafa.cc", "expect": { "ok": false, "problem": "reserved" } },
+    { "name": "longer than a reserved name", "input": "supporter", "expect": { "ok": true, "name": "supporter" } },
+    { "name": "dotted ordinary name", "input": "jordan.l", "expect": { "ok": true, "name": "jordan.l" } }
+  ],
+  "refusals": [
+    { "reason": "length", "address": null, "text": "Use 2 to 32 characters." },
+    { "reason": "characters", "address": null, "text": "Use letters, digits, dots and hyphens." },
+    { "reason": "edges", "address": null, "text": "Start and end with a letter or digit." },
+    { "reason": "punctuation", "address": null, "text": "Don't put dots or hyphens next to each other." },
+    { "reason": "reserved", "address": null, "text": "That name is reserved." },
+    { "reason": "taken", "address": null, "text": "That name is taken." },
+    { "reason": "has-address", "address": null, "text": "You already have an address." },
+    {
+      "reason": "had-address",
+      "address": null,
+      "text": "Your account already had an address — you can only take that one back."
+    },
+    {
+      "reason": "had-address",
+      "address": "test@hafa.cc",
+      "text": "Your account already had test@hafa.cc — you can only take that one back."
+    },
+    { "reason": "taken", "address": "test@hafa.cc", "text": "That name is taken." },
+    { "reason": "no-gmail", "address": null, "text": "Sign in again to set up an address." },
+    { "reason": "releasing", "address": null, "text": "Try again in a moment." },
+    { "reason": "not-configured", "address": null, "text": "@hafa.cc addresses aren't available yet." },
+    { "reason": "no-address", "address": null, "text": "You don't have an address anymore." },
+    { "reason": "other", "address": null, "text": null },
+    { "reason": "toString", "address": null, "text": null },
+    { "reason": null, "address": null, "text": null }
+  ]
+}

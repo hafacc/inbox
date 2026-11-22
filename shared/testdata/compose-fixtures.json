@@ -1,0 +1,2173 @@
+{
+  "_doc": {
+    "about": "Message building every client must match: web (shared/src/compose, TypeScript) and Android :core (Kotlin). Line breaks inside expected strings are exact; built messages use CRLF.",
+    "markdown": "markdownToHtml(markdown), compared after normalizeHtml, and markdownToText(markdown). The text styles are latr's (markdown-span-fixtures.json and inline-style-fixtures.json): *bold* becomes <b>, _italic_ <i>, both without their markers; a bare URL becomes <a href> (a www. one to http://); ![alt](cid:id) becomes <img src=\"cid:id\" alt=\"alt\">; everything else as rich-fixtures.json reads it (markdownToRich, then richToHtml): inline code, ~~strike~~, [links](url), # headings, - and 1. lists, > quotes and ``` code blocks; text is escaped (& < > \"), and the line breaks between plain lines are <br>. normalizeHtml: replace /\\s*\\/>/ with '>', '&#39;' with \"'\", />\\s+</ with '><', then trim. Plain text is the source as typed: CRLF/CR to LF, trailing spaces and tabs removed from each line, leading and trailing blank lines removed; the HTML is rendered from that trimmed text.",
+    "body": "bodyParts(body, signature): html (normalized) is <div dir=\"auto\">BODY</div> then <div class=\"signature\">SIGNATURE</div>; text is BODY, a blank line, '-- ' (dash dash space) and the signature. A null or blank signature adds nothing; an empty body leaves just '-- ' and the signature. With `quote` (a reply): html gains '<br>' + '<div class=\"gmail_quote gmail_quote_container\"><div dir=\"ltr\" class=\"gmail_attr\">' + escaped attribution + '<br></div><blockquote class=\"gmail_quote\" style=\"margin:0px 0px 0px 0.8ex;border-left:1px solid rgb(204,204,204);padding-left:1ex\">' + (quotableHtml(html), or when html is null '<div dir=\"auto\">' + escaped text lines joined by '<br>' + '</div>') + '</blockquote></div>'; text gains a blank line (unless empty so far) and quoteText(quote). quote.dateLocal is a local time.",
+    "replySubject": "Kept when it starts (after trimming) with Re: in any case, or Re[n]:; else 'Re: ' + trimmed subject; empty gives 'Re:'.",
+    "forwardSubject": "Kept when it starts with Fwd: or Fw: (any case); else 'Fwd: ' + trimmed; empty gives 'Fwd:'.",
+    "replyHeaders": "In-Reply-To = the source's Message-ID. References = message ids (<...>) of the source's References, or when it has none its In-Reply-To if that holds exactly one id, then the source's own id last; each id once, with no limit on how many. Null when the source's Message-ID holds no <id> (an id is <, then one or more characters that are not <, >, whitespace or a control character, then >): nothing of a raw value is copied.",
+    "recipients": "replyRecipients(original, own, replyAll): see shared/src/compose/reply.ts. Addresses compare trimmed and lower-cased; own addresses never appear; first occurrence wins.",
+    "replyFrom": "replyFromAddress(original, own, fallback): the first own address found in To then Cc, as spelled in `own`; else fallback.",
+    "mailbox": "formatMailbox: no name -> address; printable ASCII words -> 'Name <addr>'; ASCII with specials ()<>[]:;@\\,.\" or a run of spaces -> quoted string with \\ and \" backslash-escaped; non-ASCII or containing '=?' -> RFC 2047 B words (UTF-8, at most 45 bytes each, never splitting a character) joined by spaces. Names and the address are trimmed first.",
+    "headerText": "encodeHeaderText: printable ASCII without '=?' is unchanged; anything else becomes B encoded words as for names.",
+    "fold": "foldHeader(name, value): 'Name: value' split at single spaces into lines of at most 78 characters where possible, continuation lines starting with one space, joined by CRLF; a word is never split.",
+    "qp": "quotedPrintable(text) over UTF-8, CRLF line breaks; bytes 33-60 and 62-126 literal; space and tab literal unless last on the line; others =XX upper-case; soft break '=' when the line would pass 75 characters; escapes never split.",
+    "base64Lines": "Standard base64 with padding of the UTF-8 bytes of `utf8`, 76 characters per line, CRLF between lines, no trailing break.",
+    "mime": "buildMime(input): file `data` fields here are standard base64 of the bytes. Expected is the exact message text. Boundaries are =_<boundary>_0 for the outermost multipart, counting inward. input.quote, when present, carries dateLocal (a local time) in place of date.",
+    "attribution": "quoteAttribution(from, date) in the device's zone (fixtures: America/New_York), 24-hour: 'On <Ddd>, <Mmm> <d>, <yyyy> at <HH:mm>, <Name> <<email>> wrote:'; English abbreviations; day of month without padding; a blank (after trimming) name gives '<<email>>' alone. dateLocal is a local time.",
+    "quoteText": "quoteText(quote): attribution, a blank line, then the original text (CRLF/CR to LF, trailing spaces/tabs trimmed per line, leading/trailing blank lines dropped) with each line as '> ' + line and a blank line as '>'. With no text left, just the attribution.",
+    "quotableHtml": "quotableHtml(html): the inside of <body> if present (to </body> or the end), then remove <!doctype>, comments, <head>...</head>, <script>...</script> and any <html>/<body> tags left; trim.",
+    "splitText": "splitQuotedText(text) -> { body, quote }: see shared/src/compose/quote.ts. A line '-----Original Message-----' (2+ dashes each side, any case) starts a quote to the end. Otherwise the trailing run of '>' lines (blank lines inside allowed, only blank lines after) is a quote when the nearest non-blank line above ends with ':' (that line, or the line before too when it starts with 'On ' and this one doesn't, is the attribution). body is the text above, trailing whitespace removed; quote runs from the attribution, trailing whitespace removed. No quote (body = input, quote = null) without an attribution or when body would be blank. Input line breaks are normalized to LF first.",
+    "splitHtml": "splitQuotedHtml(html) -> { body, quote }: see shared/src/compose/quote.ts. Markers, matched case-insensitively at an opening tag: div/blockquote with class gmail_quote or gmail_quote_container; blockquote type=cite; div class moz-cite-prefix or yahoo_quoted; div id divRplyFwdMsg or appendonsend (Outlook: the quote runs to the end whatever follows). An element ends at its matching close tag, counting nested tags of the same name (the end of input if unclosed). The quote starts at the first marker after whose element all visible text (tags, <style>/<script> elements and &nbsp; removed, trimmed) lies inside later markers' elements; body = html before its opening tag, quote = the rest. No quote when none qualifies or the body has no visible text. Either way the body then loses its trailing blanks: whitespace, &nbsp;/&#160;/&#xa0;, <br>, opening tags of div/p/span/font/b/i/u/strong/em, and such elements holding only blanks (an element with a style, height, bgcolor or background attribute is kept), repeated from the end.",
+    "quotedContentIds": "quotedContentIds(html): the Content-IDs the quoted original's HTML refers to as cid: URLs, in order of first use, each once, looking only at quotableHtml(html). A cid: URL ends at a quote, whitespace, ')', '>' or ';', and is percent-decoded (kept as is when decoding fails). null html gives []. The reply attaches those inline parts of the original again, with the same Content-ID.",
+    "invalidMailbox": "formatMailbox(mailbox) must throw (InvalidAddressError; Android: its own typed error) when the trimmed address isn't exactly one '@' with text on each side, or holds whitespace (JavaScript \\s: Unicode spaces too, e.g. U+00A0), a control character, ',', ';', '<' or '>'. buildMime throws the same error for any such From/To/Cc/Bcc.",
+    "answerHeaders": "answerHeaders(source, forward): subject is replySubject(source.subject), or forwardSubject with forward; In-Reply-To and References are replyHeaders(source)'s, or null and [] when source.messageId holds no <id> (blank, or a raw value such as one smuggling a line break). mime is the header lines buildMime writes for them, from Subject up to MIME-Version, CRLF-joined, with from {name:'', email:'test@hafa.cc'}, to [{name:'', email:'bob@example.com'}], body 'Hi', no signature, no extra headers, boundary 'b0'.",
+    "offersReplyAll": "offersReplyAll(original, own): true when replyRecipients(original, own, replyAll = true) has more than one address in to and cc together. The open thread offers Reply all for its last message only then.",
+    "invalidHeader": "buildMime(input) must throw (InvalidHeaderError; Android: its own typed error) when any header value it writes holds a control character other than tab (Unicode Cc: U+0000-U+001F except U+0009, U+007F-U+009F), CR and LF included: In-Reply-To, References, extraHeaders, a file's mimeType or Content-ID, a calendar method. Inputs are as in mime."
+  },
+  "markdown": [
+    {
+      "name": "single line breaks and blank lines",
+      "markdown": "Hello *world*\nsecond line\n\nNew paragraph",
+      "html": "Hello <b>world</b><br>second line<br><br>New paragraph",
+      "text": "Hello *world*\nsecond line\n\nNew paragraph"
+    },
+    {
+      "name": "bold and italic",
+      "markdown": "*bold*, _italic_ and *_both_*",
+      "html": "<b>bold</b>, <i>italic</i> and <b><i>both</i></b>",
+      "text": "*bold*, _italic_ and *_both_*"
+    },
+    {
+      "name": "the rest of this app's markdown",
+      "markdown": "**not bold**, `code`, ~~old~~ and [docs](https://hafa.cc)\n# Plan\n- one\n> quoted",
+      "html": "**not bold**, <code>code</code>, <s>old</s> and <a href=\"https://hafa.cc\">docs</a><h1>Plan</h1><ul><li>one</li></ul><blockquote>quoted</blockquote>",
+      "text": "**not bold**, `code`, ~~old~~ and [docs](https://hafa.cc)\n# Plan\n- one\n> quoted"
+    },
+    {
+      "name": "bare URLs",
+      "markdown": "Read https://example.com/a?b=1&c=2 or www.example.org.",
+      "html": "Read <a href=\"https://example.com/a?b=1&amp;c=2\">https://example.com/a?b=1&amp;c=2</a> or <a href=\"http://www.example.org\">www.example.org</a>.",
+      "text": "Read https://example.com/a?b=1&c=2 or www.example.org."
+    },
+    {
+      "name": "raw HTML is shown as text",
+      "markdown": "<div>hi</div>\n\ntext <b>bold</b>",
+      "html": "&lt;div&gt;hi&lt;/div&gt;<br><br>text &lt;b&gt;bold&lt;/b&gt;",
+      "text": "<div>hi</div>\n\ntext <b>bold</b>"
+    },
+    {
+      "name": "quotes and ampersands are escaped",
+      "markdown": "It's \"fine\" & done",
+      "html": "It's &quot;fine&quot; &amp; done",
+      "text": "It's \"fine\" & done"
+    },
+    {
+      "name": "inline image by content id",
+      "markdown": "Look: ![chart](cid:chart1)",
+      "html": "Look: <img src=\"cid:chart1\" alt=\"chart\">",
+      "text": "Look: ![chart](cid:chart1)"
+    },
+    {
+      "name": "trailing spaces and blank lines trimmed in text",
+      "markdown": "\n\nfirst line   \nsecond\t\n\n\n",
+      "html": "first line<br>second",
+      "text": "first line\nsecond"
+    },
+    {
+      "name": "non-ASCII text",
+      "markdown": "Grüße, 東京 🙂",
+      "html": "Grüße, 東京 🙂",
+      "text": "Grüße, 東京 🙂"
+    }
+  ],
+  "body": [
+    {
+      "name": "signature after a blank line and dash dash space",
+      "body": "Thanks,\nAna",
+      "signature": "Ana López\nhttps://hafa.cc",
+      "html": "<div dir=\"auto\">Thanks,<br>Ana</div><div class=\"signature\">Ana López<br><a href=\"https://hafa.cc\">https://hafa.cc</a></div>",
+      "text": "Thanks,\nAna\n\n-- \nAna López\nhttps://hafa.cc"
+    },
+    {
+      "name": "no signature",
+      "body": "Just this",
+      "signature": null,
+      "html": "<div dir=\"auto\">Just this</div>",
+      "text": "Just this"
+    },
+    {
+      "name": "blank signature adds nothing",
+      "body": "Just this",
+      "signature": "  \n ",
+      "html": "<div dir=\"auto\">Just this</div>",
+      "text": "Just this"
+    },
+    {
+      "name": "empty body with a signature",
+      "body": "",
+      "signature": "Ana",
+      "html": "<div dir=\"auto\"></div><div class=\"signature\">Ana</div>",
+      "text": "-- \nAna"
+    },
+    {
+      "name": "signature styles are rendered in HTML",
+      "body": "Hi",
+      "signature": "*Ana*  \nInbox",
+      "html": "<div dir=\"auto\">Hi</div><div class=\"signature\"><b>Ana</b><br>Inbox</div>",
+      "text": "Hi\n\n-- \n*Ana*\nInbox"
+    },
+    {
+      "name": "reply quoting HTML, after the signature",
+      "body": "Friday works.",
+      "signature": "Ana",
+      "quote": {
+        "from": {
+          "name": "Maya Chen",
+          "email": "maya.chen@gmail.example.com"
+        },
+        "dateLocal": "2026-11-02T11:50:00",
+        "text": "Lunch on Friday?\nMaya",
+        "html": "<html><body><div dir=\"ltr\">Lunch on <b>Friday</b>?<br>Maya</div></body></html>"
+      },
+      "html": "<div dir=\"auto\">Friday works.</div><div class=\"signature\">Ana</div><br><div class=\"gmail_quote gmail_quote_container\"><div dir=\"ltr\" class=\"gmail_attr\">On Mon, Nov 2, 2026 at 11:50, Maya Chen &lt;maya.chen@gmail.example.com&gt; wrote:<br></div><blockquote class=\"gmail_quote\" style=\"margin:0px 0px 0px 0.8ex;border-left:1px solid rgb(204,204,204);padding-left:1ex\"><div dir=\"ltr\">Lunch on <b>Friday</b>?<br>Maya</div></blockquote></div>",
+      "text": "Friday works.\n\n-- \nAna\n\nOn Mon, Nov 2, 2026 at 11:50, Maya Chen <maya.chen@gmail.example.com> wrote:\n\n> Lunch on Friday?\n> Maya"
+    },
+    {
+      "name": "reply quoting a text-only message, no signature",
+      "body": "Yes",
+      "signature": null,
+      "quote": {
+        "from": {
+          "name": "",
+          "email": "bob@example.com"
+        },
+        "dateLocal": "2026-01-09T08:05:00",
+        "text": "Is <this> & that ok?\n\nBob",
+        "html": null
+      },
+      "html": "<div dir=\"auto\">Yes</div><br><div class=\"gmail_quote gmail_quote_container\"><div dir=\"ltr\" class=\"gmail_attr\">On Fri, Jan 9, 2026 at 08:05, &lt;bob@example.com&gt; wrote:<br></div><blockquote class=\"gmail_quote\" style=\"margin:0px 0px 0px 0.8ex;border-left:1px solid rgb(204,204,204);padding-left:1ex\"><div dir=\"auto\">Is &lt;this&gt; &amp; that ok?<br><br>Bob</div></blockquote></div>",
+      "text": "Yes\n\nOn Fri, Jan 9, 2026 at 08:05, <bob@example.com> wrote:\n\n> Is <this> & that ok?\n>\n> Bob"
+    }
+  ],
+  "replySubject": [
+    {
+      "subject": "Lunch?",
+      "expect": "Re: Lunch?"
+    },
+    {
+      "subject": "Re: Lunch?",
+      "expect": "Re: Lunch?"
+    },
+    {
+      "subject": "RE: Lunch?",
+      "expect": "RE: Lunch?"
+    },
+    {
+      "subject": "re:Lunch?",
+      "expect": "re:Lunch?"
+    },
+    {
+      "subject": "Re[2]: Lunch?",
+      "expect": "Re[2]: Lunch?"
+    },
+    {
+      "subject": "  Fwd: Lunch?  ",
+      "expect": "Re: Fwd: Lunch?"
+    },
+    {
+      "subject": "Reply needed",
+      "expect": "Re: Reply needed"
+    },
+    {
+      "subject": "",
+      "expect": "Re:"
+    }
+  ],
+  "forwardSubject": [
+    {
+      "subject": "Lunch?",
+      "expect": "Fwd: Lunch?"
+    },
+    {
+      "subject": "Fwd: Lunch?",
+      "expect": "Fwd: Lunch?"
+    },
+    {
+      "subject": "FW: Lunch?",
+      "expect": "FW: Lunch?"
+    },
+    {
+      "subject": "Re: Lunch?",
+      "expect": "Fwd: Re: Lunch?"
+    },
+    {
+      "subject": "",
+      "expect": "Fwd:"
+    }
+  ],
+  "replyHeaders": [
+    {
+      "name": "first reply: references is the original id",
+      "source": {
+        "messageId": "<a1@mail.example>",
+        "references": null,
+        "inReplyTo": null,
+        "subject": "Lunch?"
+      },
+      "expect": {
+        "subject": "Re: Lunch?",
+        "inReplyTo": "<a1@mail.example>",
+        "references": [
+          "<a1@mail.example>"
+        ]
+      }
+    },
+    {
+      "name": "references extend the original's",
+      "source": {
+        "messageId": "<a3@x>",
+        "references": "<a1@x> <a2@x>",
+        "inReplyTo": "<a2@x>",
+        "subject": "Re: Lunch?"
+      },
+      "expect": {
+        "subject": "Re: Lunch?",
+        "inReplyTo": "<a3@x>",
+        "references": [
+          "<a1@x>",
+          "<a2@x>",
+          "<a3@x>"
+        ]
+      }
+    },
+    {
+      "name": "folded references with extra whitespace",
+      "source": {
+        "messageId": "<a3@x>",
+        "references": "<a1@x>\r\n <a2@x>",
+        "inReplyTo": null,
+        "subject": "Plans"
+      },
+      "expect": {
+        "subject": "Re: Plans",
+        "inReplyTo": "<a3@x>",
+        "references": [
+          "<a1@x>",
+          "<a2@x>",
+          "<a3@x>"
+        ]
+      }
+    },
+    {
+      "name": "no references: a single in-reply-to id is used",
+      "source": {
+        "messageId": "<a3@x>",
+        "references": null,
+        "inReplyTo": "<a2@x>",
+        "subject": "Plans"
+      },
+      "expect": {
+        "subject": "Re: Plans",
+        "inReplyTo": "<a3@x>",
+        "references": [
+          "<a2@x>",
+          "<a3@x>"
+        ]
+      }
+    },
+    {
+      "name": "no references and several in-reply-to ids: none used",
+      "source": {
+        "messageId": "<a3@x>",
+        "references": null,
+        "inReplyTo": "<a1@x> <a2@x>",
+        "subject": "Plans"
+      },
+      "expect": {
+        "subject": "Re: Plans",
+        "inReplyTo": "<a3@x>",
+        "references": [
+          "<a3@x>"
+        ]
+      }
+    },
+    {
+      "name": "repeated ids appear once and the original's id is last",
+      "source": {
+        "messageId": "<a2@x>",
+        "references": "<a1@x> <a2@x> <a1@x>",
+        "inReplyTo": null,
+        "subject": "Plans"
+      },
+      "expect": {
+        "subject": "Re: Plans",
+        "inReplyTo": "<a2@x>",
+        "references": [
+          "<a1@x>",
+          "<a2@x>"
+        ]
+      }
+    },
+    {
+      "name": "a long chain is kept whole",
+      "source": {
+        "messageId": "<last@x>",
+        "references": "<m0@x> <m1@x> <m2@x> <m3@x> <m4@x> <m5@x> <m6@x> <m7@x> <m8@x> <m9@x> <m10@x> <m11@x> <m12@x> <m13@x> <m14@x> <m15@x> <m16@x> <m17@x> <m18@x> <m19@x> <m20@x> <m21@x> <m22@x> <m23@x> <m24@x>",
+        "inReplyTo": null,
+        "subject": "Re: Long"
+      },
+      "expect": {
+        "subject": "Re: Long",
+        "inReplyTo": "<last@x>",
+        "references": [
+          "<m0@x>",
+          "<m1@x>",
+          "<m2@x>",
+          "<m3@x>",
+          "<m4@x>",
+          "<m5@x>",
+          "<m6@x>",
+          "<m7@x>",
+          "<m8@x>",
+          "<m9@x>",
+          "<m10@x>",
+          "<m11@x>",
+          "<m12@x>",
+          "<m13@x>",
+          "<m14@x>",
+          "<m15@x>",
+          "<m16@x>",
+          "<m17@x>",
+          "<m18@x>",
+          "<m19@x>",
+          "<m20@x>",
+          "<m21@x>",
+          "<m22@x>",
+          "<m23@x>",
+          "<m24@x>",
+          "<last@x>"
+        ]
+      }
+    },
+    {
+      "name": "a Message-ID with no <id> gives none",
+      "source": {
+        "messageId": "a1@x\r\nBcc: eve@example.net",
+        "references": null,
+        "inReplyTo": null,
+        "subject": "Lunch?"
+      },
+      "expect": null
+    }
+  ],
+  "answerHeaders": [
+    {
+      "name": "reply to the first message",
+      "source": {
+        "messageId": "<a1@mail.example>",
+        "references": null,
+        "inReplyTo": null,
+        "subject": "Lunch?"
+      },
+      "forward": false,
+      "expect": {
+        "subject": "Re: Lunch?",
+        "inReplyTo": "<a1@mail.example>",
+        "references": [
+          "<a1@mail.example>"
+        ]
+      },
+      "mime": "Subject: Re: Lunch?\r\nIn-Reply-To: <a1@mail.example>\r\nReferences: <a1@mail.example>"
+    },
+    {
+      "name": "reply down a chain: References grow, one Re: (any case)",
+      "source": {
+        "messageId": "<a3@x>",
+        "references": "<a1@x> <a2@x>",
+        "inReplyTo": "<a2@x>",
+        "subject": "RE: Lunch?"
+      },
+      "forward": false,
+      "expect": {
+        "subject": "RE: Lunch?",
+        "inReplyTo": "<a3@x>",
+        "references": [
+          "<a1@x>",
+          "<a2@x>",
+          "<a3@x>"
+        ]
+      },
+      "mime": "Subject: RE: Lunch?\r\nIn-Reply-To: <a3@x>\r\nReferences: <a1@x> <a2@x> <a3@x>"
+    },
+    {
+      "name": "reply to a message with only In-Reply-To",
+      "source": {
+        "messageId": "<a3@x>",
+        "references": null,
+        "inReplyTo": "<a2@x>",
+        "subject": "re: lunch?"
+      },
+      "forward": false,
+      "expect": {
+        "subject": "re: lunch?",
+        "inReplyTo": "<a3@x>",
+        "references": [
+          "<a2@x>",
+          "<a3@x>"
+        ]
+      },
+      "mime": "Subject: re: lunch?\r\nIn-Reply-To: <a3@x>\r\nReferences: <a2@x> <a3@x>"
+    },
+    {
+      "name": "Message-ID read with stray whitespace",
+      "source": {
+        "messageId": "  <a5@x>\r\n",
+        "references": null,
+        "inReplyTo": null,
+        "subject": "Lunch?"
+      },
+      "forward": false,
+      "expect": {
+        "subject": "Re: Lunch?",
+        "inReplyTo": "<a5@x>",
+        "references": [
+          "<a5@x>"
+        ]
+      },
+      "mime": "Subject: Re: Lunch?\r\nIn-Reply-To: <a5@x>\r\nReferences: <a5@x>"
+    },
+    {
+      "name": "forward stays in the thread",
+      "source": {
+        "messageId": "<a3@x>",
+        "references": "<a1@x> <a2@x>",
+        "inReplyTo": "<a2@x>",
+        "subject": "Re: Lunch?"
+      },
+      "forward": true,
+      "expect": {
+        "subject": "Fwd: Re: Lunch?",
+        "inReplyTo": "<a3@x>",
+        "references": [
+          "<a1@x>",
+          "<a2@x>",
+          "<a3@x>"
+        ]
+      },
+      "mime": "Subject: Fwd: Re: Lunch?\r\nIn-Reply-To: <a3@x>\r\nReferences: <a1@x> <a2@x> <a3@x>"
+    },
+    {
+      "name": "forward of a forward keeps one Fwd:",
+      "source": {
+        "messageId": "<a1@x>",
+        "references": null,
+        "inReplyTo": null,
+        "subject": "Fw: Lunch?"
+      },
+      "forward": true,
+      "expect": {
+        "subject": "Fw: Lunch?",
+        "inReplyTo": "<a1@x>",
+        "references": [
+          "<a1@x>"
+        ]
+      },
+      "mime": "Subject: Fw: Lunch?\r\nIn-Reply-To: <a1@x>\r\nReferences: <a1@x>"
+    },
+    {
+      "name": "a source without a Message-ID gives no threading headers",
+      "source": {
+        "messageId": "",
+        "references": null,
+        "inReplyTo": null,
+        "subject": "Lunch?"
+      },
+      "forward": false,
+      "expect": {
+        "subject": "Re: Lunch?",
+        "inReplyTo": null,
+        "references": []
+      },
+      "mime": "Subject: Re: Lunch?"
+    },
+    {
+      "name": "long Gmail ids fold onto continuation lines",
+      "source": {
+        "messageId": "<CAJx1qQ2aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789@mail.gmail.com>",
+        "references": "<CAJx1qQ0aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789@mail.gmail.com> <CAJx1qQ1aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789@mail.gmail.com>",
+        "inReplyTo": "<CAJx1qQ1aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789@mail.gmail.com>",
+        "subject": "Re: Grüße aus Köln"
+      },
+      "forward": false,
+      "expect": {
+        "subject": "Re: Grüße aus Köln",
+        "inReplyTo": "<CAJx1qQ2aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789@mail.gmail.com>",
+        "references": [
+          "<CAJx1qQ0aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789@mail.gmail.com>",
+          "<CAJx1qQ1aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789@mail.gmail.com>",
+          "<CAJx1qQ2aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789@mail.gmail.com>"
+        ]
+      },
+      "mime": "Subject: =?UTF-8?B?UmU6IEdyw7zDn2UgYXVzIEvDtmxu?=\r\nIn-Reply-To: <CAJx1qQ2aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789@mail.gmail.com>\r\nReferences: <CAJx1qQ0aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789@mail.gmail.com>\r\n <CAJx1qQ1aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789@mail.gmail.com>\r\n <CAJx1qQ2aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789@mail.gmail.com>"
+    },
+    {
+      "name": "a Message-ID without <id> smuggling a header gives no threading headers",
+      "source": {
+        "messageId": "a2@x\r\nBcc: eve@example.net",
+        "references": "<a1@x>",
+        "inReplyTo": "<a1@x>",
+        "subject": "Lunch?"
+      },
+      "forward": false,
+      "expect": {
+        "subject": "Re: Lunch?",
+        "inReplyTo": null,
+        "references": []
+      },
+      "mime": "Subject: Re: Lunch?"
+    },
+    {
+      "name": "a forward of such a message gives none either",
+      "source": {
+        "messageId": "a2@x\r\nBcc: eve@example.net",
+        "references": "<a1@x>",
+        "inReplyTo": "<a1@x>",
+        "subject": "Lunch?"
+      },
+      "forward": true,
+      "expect": {
+        "subject": "Fwd: Lunch?",
+        "inReplyTo": null,
+        "references": []
+      },
+      "mime": "Subject: Fwd: Lunch?"
+    },
+    {
+      "name": "a control character inside the brackets isn't an id",
+      "source": {
+        "messageId": "<a2\u0001@x>",
+        "references": "<a1@x>",
+        "inReplyTo": "<a1@x>",
+        "subject": "Lunch?"
+      },
+      "forward": false,
+      "expect": {
+        "subject": "Re: Lunch?",
+        "inReplyTo": null,
+        "references": []
+      },
+      "mime": "Subject: Re: Lunch?"
+    }
+  ],
+  "recipients": [
+    {
+      "name": "reply goes to the sender",
+      "original": {
+        "from": [
+          {
+            "name": "Ana",
+            "email": "ana@example.com"
+          }
+        ],
+        "replyTo": [],
+        "to": [
+          {
+            "name": "Me",
+            "email": "me@gmail.example.com"
+          }
+        ],
+        "cc": [
+          {
+            "name": "Bob",
+            "email": "bob@example.com"
+          }
+        ]
+      },
+      "own": [
+        "me@gmail.example.com",
+        "user@hafa.cc"
+      ],
+      "replyAll": false,
+      "expect": {
+        "to": [
+          {
+            "name": "Ana",
+            "email": "ana@example.com"
+          }
+        ],
+        "cc": []
+      }
+    },
+    {
+      "name": "reply-to wins over from",
+      "original": {
+        "from": [
+          {
+            "name": "Ana",
+            "email": "ana@example.com"
+          }
+        ],
+        "replyTo": [
+          {
+            "name": "List",
+            "email": "list@example.com"
+          }
+        ],
+        "to": [
+          {
+            "name": "Me",
+            "email": "me@gmail.example.com"
+          }
+        ],
+        "cc": []
+      },
+      "own": [
+        "me@gmail.example.com",
+        "user@hafa.cc"
+      ],
+      "replyAll": false,
+      "expect": {
+        "to": [
+          {
+            "name": "List",
+            "email": "list@example.com"
+          }
+        ],
+        "cc": []
+      }
+    },
+    {
+      "name": "reply all copies to and cc, without me",
+      "original": {
+        "from": [
+          {
+            "name": "Ana",
+            "email": "ana@example.com"
+          }
+        ],
+        "replyTo": [],
+        "to": [
+          {
+            "name": "Me",
+            "email": "me@gmail.example.com"
+          },
+          {
+            "name": "Bob",
+            "email": "bob@example.com"
+          }
+        ],
+        "cc": [
+          {
+            "name": "Cat",
+            "email": "cat@example.com"
+          },
+          {
+            "name": "ME",
+            "email": "Me@Gmail.example.com"
+          }
+        ]
+      },
+      "own": [
+        "me@gmail.example.com",
+        "user@hafa.cc"
+      ],
+      "replyAll": true,
+      "expect": {
+        "to": [
+          {
+            "name": "Ana",
+            "email": "ana@example.com"
+          }
+        ],
+        "cc": [
+          {
+            "name": "Bob",
+            "email": "bob@example.com"
+          },
+          {
+            "name": "Cat",
+            "email": "cat@example.com"
+          }
+        ]
+      }
+    },
+    {
+      "name": "reply all with reply-to keeps the sender in cc",
+      "original": {
+        "from": [
+          {
+            "name": "Ana",
+            "email": "ana@example.com"
+          }
+        ],
+        "replyTo": [
+          {
+            "name": "List",
+            "email": "list@example.com"
+          }
+        ],
+        "to": [
+          {
+            "name": "Me",
+            "email": "me@gmail.example.com"
+          }
+        ],
+        "cc": [
+          {
+            "name": "Bob",
+            "email": "bob@example.com"
+          }
+        ]
+      },
+      "own": [
+        "me@gmail.example.com",
+        "user@hafa.cc"
+      ],
+      "replyAll": true,
+      "expect": {
+        "to": [
+          {
+            "name": "List",
+            "email": "list@example.com"
+          }
+        ],
+        "cc": [
+          {
+            "name": "Bob",
+            "email": "bob@example.com"
+          }
+        ]
+      }
+    },
+    {
+      "name": "replying to my own message goes to its recipients",
+      "original": {
+        "from": [
+          {
+            "name": "Me",
+            "email": "me@gmail.example.com"
+          }
+        ],
+        "replyTo": [],
+        "to": [
+          {
+            "name": "Ana",
+            "email": "ana@example.com"
+          },
+          {
+            "name": "Bob",
+            "email": "bob@example.com"
+          }
+        ],
+        "cc": [
+          {
+            "name": "Cat",
+            "email": "cat@example.com"
+          }
+        ]
+      },
+      "own": [
+        "me@gmail.example.com",
+        "user@hafa.cc"
+      ],
+      "replyAll": false,
+      "expect": {
+        "to": [
+          {
+            "name": "Ana",
+            "email": "ana@example.com"
+          },
+          {
+            "name": "Bob",
+            "email": "bob@example.com"
+          }
+        ],
+        "cc": []
+      }
+    },
+    {
+      "name": "reply all to my own message keeps its cc",
+      "original": {
+        "from": [
+          {
+            "name": "Me",
+            "email": "me@gmail.example.com"
+          }
+        ],
+        "replyTo": [],
+        "to": [
+          {
+            "name": "Ana",
+            "email": "ana@example.com"
+          }
+        ],
+        "cc": [
+          {
+            "name": "Cat",
+            "email": "cat@example.com"
+          }
+        ]
+      },
+      "own": [
+        "me@gmail.example.com",
+        "user@hafa.cc"
+      ],
+      "replyAll": true,
+      "expect": {
+        "to": [
+          {
+            "name": "Ana",
+            "email": "ana@example.com"
+          }
+        ],
+        "cc": [
+          {
+            "name": "Cat",
+            "email": "cat@example.com"
+          }
+        ]
+      }
+    },
+    {
+      "name": "a note to self goes back to me",
+      "original": {
+        "from": [
+          {
+            "name": "Me",
+            "email": "me@gmail.example.com"
+          }
+        ],
+        "replyTo": [],
+        "to": [
+          {
+            "name": "Me",
+            "email": "me@gmail.example.com"
+          }
+        ],
+        "cc": []
+      },
+      "own": [
+        "me@gmail.example.com",
+        "user@hafa.cc"
+      ],
+      "replyAll": false,
+      "expect": {
+        "to": [
+          {
+            "name": "Me",
+            "email": "me@gmail.example.com"
+          }
+        ],
+        "cc": []
+      }
+    },
+    {
+      "name": "repeats are dropped",
+      "original": {
+        "from": [
+          {
+            "name": "Ana",
+            "email": "ana@example.com"
+          }
+        ],
+        "replyTo": [],
+        "to": [
+          {
+            "name": "Bob",
+            "email": "bob@example.com"
+          },
+          {
+            "name": "",
+            "email": "BOB@example.com"
+          }
+        ],
+        "cc": [
+          {
+            "name": "Ana",
+            "email": "ana@example.com"
+          }
+        ]
+      },
+      "own": [
+        "me@gmail.example.com",
+        "user@hafa.cc"
+      ],
+      "replyAll": true,
+      "expect": {
+        "to": [
+          {
+            "name": "Ana",
+            "email": "ana@example.com"
+          }
+        ],
+        "cc": [
+          {
+            "name": "Bob",
+            "email": "bob@example.com"
+          }
+        ]
+      }
+    }
+  ],
+  "replyFrom": [
+    {
+      "name": "the address the mail was sent to",
+      "original": {
+        "from": [
+          {
+            "name": "Ana",
+            "email": "ana@example.com"
+          }
+        ],
+        "replyTo": [],
+        "to": [
+          {
+            "name": "",
+            "email": "User@hafa.cc"
+          }
+        ],
+        "cc": []
+      },
+      "own": [
+        "me@gmail.example.com",
+        "user@hafa.cc"
+      ],
+      "fallback": "me@gmail.example.com",
+      "expect": "user@hafa.cc"
+    },
+    {
+      "name": "cc counts too",
+      "original": {
+        "from": [
+          {
+            "name": "Ana",
+            "email": "ana@example.com"
+          }
+        ],
+        "replyTo": [],
+        "to": [
+          {
+            "name": "Bob",
+            "email": "bob@example.com"
+          }
+        ],
+        "cc": [
+          {
+            "name": "",
+            "email": "me@gmail.example.com"
+          }
+        ]
+      },
+      "own": [
+        "me@gmail.example.com",
+        "user@hafa.cc"
+      ],
+      "fallback": "me@gmail.example.com",
+      "expect": "me@gmail.example.com"
+    },
+    {
+      "name": "otherwise the fallback",
+      "original": {
+        "from": [
+          {
+            "name": "Ana",
+            "email": "ana@example.com"
+          }
+        ],
+        "replyTo": [],
+        "to": [
+          {
+            "name": "Bob",
+            "email": "bob@example.com"
+          }
+        ],
+        "cc": []
+      },
+      "own": [
+        "me@gmail.example.com",
+        "user@hafa.cc"
+      ],
+      "fallback": "me@gmail.example.com",
+      "expect": "me@gmail.example.com"
+    }
+  ],
+  "mailbox": [
+    {
+      "mailbox": {
+        "name": "",
+        "email": "ana@example.com"
+      },
+      "expect": "ana@example.com"
+    },
+    {
+      "mailbox": {
+        "name": "Ana Lopez",
+        "email": "ana@example.com"
+      },
+      "expect": "Ana Lopez <ana@example.com>"
+    },
+    {
+      "mailbox": {
+        "name": "  Ana  ",
+        "email": "ana@example.com"
+      },
+      "expect": "Ana <ana@example.com>"
+    },
+    {
+      "mailbox": {
+        "name": "Lopez, Ana",
+        "email": "ana@example.com"
+      },
+      "expect": "\"Lopez, Ana\" <ana@example.com>"
+    },
+    {
+      "mailbox": {
+        "name": "Ana \"the\" Lopez",
+        "email": "ana@example.com"
+      },
+      "expect": "\"Ana \\\"the\\\" Lopez\" <ana@example.com>"
+    },
+    {
+      "mailbox": {
+        "name": "J. R. Smith",
+        "email": "jr@example.com"
+      },
+      "expect": "\"J. R. Smith\" <jr@example.com>"
+    },
+    {
+      "mailbox": {
+        "name": "Ana López",
+        "email": "ana@example.com"
+      },
+      "expect": "=?UTF-8?B?QW5hIEzDs3Bleg==?= <ana@example.com>"
+    },
+    {
+      "mailbox": {
+        "name": "山田太郎",
+        "email": "taro@jp.example.org"
+      },
+      "expect": "=?UTF-8?B?5bGx55Sw5aSq6YOO?= <taro@jp.example.org>"
+    },
+    {
+      "mailbox": {
+        "name": "=?not encoded?=",
+        "email": "x@example.com"
+      },
+      "expect": "=?UTF-8?B?PT9ub3QgZW5jb2RlZD89?= <x@example.com>"
+    },
+    {
+      "mailbox": {
+        "name": "Ana",
+        "email": "  ana@example.com "
+      },
+      "expect": "Ana <ana@example.com>"
+    }
+  ],
+  "headerText": [
+    {
+      "text": "Plain ASCII subject",
+      "expect": "Plain ASCII subject"
+    },
+    {
+      "text": "Grüße",
+      "expect": "=?UTF-8?B?R3LDvMOfZQ==?="
+    },
+    {
+      "text": "Lunch 🍜?",
+      "expect": "=?UTF-8?B?THVuY2gg8J+NnD8=?="
+    },
+    {
+      "text": "Ünïcödé subject that is long enough to need more than one encoded word, really",
+      "expect": "=?UTF-8?B?w5xuw69jw7Zkw6kgc3ViamVjdCB0aGF0IGlzIGxvbmcgZW5vdWdoIHRvIG5l?= =?UTF-8?B?ZWQgbW9yZSB0aGFuIG9uZSBlbmNvZGVkIHdvcmQsIHJlYWxseQ==?="
+    },
+    {
+      "text": "東京で会いましょう、来週の火曜日はいかがですか",
+      "expect": "=?UTF-8?B?5p2x5Lqs44Gn5Lya44GE44G+44GX44KH44GG44CB5p2l6YCx44Gu54Gr5puc?= =?UTF-8?B?5pel44Gv44GE44GL44GM44Gn44GZ44GL?="
+    },
+    {
+      "text": "Looks =?encoded?= but is not",
+      "expect": "=?UTF-8?B?TG9va3MgPT9lbmNvZGVkPz0gYnV0IGlzIG5vdA==?="
+    },
+    {
+      "text": "",
+      "expect": ""
+    }
+  ],
+  "fold": [
+    {
+      "name": "Subject",
+      "value": "short",
+      "expect": "Subject: short"
+    },
+    {
+      "name": "Subject",
+      "value": "A long ASCII subject line that keeps going well past the seventy-eight character limit for headers",
+      "expect": "Subject: A long ASCII subject line that keeps going well past the\r\n seventy-eight character limit for headers"
+    },
+    {
+      "name": "To",
+      "value": "Ana Lopez <ana@example.com>, Bob Builder <bob@example.com>, Cat Stevens <cat@example.com>",
+      "expect": "To: Ana Lopez <ana@example.com>, Bob Builder <bob@example.com>, Cat Stevens\r\n <cat@example.com>"
+    },
+    {
+      "name": "References",
+      "value": "<aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@x>",
+      "expect": "References: <aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@x>"
+    }
+  ],
+  "qp": [
+    {
+      "text": "plain ascii",
+      "expect": "plain ascii"
+    },
+    {
+      "text": "a = b",
+      "expect": "a =3D b"
+    },
+    {
+      "text": "trailing space \nand tab\t",
+      "expect": "trailing space=20\r\nand tab=09"
+    },
+    {
+      "text": "Grüße 🙂",
+      "expect": "Gr=C3=BC=C3=9Fe =F0=9F=99=82"
+    },
+    {
+      "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "expect": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx=\r\nxxxxx"
+    },
+    {
+      "text": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyé",
+      "expect": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy=\r\n=C3=A9"
+    },
+    {
+      "text": "-- \nsig",
+      "expect": "--=20\r\nsig"
+    },
+    {
+      "text": "lines\r\nwith crlf\rand cr",
+      "expect": "lines\r\nwith crlf\r\nand cr"
+    }
+  ],
+  "base64Lines": [
+    {
+      "utf8": "",
+      "expect": ""
+    },
+    {
+      "utf8": "f",
+      "expect": "Zg=="
+    },
+    {
+      "utf8": "fo",
+      "expect": "Zm8="
+    },
+    {
+      "utf8": "foo",
+      "expect": "Zm9v"
+    },
+    {
+      "utf8": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "expect": "eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4"
+    },
+    {
+      "utf8": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "expect": "eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4\r\neA=="
+    },
+    {
+      "utf8": "Grüße",
+      "expect": "R3LDvMOfZQ=="
+    }
+  ],
+  "mime": [
+    {
+      "name": "text only: multipart/alternative",
+      "input": {
+        "from": {
+          "name": "Ana López",
+          "email": "test@hafa.cc"
+        },
+        "to": [
+          {
+            "name": "Bob",
+            "email": "bob@example.com"
+          }
+        ],
+        "cc": [],
+        "bcc": [],
+        "subject": "Hello",
+        "markdown": "Hi *Bob*,\n\nSee you soon.",
+        "signature": null,
+        "inReplyTo": null,
+        "references": [],
+        "inlineImages": [],
+        "attachments": [],
+        "extraHeaders": [],
+        "boundary": "b0"
+      },
+      "expect": "From: =?UTF-8?B?QW5hIEzDs3Bleg==?= <test@hafa.cc>\r\nTo: Bob <bob@example.com>\r\nSubject: Hello\r\nMIME-Version: 1.0\r\nContent-Type: multipart/alternative; boundary=\"=_b0_0\"\r\n\r\n--=_b0_0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\nHi *Bob*,\r\n\r\nSee you soon.\r\n--=_b0_0\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n<div dir=3D\"auto\">Hi <b>Bob</b>,<br><br>See you soon.</div>\r\n--=_b0_0--\r\n"
+    },
+    {
+      "name": "reply with signature, cc and bcc",
+      "input": {
+        "from": {
+          "name": "Ana López",
+          "email": "test@hafa.cc"
+        },
+        "to": [
+          {
+            "name": "Bob",
+            "email": "bob@example.com"
+          }
+        ],
+        "cc": [
+          {
+            "name": "Cat",
+            "email": "cat@example.com"
+          }
+        ],
+        "bcc": [
+          {
+            "name": "",
+            "email": "me@gmail.example.com"
+          }
+        ],
+        "subject": "Re: Hello",
+        "markdown": "Hi *Bob*,\n\nSee you soon.",
+        "signature": "Ana\nhafa.cc",
+        "inReplyTo": "<a2@x>",
+        "references": [
+          "<a1@x>",
+          "<a2@x>"
+        ],
+        "inlineImages": [],
+        "attachments": [],
+        "extraHeaders": [],
+        "boundary": "b0"
+      },
+      "expect": "From: =?UTF-8?B?QW5hIEzDs3Bleg==?= <test@hafa.cc>\r\nTo: Bob <bob@example.com>\r\nCc: Cat <cat@example.com>\r\nBcc: me@gmail.example.com\r\nSubject: Re: Hello\r\nIn-Reply-To: <a2@x>\r\nReferences: <a1@x> <a2@x>\r\nMIME-Version: 1.0\r\nContent-Type: multipart/alternative; boundary=\"=_b0_0\"\r\n\r\n--=_b0_0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\nHi *Bob*,\r\n\r\nSee you soon.\r\n\r\n--=20\r\nAna\r\nhafa.cc\r\n--=_b0_0\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n<div dir=3D\"auto\">Hi <b>Bob</b>,<br><br>See you soon.</div><div class=3D\"si=\r\ngnature\">Ana<br>hafa.cc</div>\r\n--=_b0_0--\r\n"
+    },
+    {
+      "name": "inline image: related around alternative",
+      "input": {
+        "from": {
+          "name": "Ana López",
+          "email": "test@hafa.cc"
+        },
+        "to": [
+          {
+            "name": "Bob",
+            "email": "bob@example.com"
+          }
+        ],
+        "cc": [],
+        "bcc": [],
+        "subject": "Hello",
+        "markdown": "Chart: ![chart](cid:chart1)",
+        "signature": null,
+        "inReplyTo": null,
+        "references": [],
+        "inlineImages": [
+          {
+            "filename": "chart.png",
+            "mimeType": "image/png",
+            "contentId": "chart1",
+            "data": "CzBVep/E6Q4zWA=="
+          }
+        ],
+        "attachments": [],
+        "extraHeaders": [],
+        "boundary": "b0"
+      },
+      "expect": "From: =?UTF-8?B?QW5hIEzDs3Bleg==?= <test@hafa.cc>\r\nTo: Bob <bob@example.com>\r\nSubject: Hello\r\nMIME-Version: 1.0\r\nContent-Type: multipart/related; boundary=\"=_b0_0\";\r\n type=\"multipart/alternative\"\r\n\r\n--=_b0_0\r\nContent-Type: multipart/alternative; boundary=\"=_b0_1\"\r\n\r\n--=_b0_1\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\nChart: ![chart](cid:chart1)\r\n--=_b0_1\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n<div dir=3D\"auto\">Chart: <img src=3D\"cid:chart1\" alt=3D\"chart\"></div>\r\n--=_b0_1--\r\n--=_b0_0\r\nContent-Type: image/png; name=\"chart.png\"\r\nContent-Disposition: inline; filename=\"chart.png\"\r\nContent-ID: <chart1>\r\nContent-Transfer-Encoding: base64\r\n\r\nCzBVep/E6Q4zWA==\r\n--=_b0_0--\r\n"
+    },
+    {
+      "name": "attachments only: mixed around alternative",
+      "input": {
+        "from": {
+          "name": "Ana López",
+          "email": "test@hafa.cc"
+        },
+        "to": [
+          {
+            "name": "Bob",
+            "email": "bob@example.com"
+          }
+        ],
+        "cc": [],
+        "bcc": [],
+        "subject": "Hello",
+        "markdown": "Hi *Bob*,\n\nSee you soon.",
+        "signature": null,
+        "inReplyTo": null,
+        "references": [],
+        "inlineImages": [],
+        "attachments": [
+          {
+            "filename": "notes.txt",
+            "mimeType": "text/plain",
+            "data": "aGVsbG8K"
+          },
+          {
+            "filename": "résumé.pdf",
+            "mimeType": "application/pdf",
+            "data": "CzBVep/E6Q4zWH2ix+wRNluApcrvFDleg6jN8hc8YYar0PUaP2SJrtP4HUJnjLHW+yBFao+02f4jSG2St9wBJktwlbrfBClOc5i94gcsUXabwOUKL1R5nsPoDTJXfKHG6xA1Wn+kye4TOF2Cp8zxFjtgharP9Bk+"
+          }
+        ],
+        "extraHeaders": [],
+        "boundary": "b0"
+      },
+      "expect": "From: =?UTF-8?B?QW5hIEzDs3Bleg==?= <test@hafa.cc>\r\nTo: Bob <bob@example.com>\r\nSubject: Hello\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=\"=_b0_0\"\r\n\r\n--=_b0_0\r\nContent-Type: multipart/alternative; boundary=\"=_b0_1\"\r\n\r\n--=_b0_1\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\nHi *Bob*,\r\n\r\nSee you soon.\r\n--=_b0_1\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n<div dir=3D\"auto\">Hi <b>Bob</b>,<br><br>See you soon.</div>\r\n--=_b0_1--\r\n--=_b0_0\r\nContent-Type: text/plain; name=\"notes.txt\"\r\nContent-Disposition: attachment; filename=\"notes.txt\"\r\nContent-Transfer-Encoding: base64\r\n\r\naGVsbG8K\r\n--=_b0_0\r\nContent-Type: application/pdf; name=\"=?UTF-8?B?csOpc3Vtw6kucGRm?=\"\r\nContent-Disposition: attachment; filename*=UTF-8''r%C3%A9sum%C3%A9.pdf\r\nContent-Transfer-Encoding: base64\r\n\r\nCzBVep/E6Q4zWH2ix+wRNluApcrvFDleg6jN8hc8YYar0PUaP2SJrtP4HUJnjLHW+yBFao+02f4j\r\nSG2St9wBJktwlbrfBClOc5i94gcsUXabwOUKL1R5nsPoDTJXfKHG6xA1Wn+kye4TOF2Cp8zxFjtg\r\nharP9Bk+\r\n--=_b0_0--\r\n"
+    },
+    {
+      "name": "inline image and attachment: mixed, related, alternative",
+      "input": {
+        "from": {
+          "name": "Ana López",
+          "email": "test@hafa.cc"
+        },
+        "to": [
+          {
+            "name": "Bob",
+            "email": "bob@example.com"
+          }
+        ],
+        "cc": [],
+        "bcc": [],
+        "subject": "Grüße",
+        "markdown": "![p](cid:p1)",
+        "signature": null,
+        "inReplyTo": null,
+        "references": [],
+        "inlineImages": [
+          {
+            "filename": "p.gif",
+            "mimeType": "image/gif",
+            "contentId": "p1",
+            "data": "CzBV"
+          }
+        ],
+        "attachments": [
+          {
+            "filename": "a \"quoted\" name.txt",
+            "mimeType": "text/plain",
+            "data": "CzA="
+          }
+        ],
+        "extraHeaders": [
+          [
+            "X-Mailer",
+            "inbox"
+          ]
+        ],
+        "boundary": "b0"
+      },
+      "expect": "From: =?UTF-8?B?QW5hIEzDs3Bleg==?= <test@hafa.cc>\r\nTo: Bob <bob@example.com>\r\nSubject: =?UTF-8?B?R3LDvMOfZQ==?=\r\nX-Mailer: inbox\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=\"=_b0_0\"\r\n\r\n--=_b0_0\r\nContent-Type: multipart/related; boundary=\"=_b0_1\";\r\n type=\"multipart/alternative\"\r\n\r\n--=_b0_1\r\nContent-Type: multipart/alternative; boundary=\"=_b0_2\"\r\n\r\n--=_b0_2\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n![p](cid:p1)\r\n--=_b0_2\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n<div dir=3D\"auto\"><img src=3D\"cid:p1\" alt=3D\"p\"></div>\r\n--=_b0_2--\r\n--=_b0_1\r\nContent-Type: image/gif; name=\"p.gif\"\r\nContent-Disposition: inline; filename=\"p.gif\"\r\nContent-ID: <p1>\r\nContent-Transfer-Encoding: base64\r\n\r\nCzBV\r\n--=_b0_1--\r\n--=_b0_0\r\nContent-Type: text/plain; name=\"a \\\"quoted\\\" name.txt\"\r\nContent-Disposition: attachment; filename=\"a \\\"quoted\\\" name.txt\"\r\nContent-Transfer-Encoding: base64\r\n\r\nCzA=\r\n--=_b0_0--\r\n"
+    },
+    {
+      "name": "reply with a quote: after the signature in both parts",
+      "input": {
+        "from": {
+          "name": "Ana",
+          "email": "test@hafa.cc"
+        },
+        "to": [
+          {
+            "name": "Maya Chen",
+            "email": "maya.chen@gmail.example.com"
+          }
+        ],
+        "cc": [],
+        "bcc": [],
+        "subject": "Re: Lunch?",
+        "markdown": "Friday works.",
+        "signature": "Ana",
+        "inReplyTo": "<m1@mail.gmail.com>",
+        "references": [
+          "<m1@mail.gmail.com>"
+        ],
+        "quote": {
+          "from": {
+            "name": "Maya Chen",
+            "email": "maya.chen@gmail.example.com"
+          },
+          "dateLocal": "2026-11-02T11:50:00",
+          "text": "Lunch on Friday?",
+          "html": "<div dir=\"ltr\">Lunch on <b>Friday</b>?</div>"
+        },
+        "inlineImages": [],
+        "attachments": [],
+        "extraHeaders": [],
+        "boundary": "q0"
+      },
+      "expect": "From: Ana <test@hafa.cc>\r\nTo: Maya Chen <maya.chen@gmail.example.com>\r\nSubject: Re: Lunch?\r\nIn-Reply-To: <m1@mail.gmail.com>\r\nReferences: <m1@mail.gmail.com>\r\nMIME-Version: 1.0\r\nContent-Type: multipart/alternative; boundary=\"=_q0_0\"\r\n\r\n--=_q0_0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\nFriday works.\r\n\r\n--=20\r\nAna\r\n\r\nOn Mon, Nov 2, 2026 at 11:50, Maya Chen <maya.chen@gmail.example.com> wrote=\r\n:\r\n\r\n> Lunch on Friday?\r\n--=_q0_0\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n<div dir=3D\"auto\">Friday works.</div><div class=3D\"signature\">Ana</div><br>=\r\n<div class=3D\"gmail_quote gmail_quote_container\"><div dir=3D\"ltr\" class=3D\"=\r\ngmail_attr\">On Mon, Nov 2, 2026 at 11:50, Maya Chen &lt;maya.chen@gmail.exa=\r\nmple.com&gt; wrote:<br></div><blockquote class=3D\"gmail_quote\" style=3D\"mar=\r\ngin:0px 0px 0px 0.8ex;border-left:1px solid rgb(204,204,204);padding-left:1=\r\nex\"><div dir=3D\"ltr\">Lunch on <b>Friday</b>?</div></blockquote></div>\r\n--=_q0_0--\r\n"
+    },
+    {
+      "name": "a tab may stand in an extra header",
+      "input": {
+        "from": {
+          "name": "Ana López",
+          "email": "test@hafa.cc"
+        },
+        "to": [
+          {
+            "name": "Bob",
+            "email": "bob@example.com"
+          }
+        ],
+        "cc": [],
+        "bcc": [],
+        "subject": "Hello",
+        "markdown": "Hi *Bob*,\n\nSee you soon.",
+        "signature": null,
+        "inReplyTo": null,
+        "references": [],
+        "inlineImages": [],
+        "attachments": [],
+        "extraHeaders": [
+          [
+            "X-Test",
+            "a\tb"
+          ]
+        ],
+        "boundary": "b0"
+      },
+      "expect": "From: =?UTF-8?B?QW5hIEzDs3Bleg==?= <test@hafa.cc>\r\nTo: Bob <bob@example.com>\r\nSubject: Hello\r\nX-Test: a\tb\r\nMIME-Version: 1.0\r\nContent-Type: multipart/alternative; boundary=\"=_b0_0\"\r\n\r\n--=_b0_0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\nHi *Bob*,\r\n\r\nSee you soon.\r\n--=_b0_0\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n<div dir=3D\"auto\">Hi <b>Bob</b>,<br><br>See you soon.</div>\r\n--=_b0_0--\r\n"
+    }
+  ],
+  "attribution": [
+    {
+      "from": {
+        "name": "Maya Chen",
+        "email": "maya.chen@gmail.example.com"
+      },
+      "dateLocal": "2026-11-02T11:50:00",
+      "expect": "On Mon, Nov 2, 2026 at 11:50, Maya Chen <maya.chen@gmail.example.com> wrote:"
+    },
+    {
+      "from": {
+        "name": "",
+        "email": "ana@example.com"
+      },
+      "dateLocal": "2026-01-09T08:05:00",
+      "expect": "On Fri, Jan 9, 2026 at 08:05, <ana@example.com> wrote:"
+    },
+    {
+      "from": {
+        "name": "  José Núñez ",
+        "email": "jose@es.example.org"
+      },
+      "dateLocal": "2026-07-04T23:59:00",
+      "expect": "On Sat, Jul 4, 2026 at 23:59, José Núñez <jose@es.example.org> wrote:"
+    }
+  ],
+  "quoteText": [
+    {
+      "name": "lines quoted, blank lines as a bare >",
+      "quote": {
+        "from": {
+          "name": "Maya Chen",
+          "email": "maya.chen@gmail.example.com"
+        },
+        "dateLocal": "2026-11-02T11:50:00",
+        "text": "Hi Ana,\r\n\r\nLunch on Friday?  \r\nMaya\r\n\r\n",
+        "html": null
+      },
+      "expect": "On Mon, Nov 2, 2026 at 11:50, Maya Chen <maya.chen@gmail.example.com> wrote:\n\n> Hi Ana,\n>\n> Lunch on Friday?\n> Maya"
+    },
+    {
+      "name": "already quoted lines gain a level",
+      "quote": {
+        "from": {
+          "name": "Maya Chen",
+          "email": "maya.chen@gmail.example.com"
+        },
+        "dateLocal": "2026-11-02T11:50:00",
+        "text": "Sure.\n\nOn Sun, Nov 1, 2026 at 09:00, Ana <test@hafa.cc> wrote:\n\n> Lunch?",
+        "html": null
+      },
+      "expect": "On Mon, Nov 2, 2026 at 11:50, Maya Chen <maya.chen@gmail.example.com> wrote:\n\n> Sure.\n>\n> On Sun, Nov 1, 2026 at 09:00, Ana <test@hafa.cc> wrote:\n>\n> > Lunch?"
+    },
+    {
+      "name": "empty original: attribution only",
+      "quote": {
+        "from": {
+          "name": "Maya Chen",
+          "email": "maya.chen@gmail.example.com"
+        },
+        "dateLocal": "2026-11-02T11:50:00",
+        "text": "\n  \n",
+        "html": null
+      },
+      "expect": "On Mon, Nov 2, 2026 at 11:50, Maya Chen <maya.chen@gmail.example.com> wrote:"
+    }
+  ],
+  "quotableHtml": [
+    {
+      "name": "body content of a whole document",
+      "html": "<!DOCTYPE html><html><head><title>x</title><style>p{}</style></head><body class=\"b\"><p>Hi</p><!-- note --></body></html>",
+      "expect": "<p>Hi</p>"
+    },
+    {
+      "name": "fragment kept, scripts dropped",
+      "html": "<div dir=\"ltr\">Hi<script>alert(1)</script> <b>there</b></div>",
+      "expect": "<div dir=\"ltr\">Hi <b>there</b></div>"
+    },
+    {
+      "name": "unclosed body",
+      "html": "<html><body><p>Hi",
+      "expect": "<p>Hi"
+    }
+  ],
+  "splitText": [
+    {
+      "name": "our own reply: signature stays in the body",
+      "text": "Friday works.\n\n-- \nAna\n\nOn Mon, Nov 2, 2026 at 11:50, Maya Chen <maya.chen@gmail.example.com> wrote:\n\n> Lunch on Friday?\n> Maya",
+      "body": "Friday works.\n\n-- \nAna",
+      "quote": "On Mon, Nov 2, 2026 at 11:50, Maya Chen <maya.chen@gmail.example.com> wrote:\n\n> Lunch on Friday?\n> Maya"
+    },
+    {
+      "name": "wrapped attribution",
+      "text": "Thanks!\r\n\r\nOn Mon, Nov 2, 2026 at 11:50 AM Maya Chen <maya.chen@gmail.example.com>\r\nwrote:\r\n\r\n> Lunch?\r\n>\r\n> Maya\r\n",
+      "body": "Thanks!",
+      "quote": "On Mon, Nov 2, 2026 at 11:50 AM Maya Chen <maya.chen@gmail.example.com>\nwrote:\n\n> Lunch?\n>\n> Maya"
+    },
+    {
+      "name": "Outlook original message",
+      "text": "See below.\n\n-----Original Message-----\nFrom: Bob\nSent: Monday\n\nHello",
+      "body": "See below.",
+      "quote": "-----Original Message-----\nFrom: Bob\nSent: Monday\n\nHello"
+    },
+    {
+      "name": "inline reply is not a trailing quote",
+      "text": "On Mon, Maya wrote:\n> Lunch?\nYes!\n> Where?\nThe usual.",
+      "body": "On Mon, Maya wrote:\n> Lunch?\nYes!\n> Where?\nThe usual.",
+      "quote": null
+    },
+    {
+      "name": "quote without attribution stays",
+      "text": "Agreed with this:\n\n> point one\n\nand\n\n> point two",
+      "body": "Agreed with this:\n\n> point one\n\nand\n\n> point two",
+      "quote": null
+    },
+    {
+      "name": "nothing above the quote",
+      "text": "On Mon, Nov 2, 2026 at 11:50, Maya <m@x.example.net> wrote:\n\n> Lunch?",
+      "body": "On Mon, Nov 2, 2026 at 11:50, Maya <m@x.example.net> wrote:\n\n> Lunch?",
+      "quote": null
+    },
+    {
+      "name": "no quote at all",
+      "text": "Just text.\nTwo lines.",
+      "body": "Just text.\nTwo lines.",
+      "quote": null
+    }
+  ],
+  "splitHtml": [
+    {
+      "name": "our own reply",
+      "html": "<div dir=\"auto\"><p>Friday works.</p>\n</div><div class=\"signature\"><p>Ana</p>\n</div><br><div class=\"gmail_quote gmail_quote_container\"><div dir=\"ltr\" class=\"gmail_attr\">On Mon, Nov 2, 2026 at 11:50, Maya Chen &lt;maya.chen@gmail.example.com&gt; wrote:<br></div><blockquote class=\"gmail_quote\" style=\"margin:0px 0px 0px 0.8ex;border-left:1px solid rgb(204,204,204);padding-left:1ex\"><div dir=\"ltr\">Lunch on <b>Friday</b>?<br>Maya</div></blockquote></div>",
+      "body": "<div dir=\"auto\"><p>Friday works.</p>\n</div><div class=\"signature\"><p>Ana</p>\n</div>",
+      "quote": "<div class=\"gmail_quote gmail_quote_container\"><div dir=\"ltr\" class=\"gmail_attr\">On Mon, Nov 2, 2026 at 11:50, Maya Chen &lt;maya.chen@gmail.example.com&gt; wrote:<br></div><blockquote class=\"gmail_quote\" style=\"margin:0px 0px 0px 0.8ex;border-left:1px solid rgb(204,204,204);padding-left:1ex\"><div dir=\"ltr\">Lunch on <b>Friday</b>?<br>Maya</div></blockquote></div>"
+    },
+    {
+      "name": "Apple Mail",
+      "html": "<html><body dir=\"auto\">Sounds good<div><br><blockquote type=\"cite\">On Nov 2, 2026, at 11:50, Maya Chen &lt;maya.chen@gmail.example.com&gt; wrote:<br><br></blockquote></div><blockquote type=\"cite\"><div dir=\"ltr\">Lunch?</div></blockquote></body></html>",
+      "body": "<html><body dir=\"auto\">Sounds good",
+      "quote": "<blockquote type=\"cite\">On Nov 2, 2026, at 11:50, Maya Chen &lt;maya.chen@gmail.example.com&gt; wrote:<br><br></blockquote></div><blockquote type=\"cite\"><div dir=\"ltr\">Lunch?</div></blockquote></body></html>"
+    },
+    {
+      "name": "Outlook",
+      "html": "<div>Yes.</div><div id=\"appendonsend\"></div><hr><div id=\"divRplyFwdMsg\"><b>From:</b> Maya</div><div>Lunch?</div>",
+      "body": "<div>Yes.</div>",
+      "quote": "<div id=\"appendonsend\"></div><hr><div id=\"divRplyFwdMsg\"><b>From:</b> Maya</div><div>Lunch?</div>"
+    },
+    {
+      "name": "Thunderbird",
+      "html": "<p>Ok</p><div class=\"moz-cite-prefix\">On 11/2/26 11:50, Maya wrote:<br></div><blockquote type=\"cite\" cite=\"mid:x@y\">Lunch?</blockquote>",
+      "body": "<p>Ok</p>",
+      "quote": "<div class=\"moz-cite-prefix\">On 11/2/26 11:50, Maya wrote:<br></div><blockquote type=\"cite\" cite=\"mid:x@y\">Lunch?</blockquote>"
+    },
+    {
+      "name": "inline reply: first blockquote has text after, the last one is trailing",
+      "html": "<div>Answers inline</div><blockquote type=\"cite\">Q1</blockquote><div>A1</div><blockquote type=\"cite\">Q2 <blockquote type=\"cite\">older</blockquote></blockquote>&nbsp;",
+      "body": "<div>Answers inline</div><blockquote type=\"cite\">Q1</blockquote><div>A1</div>",
+      "quote": "<blockquote type=\"cite\">Q2 <blockquote type=\"cite\">older</blockquote></blockquote>&nbsp;"
+    },
+    {
+      "name": "nested gmail quote: the outer one",
+      "html": "<div dir=\"ltr\">Top</div><br><div class=\"gmail_quote\"><div class=\"gmail_attr\">On … wrote:<br></div><blockquote class=\"gmail_quote\">Mid<div class=\"gmail_quote\"><blockquote class=\"gmail_quote\">Old</blockquote></div></blockquote></div>",
+      "body": "<div dir=\"ltr\">Top</div>",
+      "quote": "<div class=\"gmail_quote\"><div class=\"gmail_attr\">On … wrote:<br></div><blockquote class=\"gmail_quote\">Mid<div class=\"gmail_quote\"><blockquote class=\"gmail_quote\">Old</blockquote></div></blockquote></div>"
+    },
+    {
+      "name": "only a quote",
+      "html": "<blockquote type=\"cite\">Forwarded words</blockquote>",
+      "body": "<blockquote type=\"cite\">Forwarded words</blockquote>",
+      "quote": null
+    },
+    {
+      "name": "no markers",
+      "html": "<p>Plain <blockquote>a citation</blockquote> and more</p>",
+      "body": "<p>Plain <blockquote>a citation</blockquote> and more</p>",
+      "quote": null
+    },
+    {
+      "name": "Gmail reply with the quote inside its ltr div: the blank lines before it go",
+      "html": "<div dir=\"ltr\"><div>Thanks!</div><div><br></div>&nbsp;<br><div class=\"gmail_quote gmail_quote_container\"><div dir=\"ltr\" class=\"gmail_attr\">On … wrote:<br></div><blockquote class=\"gmail_quote\">Lunch?</blockquote></div></div>",
+      "body": "<div dir=\"ltr\"><div>Thanks!</div>",
+      "quote": "<div class=\"gmail_quote gmail_quote_container\"><div dir=\"ltr\" class=\"gmail_attr\">On … wrote:<br></div><blockquote class=\"gmail_quote\">Lunch?</blockquote></div></div>"
+    },
+    {
+      "name": "no quote: trailing blank lines go, a line break inside text and a drawn spacer stay",
+      "html": "<div>One<br>two</div><div style=\"height:24px\"></div><div><span><br></span></div>\n<p> </p>",
+      "body": "<div>One<br>two</div><div style=\"height:24px\"></div>",
+      "quote": null
+    },
+    {
+      "name": "no quote: an image at the end stays",
+      "html": "<div>Look</div><img src=\"cid:a\"><br>",
+      "body": "<div>Look</div><img src=\"cid:a\">",
+      "quote": null
+    }
+  ],
+  "quotedContentIds": [
+    {
+      "name": "images in order, each once",
+      "html": "<div><img src=\"cid:ii_abc123\" alt=\"a\"><p>x</p><img src='cid:ii_def'><img src=\"cid:ii_abc123\"></div>",
+      "expect": [
+        "ii_abc123",
+        "ii_def"
+      ]
+    },
+    {
+      "name": "percent-decoded, CID case-insensitive, background URL",
+      "html": "<td style=\"background:url(cid:logo%40example.com)\"><IMG SRC=\"CID:part1.06090408@example.com\"></td>",
+      "expect": [
+        "logo@example.com",
+        "part1.06090408@example.com"
+      ]
+    },
+    {
+      "name": "comments and head left out",
+      "html": "<html><head><style>.x{background:url(cid:head)}</style></head><body><!-- <img src=\"cid:hidden\"> -->Hi</body></html>",
+      "expect": []
+    },
+    {
+      "name": "undecodable kept as is",
+      "html": "<img src=\"cid:bad%E0%A4%A\">",
+      "expect": [
+        "bad%E0%A4%A"
+      ]
+    },
+    {
+      "name": "no html",
+      "html": null,
+      "expect": []
+    }
+  ],
+  "invalidMailbox": [
+    {
+      "name": "line break smuggles a header",
+      "mailbox": {
+        "name": "",
+        "email": "ana@example.com\r\nBcc: eve@example.net"
+      }
+    },
+    {
+      "name": "bare LF",
+      "mailbox": {
+        "name": "Ana",
+        "email": "ana@example.com\nX: y"
+      }
+    },
+    {
+      "name": "comma adds a recipient",
+      "mailbox": {
+        "name": "",
+        "email": "ana@example.com,eve@example.net"
+      }
+    },
+    {
+      "name": "angle brackets",
+      "mailbox": {
+        "name": "Ana",
+        "email": "ana@example.com> <eve@example.net"
+      }
+    },
+    {
+      "name": "semicolon",
+      "mailbox": {
+        "name": "",
+        "email": "ana@example.com;eve@example.net"
+      }
+    },
+    {
+      "name": "inner space",
+      "mailbox": {
+        "name": "",
+        "email": "ana lopez@example.com"
+      }
+    },
+    {
+      "name": "tab",
+      "mailbox": {
+        "name": "",
+        "email": "ana@exa\tmple.com"
+      }
+    },
+    {
+      "name": "no @",
+      "mailbox": {
+        "name": "Ana",
+        "email": "ana.example.com"
+      }
+    },
+    {
+      "name": "two @",
+      "mailbox": {
+        "name": "",
+        "email": "ana@eve@example.com"
+      }
+    },
+    {
+      "name": "nothing before @",
+      "mailbox": {
+        "name": "",
+        "email": "@example.com"
+      }
+    },
+    {
+      "name": "nothing after @",
+      "mailbox": {
+        "name": "",
+        "email": "ana@"
+      }
+    },
+    {
+      "name": "empty",
+      "mailbox": {
+        "name": "Ana",
+        "email": ""
+      }
+    },
+    {
+      "name": "NUL",
+      "mailbox": {
+        "name": "",
+        "email": "ana@example.com\u0000"
+      }
+    }
+  ],
+  "offersReplyAll": [
+    {
+      "name": "just the sender and me",
+      "original": {
+        "from": [
+          {
+            "name": "Ana",
+            "email": "ana@example.com"
+          }
+        ],
+        "replyTo": [],
+        "to": [
+          {
+            "name": "Me",
+            "email": "me@gmail.example.com"
+          }
+        ],
+        "cc": []
+      },
+      "own": [
+        "me@gmail.example.com",
+        "user@hafa.cc"
+      ],
+      "expect": false
+    },
+    {
+      "name": "someone else on cc",
+      "original": {
+        "from": [
+          {
+            "name": "Ana",
+            "email": "ana@example.com"
+          }
+        ],
+        "replyTo": [],
+        "to": [
+          {
+            "name": "Me",
+            "email": "me@gmail.example.com"
+          }
+        ],
+        "cc": [
+          {
+            "name": "Bob",
+            "email": "bob@example.com"
+          }
+        ]
+      },
+      "own": [
+        "me@gmail.example.com",
+        "user@hafa.cc"
+      ],
+      "expect": true
+    },
+    {
+      "name": "my own message to one person",
+      "original": {
+        "from": [
+          {
+            "name": "Me",
+            "email": "me@gmail.example.com"
+          }
+        ],
+        "replyTo": [],
+        "to": [
+          {
+            "name": "Ana",
+            "email": "ana@example.com"
+          }
+        ],
+        "cc": []
+      },
+      "own": [
+        "me@gmail.example.com",
+        "user@hafa.cc"
+      ],
+      "expect": false
+    },
+    {
+      "name": "my own message to two",
+      "original": {
+        "from": [
+          {
+            "name": "Me",
+            "email": "me@gmail.example.com"
+          }
+        ],
+        "replyTo": [],
+        "to": [
+          {
+            "name": "Ana",
+            "email": "ana@example.com"
+          },
+          {
+            "name": "Cy",
+            "email": "cy@example.com"
+          }
+        ],
+        "cc": []
+      },
+      "own": [
+        "me@gmail.example.com",
+        "user@hafa.cc"
+      ],
+      "expect": true
+    },
+    {
+      "name": "repeats and my other address don't count",
+      "original": {
+        "from": [
+          {
+            "name": "Ana",
+            "email": "ana@example.com"
+          }
+        ],
+        "replyTo": [],
+        "to": [
+          {
+            "name": "",
+            "email": "USER@hafa.cc"
+          }
+        ],
+        "cc": [
+          {
+            "name": "",
+            "email": "Ana@Example.com"
+          }
+        ]
+      },
+      "own": [
+        "me@gmail.example.com",
+        "user@hafa.cc"
+      ],
+      "expect": false
+    }
+  ],
+  "invalidHeader": [
+    {
+      "name": "In-Reply-To with CRLF adds a header",
+      "input": {
+        "from": {
+          "name": "Ana López",
+          "email": "test@hafa.cc"
+        },
+        "to": [
+          {
+            "name": "Bob",
+            "email": "bob@example.com"
+          }
+        ],
+        "cc": [],
+        "bcc": [],
+        "subject": "Hello",
+        "markdown": "Hi *Bob*,\n\nSee you soon.",
+        "signature": null,
+        "inReplyTo": "<a@x>\r\nBcc: eve@example.net",
+        "references": [
+          "<a@x>"
+        ],
+        "inlineImages": [],
+        "attachments": [],
+        "extraHeaders": [],
+        "boundary": "b0"
+      }
+    },
+    {
+      "name": "In-Reply-To with a bare LF",
+      "input": {
+        "from": {
+          "name": "Ana López",
+          "email": "test@hafa.cc"
+        },
+        "to": [
+          {
+            "name": "Bob",
+            "email": "bob@example.com"
+          }
+        ],
+        "cc": [],
+        "bcc": [],
+        "subject": "Hello",
+        "markdown": "Hi *Bob*,\n\nSee you soon.",
+        "signature": null,
+        "inReplyTo": "<a@x>\nBcc: eve@example.net",
+        "references": [
+          "<a@x>"
+        ],
+        "inlineImages": [],
+        "attachments": [],
+        "extraHeaders": [],
+        "boundary": "b0"
+      }
+    },
+    {
+      "name": "References with a bare CR",
+      "input": {
+        "from": {
+          "name": "Ana López",
+          "email": "test@hafa.cc"
+        },
+        "to": [
+          {
+            "name": "Bob",
+            "email": "bob@example.com"
+          }
+        ],
+        "cc": [],
+        "bcc": [],
+        "subject": "Hello",
+        "markdown": "Hi *Bob*,\n\nSee you soon.",
+        "signature": null,
+        "inReplyTo": "<a@x>",
+        "references": [
+          "<a@x>\rBcc: eve@example.net"
+        ],
+        "inlineImages": [],
+        "attachments": [],
+        "extraHeaders": [],
+        "boundary": "b0"
+      }
+    },
+    {
+      "name": "an extra header with NUL",
+      "input": {
+        "from": {
+          "name": "Ana López",
+          "email": "test@hafa.cc"
+        },
+        "to": [
+          {
+            "name": "Bob",
+            "email": "bob@example.com"
+          }
+        ],
+        "cc": [],
+        "bcc": [],
+        "subject": "Hello",
+        "markdown": "Hi *Bob*,\n\nSee you soon.",
+        "signature": null,
+        "inReplyTo": null,
+        "references": [],
+        "inlineImages": [],
+        "attachments": [],
+        "extraHeaders": [
+          [
+            "Autocrypt",
+            "addr=test@hafa.cc;\u0000 keydata=x"
+          ]
+        ],
+        "boundary": "b0"
+      }
+    },
+    {
+      "name": "an extra header with DEL",
+      "input": {
+        "from": {
+          "name": "Ana López",
+          "email": "test@hafa.cc"
+        },
+        "to": [
+          {
+            "name": "Bob",
+            "email": "bob@example.com"
+          }
+        ],
+        "cc": [],
+        "bcc": [],
+        "subject": "Hello",
+        "markdown": "Hi *Bob*,\n\nSee you soon.",
+        "signature": null,
+        "inReplyTo": null,
+        "references": [],
+        "inlineImages": [],
+        "attachments": [],
+        "extraHeaders": [
+          [
+            "X-Test",
+            "ab"
+          ]
+        ],
+        "boundary": "b0"
+      }
+    },
+    {
+      "name": "an extra header with a C1 control",
+      "input": {
+        "from": {
+          "name": "Ana López",
+          "email": "test@hafa.cc"
+        },
+        "to": [
+          {
+            "name": "Bob",
+            "email": "bob@example.com"
+          }
+        ],
+        "cc": [],
+        "bcc": [],
+        "subject": "Hello",
+        "markdown": "Hi *Bob*,\n\nSee you soon.",
+        "signature": null,
+        "inReplyTo": null,
+        "references": [],
+        "inlineImages": [],
+        "attachments": [],
+        "extraHeaders": [
+          [
+            "X-Test",
+            "ab"
+          ]
+        ],
+        "boundary": "b0"
+      }
+    },
+    {
+      "name": "an attachment's type with CRLF",
+      "input": {
+        "from": {
+          "name": "Ana López",
+          "email": "test@hafa.cc"
+        },
+        "to": [
+          {
+            "name": "Bob",
+            "email": "bob@example.com"
+          }
+        ],
+        "cc": [],
+        "bcc": [],
+        "subject": "Hello",
+        "markdown": "Hi *Bob*,\n\nSee you soon.",
+        "signature": null,
+        "inReplyTo": null,
+        "references": [],
+        "inlineImages": [],
+        "attachments": [
+          {
+            "filename": "a.txt",
+            "mimeType": "text/plain\r\nBcc: eve@example.net",
+            "data": "aGk="
+          }
+        ],
+        "extraHeaders": [],
+        "boundary": "b0"
+      }
+    },
+    {
+      "name": "an inline image's Content-ID with LF",
+      "input": {
+        "from": {
+          "name": "Ana López",
+          "email": "test@hafa.cc"
+        },
+        "to": [
+          {
+            "name": "Bob",
+            "email": "bob@example.com"
+          }
+        ],
+        "cc": [],
+        "bcc": [],
+        "subject": "Hello",
+        "markdown": "Hi *Bob*,\n\nSee you soon.",
+        "signature": null,
+        "inReplyTo": null,
+        "references": [],
+        "inlineImages": [
+          {
+            "filename": "a.png",
+            "mimeType": "image/png",
+            "data": "iVBORw0KGgo=",
+            "contentId": "img1>\nBcc: eve@example.net"
+          }
+        ],
+        "attachments": [],
+        "extraHeaders": [],
+        "boundary": "b0"
+      }
+    },
+    {
+      "name": "a calendar method with CR",
+      "input": {
+        "from": {
+          "name": "Ana López",
+          "email": "test@hafa.cc"
+        },
+        "to": [
+          {
+            "name": "Bob",
+            "email": "bob@example.com"
+          }
+        ],
+        "cc": [],
+        "bcc": [],
+        "subject": "Hello",
+        "markdown": "Hi *Bob*,\n\nSee you soon.",
+        "signature": null,
+        "inReplyTo": null,
+        "references": [],
+        "inlineImages": [],
+        "attachments": [],
+        "extraHeaders": [],
+        "boundary": "b0",
+        "calendar": {
+          "method": "REPLY\rX: y",
+          "content": "BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n"
+        }
+      }
+    }
+  ]
+}

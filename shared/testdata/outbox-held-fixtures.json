@@ -1,0 +1,46 @@
+{
+  "_doc": "Sends held on the device (shared/src/outbox-held.ts, Android :core OutboxHeld.kt). A send gets its outbox doc only once Gmail has saved its draft, so offline it has none yet; the Outbox lists it with \"Waiting for a connection\" and counts it. `sends` are the device's queued sends as {localId, outboxId, docWritten}; `docIds` the outbox docs the device has heard of. heldSendIds(sends, docIds) keeps, in order, each send whose doc this device hasn't written and whose outboxId (when it has one) names no known doc.",
+  "cases": [
+    {
+      "name": "nothing queued",
+      "sends": [],
+      "docIds": ["o1"],
+      "expect": []
+    },
+    {
+      "name": "a send made offline has no doc yet",
+      "sends": [{ "localId": "l1", "outboxId": null, "docWritten": false }],
+      "docIds": [],
+      "expect": ["l1"]
+    },
+    {
+      "name": "a send with its id chosen ahead but no doc yet is held",
+      "sends": [{ "localId": "l1", "outboxId": "o1", "docWritten": false }],
+      "docIds": ["o2"],
+      "expect": ["l1"]
+    },
+    {
+      "name": "a rewrite of a doc that exists shows as that doc, not held",
+      "sends": [{ "localId": "l1", "outboxId": "o1", "docWritten": false }],
+      "docIds": ["o1"],
+      "expect": []
+    },
+    {
+      "name": "a doc written but not heard back yet isn't listed twice",
+      "sends": [{ "localId": "l1", "outboxId": null, "docWritten": true }],
+      "docIds": [],
+      "expect": []
+    },
+    {
+      "name": "several, in order, only those without docs",
+      "sends": [
+        { "localId": "l2", "outboxId": null, "docWritten": false },
+        { "localId": "l1", "outboxId": "o1", "docWritten": false },
+        { "localId": "l3", "outboxId": "o3", "docWritten": false }
+      ],
+      "docIds": ["o1"],
+      "expect": ["l2", "l3"]
+    }
+  ],
+  "status": "Waiting for a connection"
+}

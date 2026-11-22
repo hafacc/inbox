@@ -1,0 +1,52 @@
+{
+  "_doc": "copyOutboxId(base, n) is `{base}-bcc-{n}`. A copy's id ends in -bcc- and a number from 1 with no leading zero; anything else is a send's first doc. baseOutboxId gives the send a doc belongs to; sendGroup keeps the docs whose send is base, in order; nextCopyNumbers gives count numbers above the send's highest copy.",
+  "copyIds": [
+    { "base": "abc", "copy": 2, "expect": "abc-bcc-2" },
+    { "base": "a-b", "copy": 10, "expect": "a-b-bcc-10" }
+  ],
+  "ids": [
+    { "id": "abc", "copy": null, "base": "abc" },
+    { "id": "abc-bcc-2", "copy": 2, "base": "abc" },
+    { "id": "abc-bcc-12", "copy": 12, "base": "abc" },
+    { "id": "a-bcc-1-bcc-3", "copy": 3, "base": "a-bcc-1" },
+    { "id": "abc-bcc-", "copy": null, "base": "abc-bcc-" },
+    { "id": "abc-bcc-x", "copy": null, "base": "abc-bcc-x" },
+    { "id": "abc-bcc-0", "copy": null, "base": "abc-bcc-0" },
+    { "id": "abc-bcc-01", "copy": null, "base": "abc-bcc-01" },
+    { "id": "-bcc-1", "copy": null, "base": "-bcc-1" }
+  ],
+  "groups": [
+    {
+      "name": "a send's first doc and its copies, not a longer id",
+      "ids": ["a", "a-bcc-1", "a-bcc-3", "ab", "ab-bcc-1", "b-bcc-2"],
+      "base": "a",
+      "group": ["a", "a-bcc-1", "a-bcc-3"],
+      "count": 2,
+      "next": [4, 5]
+    },
+    {
+      "name": "copies numbered past nine count by value",
+      "ids": ["s1-bcc-10", "s1-bcc-2", "s1"],
+      "base": "s1",
+      "group": ["s1-bcc-10", "s1-bcc-2", "s1"],
+      "count": 1,
+      "next": [11]
+    },
+    {
+      "name": "a send with no copies starts at one",
+      "ids": ["s1", "s2-bcc-4"],
+      "base": "s1",
+      "group": ["s1"],
+      "count": 3,
+      "next": [1, 2, 3]
+    },
+    {
+      "name": "nothing written yet",
+      "ids": [],
+      "base": "s1",
+      "group": [],
+      "count": 0,
+      "next": []
+    }
+  ]
+}

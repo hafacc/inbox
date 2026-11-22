@@ -1,0 +1,1549 @@
+{
+  "_doc": "The queue of label and filter changes waiting for Gmail (shared/src/account-queue.ts, Android :core mail/AccountQueue.kt). Changes are named by `seq`. A label or filter made on the device has an id starting `local:` until Gmail makes it. enqueue: enqueueAccount over `add` in turn. next: nextAccountChange's seq, or null. join: joinAccountQueues(stored, early). resolve: resolveLocalId. without: withoutLocalId. labelMade / filterMade(queue, seq, gmailId): Gmail made what the change made. refused: changeRefused(queue, seq). relabel: relabelChanges over thread changes; `same` lists entries returned unchanged as the same objects. sendable: the seqs sendableChanges keeps. labels: labelsWithPending. filters: filtersWithPending. unsynced: unsyncedChanges(threadChanges, queue).",
+  "localId": [
+    {
+      "id": "local:label",
+      "expect": true
+    },
+    {
+      "id": "Label_12",
+      "expect": false
+    },
+    {
+      "id": "INBOX",
+      "expect": false
+    }
+  ],
+  "enqueue": [
+    {
+      "name": "every kind, numbered in order from 1",
+      "queue": [],
+      "add": [
+        {
+          "kind": "createLabel",
+          "labelId": "local:label",
+          "name": "Trips"
+        },
+        {
+          "kind": "patchLabel",
+          "labelId": "local:label",
+          "name": "Travel"
+        },
+        {
+          "kind": "createFilter",
+          "filterId": "local:filter",
+          "criteria": {
+            "from": "air@example.com"
+          },
+          "action": {
+            "addLabelIds": [
+              "local:label"
+            ],
+            "removeLabelIds": [
+              "INBOX"
+            ]
+          }
+        },
+        {
+          "kind": "labelMatching",
+          "query": "from:air@example.com",
+          "add": [
+            "local:label"
+          ],
+          "remove": [
+            "INBOX"
+          ]
+        },
+        {
+          "kind": "deleteFilter",
+          "filterId": "local:filter"
+        }
+      ],
+      "expect": [
+        {
+          "seq": 1,
+          "kind": "createLabel",
+          "labelId": "local:label",
+          "name": "Trips"
+        },
+        {
+          "seq": 2,
+          "kind": "patchLabel",
+          "labelId": "local:label",
+          "name": "Travel"
+        },
+        {
+          "seq": 3,
+          "kind": "createFilter",
+          "filterId": "local:filter",
+          "criteria": {
+            "from": "air@example.com"
+          },
+          "action": {
+            "addLabelIds": [
+              "local:label"
+            ],
+            "removeLabelIds": [
+              "INBOX"
+            ]
+          }
+        },
+        {
+          "seq": 4,
+          "kind": "labelMatching",
+          "query": "from:air@example.com",
+          "add": [
+            "local:label"
+          ],
+          "remove": [
+            "INBOX"
+          ]
+        },
+        {
+          "seq": 5,
+          "kind": "deleteFilter",
+          "filterId": "local:filter"
+        }
+      ]
+    },
+    {
+      "name": "numbered after the highest, not the count",
+      "queue": [
+        {
+          "seq": 7,
+          "kind": "deleteFilter",
+          "filterId": "F7"
+        }
+      ],
+      "add": [
+        {
+          "kind": "deleteFilter",
+          "filterId": "F8"
+        }
+      ],
+      "expect": [
+        {
+          "seq": 7,
+          "kind": "deleteFilter",
+          "filterId": "F7"
+        },
+        {
+          "seq": 8,
+          "kind": "deleteFilter",
+          "filterId": "F8"
+        }
+      ]
+    }
+  ],
+  "next": [
+    {
+      "name": "the earliest made, wherever it sits",
+      "queue": [
+        {
+          "seq": 5,
+          "kind": "deleteFilter",
+          "filterId": "local:filter"
+        },
+        {
+          "seq": 4,
+          "kind": "labelMatching",
+          "query": "from:air@example.com",
+          "add": [
+            "local:label"
+          ],
+          "remove": [
+            "INBOX"
+          ]
+        },
+        {
+          "seq": 3,
+          "kind": "createFilter",
+          "filterId": "local:filter",
+          "criteria": {
+            "from": "air@example.com"
+          },
+          "action": {
+            "addLabelIds": [
+              "local:label"
+            ],
+            "removeLabelIds": [
+              "INBOX"
+            ]
+          }
+        },
+        {
+          "seq": 2,
+          "kind": "patchLabel",
+          "labelId": "local:label",
+          "name": "Travel"
+        },
+        {
+          "seq": 1,
+          "kind": "createLabel",
+          "labelId": "local:label",
+          "name": "Trips"
+        }
+      ],
+      "expect": 1
+    },
+    {
+      "name": "nothing queued",
+      "queue": [],
+      "expect": null
+    }
+  ],
+  "join": [
+    {
+      "name": "changes made before the stored queue was read go after it, in their order",
+      "stored": [
+        {
+          "seq": 1,
+          "kind": "createLabel",
+          "labelId": "local:label",
+          "name": "Trips"
+        },
+        {
+          "seq": 2,
+          "kind": "patchLabel",
+          "labelId": "local:label",
+          "name": "Travel"
+        },
+        {
+          "seq": 3,
+          "kind": "createFilter",
+          "filterId": "local:filter",
+          "criteria": {
+            "from": "air@example.com"
+          },
+          "action": {
+            "addLabelIds": [
+              "local:label"
+            ],
+            "removeLabelIds": [
+              "INBOX"
+            ]
+          }
+        },
+        {
+          "seq": 4,
+          "kind": "labelMatching",
+          "query": "from:air@example.com",
+          "add": [
+            "local:label"
+          ],
+          "remove": [
+            "INBOX"
+          ]
+        },
+        {
+          "seq": 5,
+          "kind": "deleteFilter",
+          "filterId": "local:filter"
+        }
+      ],
+      "early": [
+        {
+          "seq": 2,
+          "kind": "deleteFilter",
+          "filterId": "F2"
+        },
+        {
+          "seq": 1,
+          "kind": "deleteFilter",
+          "filterId": "F1"
+        }
+      ],
+      "expect": [
+        {
+          "seq": 1,
+          "kind": "createLabel",
+          "labelId": "local:label",
+          "name": "Trips"
+        },
+        {
+          "seq": 2,
+          "kind": "patchLabel",
+          "labelId": "local:label",
+          "name": "Travel"
+        },
+        {
+          "seq": 3,
+          "kind": "createFilter",
+          "filterId": "local:filter",
+          "criteria": {
+            "from": "air@example.com"
+          },
+          "action": {
+            "addLabelIds": [
+              "local:label"
+            ],
+            "removeLabelIds": [
+              "INBOX"
+            ]
+          }
+        },
+        {
+          "seq": 4,
+          "kind": "labelMatching",
+          "query": "from:air@example.com",
+          "add": [
+            "local:label"
+          ],
+          "remove": [
+            "INBOX"
+          ]
+        },
+        {
+          "seq": 5,
+          "kind": "deleteFilter",
+          "filterId": "local:filter"
+        },
+        {
+          "seq": 6,
+          "kind": "deleteFilter",
+          "filterId": "F1"
+        },
+        {
+          "seq": 7,
+          "kind": "deleteFilter",
+          "filterId": "F2"
+        }
+      ]
+    },
+    {
+      "name": "nothing stored",
+      "stored": [],
+      "early": [
+        {
+          "seq": 3,
+          "kind": "deleteFilter",
+          "filterId": "F3"
+        }
+      ],
+      "expect": [
+        {
+          "seq": 1,
+          "kind": "deleteFilter",
+          "filterId": "F3"
+        }
+      ]
+    }
+  ],
+  "resolve": [
+    {
+      "name": "a label's local id is replaced in every later change",
+      "queue": [
+        {
+          "seq": 2,
+          "kind": "patchLabel",
+          "labelId": "local:label",
+          "name": "Travel"
+        },
+        {
+          "seq": 3,
+          "kind": "createFilter",
+          "filterId": "local:filter",
+          "criteria": {
+            "from": "air@example.com"
+          },
+          "action": {
+            "addLabelIds": [
+              "local:label"
+            ],
+            "removeLabelIds": [
+              "INBOX"
+            ]
+          }
+        },
+        {
+          "seq": 4,
+          "kind": "labelMatching",
+          "query": "from:air@example.com",
+          "add": [
+            "local:label"
+          ],
+          "remove": [
+            "INBOX"
+          ]
+        },
+        {
+          "seq": 5,
+          "kind": "deleteFilter",
+          "filterId": "local:filter"
+        }
+      ],
+      "localId": "local:label",
+      "gmailId": "Label_9",
+      "expect": [
+        {
+          "seq": 2,
+          "kind": "patchLabel",
+          "labelId": "Label_9",
+          "name": "Travel"
+        },
+        {
+          "seq": 3,
+          "kind": "createFilter",
+          "filterId": "local:filter",
+          "criteria": {
+            "from": "air@example.com"
+          },
+          "action": {
+            "addLabelIds": [
+              "Label_9"
+            ],
+            "removeLabelIds": [
+              "INBOX"
+            ]
+          }
+        },
+        {
+          "seq": 4,
+          "kind": "labelMatching",
+          "query": "from:air@example.com",
+          "add": [
+            "Label_9"
+          ],
+          "remove": [
+            "INBOX"
+          ]
+        },
+        {
+          "seq": 5,
+          "kind": "deleteFilter",
+          "filterId": "local:filter"
+        }
+      ]
+    },
+    {
+      "name": "a filter's local id is replaced in a delete and a replace",
+      "queue": [
+        {
+          "seq": 1,
+          "kind": "createFilter",
+          "filterId": "local:second",
+          "criteria": {
+            "to": "me"
+          },
+          "action": {
+            "addLabelIds": [
+              "STARRED"
+            ]
+          },
+          "replacing": "local:filter"
+        },
+        {
+          "seq": 2,
+          "kind": "deleteFilter",
+          "filterId": "local:filter"
+        }
+      ],
+      "localId": "local:filter",
+      "gmailId": "F1",
+      "expect": [
+        {
+          "seq": 1,
+          "kind": "createFilter",
+          "filterId": "local:second",
+          "criteria": {
+            "to": "me"
+          },
+          "action": {
+            "addLabelIds": [
+              "STARRED"
+            ]
+          },
+          "replacing": "F1"
+        },
+        {
+          "seq": 2,
+          "kind": "deleteFilter",
+          "filterId": "F1"
+        }
+      ]
+    },
+    {
+      "name": "a removed label is replaced too",
+      "queue": [
+        {
+          "seq": 1,
+          "kind": "createFilter",
+          "filterId": "local:filter",
+          "criteria": {
+            "from": "air@example.com"
+          },
+          "action": {
+            "removeLabelIds": [
+              "local:label"
+            ]
+          }
+        },
+        {
+          "seq": 2,
+          "kind": "labelMatching",
+          "query": "from:air@example.com",
+          "add": [],
+          "remove": [
+            "local:label"
+          ]
+        }
+      ],
+      "localId": "local:label",
+      "gmailId": "Label_9",
+      "expect": [
+        {
+          "seq": 1,
+          "kind": "createFilter",
+          "filterId": "local:filter",
+          "criteria": {
+            "from": "air@example.com"
+          },
+          "action": {
+            "removeLabelIds": [
+              "Label_9"
+            ]
+          }
+        },
+        {
+          "seq": 2,
+          "kind": "labelMatching",
+          "query": "from:air@example.com",
+          "add": [],
+          "remove": [
+            "Label_9"
+          ]
+        }
+      ]
+    }
+  ],
+  "without": [
+    {
+      "name": "a refused label takes its changes and what would use it along",
+      "queue": [
+        {
+          "seq": 2,
+          "kind": "patchLabel",
+          "labelId": "local:label",
+          "name": "Travel"
+        },
+        {
+          "seq": 3,
+          "kind": "createFilter",
+          "filterId": "local:filter",
+          "criteria": {
+            "from": "air@example.com"
+          },
+          "action": {
+            "addLabelIds": [
+              "local:label"
+            ],
+            "removeLabelIds": [
+              "INBOX"
+            ]
+          }
+        },
+        {
+          "seq": 4,
+          "kind": "labelMatching",
+          "query": "from:air@example.com",
+          "add": [
+            "local:label"
+          ],
+          "remove": [
+            "INBOX"
+          ]
+        },
+        {
+          "seq": 5,
+          "kind": "deleteFilter",
+          "filterId": "local:filter"
+        }
+      ],
+      "localId": "local:label",
+      "expect": [
+        {
+          "seq": 5,
+          "kind": "deleteFilter",
+          "filterId": "local:filter"
+        }
+      ]
+    },
+    {
+      "name": "a refused filter leaves its delete out and replaces nothing",
+      "queue": [
+        {
+          "seq": 1,
+          "kind": "createFilter",
+          "filterId": "local:second",
+          "criteria": {
+            "to": "me"
+          },
+          "action": {
+            "addLabelIds": [
+              "STARRED"
+            ]
+          },
+          "replacing": "local:filter"
+        },
+        {
+          "seq": 2,
+          "kind": "deleteFilter",
+          "filterId": "local:filter"
+        }
+      ],
+      "localId": "local:filter",
+      "expect": [
+        {
+          "seq": 1,
+          "kind": "createFilter",
+          "filterId": "local:second",
+          "criteria": {
+            "to": "me"
+          },
+          "action": {
+            "addLabelIds": [
+              "STARRED"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "labelMade": [
+    {
+      "name": "the label leaves the queue and later changes name Gmail's id",
+      "queue": [
+        {
+          "seq": 1,
+          "kind": "createLabel",
+          "labelId": "local:label",
+          "name": "Trips"
+        },
+        {
+          "seq": 2,
+          "kind": "patchLabel",
+          "labelId": "local:label",
+          "name": "Travel"
+        },
+        {
+          "seq": 3,
+          "kind": "createFilter",
+          "filterId": "local:filter",
+          "criteria": {
+            "from": "air@example.com"
+          },
+          "action": {
+            "addLabelIds": [
+              "local:label"
+            ],
+            "removeLabelIds": [
+              "INBOX"
+            ]
+          }
+        },
+        {
+          "seq": 4,
+          "kind": "labelMatching",
+          "query": "from:air@example.com",
+          "add": [
+            "local:label"
+          ],
+          "remove": [
+            "INBOX"
+          ]
+        },
+        {
+          "seq": 5,
+          "kind": "deleteFilter",
+          "filterId": "local:filter"
+        }
+      ],
+      "seq": 1,
+      "gmailId": "Label_9",
+      "expect": [
+        {
+          "seq": 2,
+          "kind": "patchLabel",
+          "labelId": "Label_9",
+          "name": "Travel"
+        },
+        {
+          "seq": 3,
+          "kind": "createFilter",
+          "filterId": "local:filter",
+          "criteria": {
+            "from": "air@example.com"
+          },
+          "action": {
+            "addLabelIds": [
+              "Label_9"
+            ],
+            "removeLabelIds": [
+              "INBOX"
+            ]
+          }
+        },
+        {
+          "seq": 4,
+          "kind": "labelMatching",
+          "query": "from:air@example.com",
+          "add": [
+            "Label_9"
+          ],
+          "remove": [
+            "INBOX"
+          ]
+        },
+        {
+          "seq": 5,
+          "kind": "deleteFilter",
+          "filterId": "local:filter"
+        }
+      ]
+    },
+    {
+      "name": "not a new label: unchanged",
+      "queue": [
+        {
+          "seq": 1,
+          "kind": "deleteFilter",
+          "filterId": "F1"
+        }
+      ],
+      "seq": 1,
+      "gmailId": "Label_9",
+      "expect": [
+        {
+          "seq": 1,
+          "kind": "deleteFilter",
+          "filterId": "F1"
+        }
+      ]
+    }
+  ],
+  "filterMade": [
+    {
+      "name": "a new filter leaves the queue and its delete names Gmail's id",
+      "queue": [
+        {
+          "seq": 1,
+          "kind": "createFilter",
+          "filterId": "local:filter",
+          "criteria": {
+            "from": "air@example.com"
+          },
+          "action": {
+            "addLabelIds": [
+              "STARRED"
+            ]
+          }
+        },
+        {
+          "seq": 2,
+          "kind": "deleteFilter",
+          "filterId": "local:filter"
+        }
+      ],
+      "seq": 1,
+      "gmailId": "F9",
+      "expect": [
+        {
+          "seq": 2,
+          "kind": "deleteFilter",
+          "filterId": "F9"
+        }
+      ]
+    },
+    {
+      "name": "an edit turns into deleting the old filter, in its place",
+      "queue": [
+        {
+          "seq": 1,
+          "kind": "createFilter",
+          "filterId": "local:second",
+          "criteria": {
+            "to": "me"
+          },
+          "action": {
+            "addLabelIds": [
+              "STARRED"
+            ]
+          },
+          "replacing": "F1"
+        },
+        {
+          "seq": 2,
+          "kind": "patchLabel",
+          "labelId": "Label_1",
+          "name": "Work"
+        }
+      ],
+      "seq": 1,
+      "gmailId": "F9",
+      "expect": [
+        {
+          "seq": 1,
+          "kind": "deleteFilter",
+          "filterId": "F1"
+        },
+        {
+          "seq": 2,
+          "kind": "patchLabel",
+          "labelId": "Label_1",
+          "name": "Work"
+        }
+      ]
+    },
+    {
+      "name": "an edit of a filter made on the device deletes it once both are made",
+      "queue": [
+        {
+          "seq": 1,
+          "kind": "createFilter",
+          "filterId": "local:filter",
+          "criteria": {
+            "from": "air@example.com"
+          },
+          "action": {
+            "addLabelIds": [
+              "STARRED"
+            ]
+          }
+        },
+        {
+          "seq": 2,
+          "kind": "createFilter",
+          "filterId": "local:second",
+          "criteria": {
+            "to": "me"
+          },
+          "action": {
+            "addLabelIds": [
+              "STARRED"
+            ]
+          },
+          "replacing": "local:filter"
+        }
+      ],
+      "seq": 1,
+      "gmailId": "F1",
+      "expect": [
+        {
+          "seq": 2,
+          "kind": "createFilter",
+          "filterId": "local:second",
+          "criteria": {
+            "to": "me"
+          },
+          "action": {
+            "addLabelIds": [
+              "STARRED"
+            ]
+          },
+          "replacing": "F1"
+        }
+      ]
+    },
+    {
+      "name": "an edit that changed nothing: Gmail names the old filter, nothing to delete",
+      "queue": [
+        {
+          "seq": 1,
+          "kind": "createFilter",
+          "filterId": "local:second",
+          "criteria": {
+            "to": "me"
+          },
+          "action": {
+            "addLabelIds": [
+              "STARRED"
+            ]
+          },
+          "replacing": "F1"
+        },
+        {
+          "seq": 2,
+          "kind": "deleteFilter",
+          "filterId": "local:second"
+        }
+      ],
+      "seq": 1,
+      "gmailId": "F1",
+      "expect": [
+        {
+          "seq": 2,
+          "kind": "deleteFilter",
+          "filterId": "F1"
+        }
+      ]
+    }
+  ],
+  "refused": [
+    {
+      "name": "a refused new label drops what depends on it",
+      "queue": [
+        {
+          "seq": 1,
+          "kind": "createLabel",
+          "labelId": "local:label",
+          "name": "Trips"
+        },
+        {
+          "seq": 2,
+          "kind": "patchLabel",
+          "labelId": "local:label",
+          "name": "Travel"
+        },
+        {
+          "seq": 3,
+          "kind": "createFilter",
+          "filterId": "local:filter",
+          "criteria": {
+            "from": "air@example.com"
+          },
+          "action": {
+            "addLabelIds": [
+              "local:label"
+            ],
+            "removeLabelIds": [
+              "INBOX"
+            ]
+          }
+        },
+        {
+          "seq": 4,
+          "kind": "labelMatching",
+          "query": "from:air@example.com",
+          "add": [
+            "local:label"
+          ],
+          "remove": [
+            "INBOX"
+          ]
+        },
+        {
+          "seq": 5,
+          "kind": "deleteFilter",
+          "filterId": "local:filter"
+        }
+      ],
+      "seq": 1,
+      "expect": [
+        {
+          "seq": 5,
+          "kind": "deleteFilter",
+          "filterId": "local:filter"
+        }
+      ]
+    },
+    {
+      "name": "a refused new filter drops its delete; an edit of it replaces nothing",
+      "queue": [
+        {
+          "seq": 1,
+          "kind": "createFilter",
+          "filterId": "local:filter",
+          "criteria": {
+            "from": "air@example.com"
+          },
+          "action": {
+            "addLabelIds": [
+              "STARRED"
+            ]
+          }
+        },
+        {
+          "seq": 2,
+          "kind": "createFilter",
+          "filterId": "local:second",
+          "criteria": {
+            "to": "me"
+          },
+          "action": {
+            "addLabelIds": [
+              "STARRED"
+            ]
+          },
+          "replacing": "local:filter"
+        },
+        {
+          "seq": 3,
+          "kind": "deleteFilter",
+          "filterId": "local:filter"
+        }
+      ],
+      "seq": 1,
+      "expect": [
+        {
+          "seq": 2,
+          "kind": "createFilter",
+          "filterId": "local:second",
+          "criteria": {
+            "to": "me"
+          },
+          "action": {
+            "addLabelIds": [
+              "STARRED"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "a refused rename goes alone",
+      "queue": [
+        {
+          "seq": 1,
+          "kind": "patchLabel",
+          "labelId": "Label_1",
+          "name": "Work"
+        },
+        {
+          "seq": 2,
+          "kind": "patchLabel",
+          "labelId": "Label_1",
+          "color": {
+            "textColor": "#000000",
+            "backgroundColor": "#ffffff"
+          }
+        }
+      ],
+      "seq": 1,
+      "expect": [
+        {
+          "seq": 2,
+          "kind": "patchLabel",
+          "labelId": "Label_1",
+          "color": {
+            "textColor": "#000000",
+            "backgroundColor": "#ffffff"
+          }
+        }
+      ]
+    }
+  ],
+  "relabel": [
+    {
+      "name": "queued thread changes name Gmail's label id",
+      "changes": [
+        {
+          "seq": 1,
+          "threadId": "a",
+          "add": [
+            "local:label"
+          ],
+          "remove": [
+            "INBOX"
+          ]
+        },
+        {
+          "seq": 2,
+          "threadId": "b",
+          "add": [
+            "STARRED"
+          ],
+          "remove": []
+        },
+        {
+          "seq": 3,
+          "threadId": "c",
+          "add": [],
+          "remove": [
+            "local:label"
+          ]
+        }
+      ],
+      "from": "local:label",
+      "to": "Label_9",
+      "expect": [
+        {
+          "seq": 1,
+          "threadId": "a",
+          "add": [
+            "Label_9"
+          ],
+          "remove": [
+            "INBOX"
+          ]
+        },
+        {
+          "seq": 2,
+          "threadId": "b",
+          "add": [
+            "STARRED"
+          ],
+          "remove": []
+        },
+        {
+          "seq": 3,
+          "threadId": "c",
+          "add": [],
+          "remove": [
+            "Label_9"
+          ]
+        }
+      ],
+      "same": [
+        1
+      ]
+    },
+    {
+      "name": "a refused label is dropped from them",
+      "changes": [
+        {
+          "seq": 1,
+          "threadId": "a",
+          "add": [
+            "local:label"
+          ],
+          "remove": [
+            "INBOX"
+          ]
+        },
+        {
+          "seq": 2,
+          "threadId": "b",
+          "add": [
+            "STARRED"
+          ],
+          "remove": []
+        }
+      ],
+      "from": "local:label",
+      "to": null,
+      "expect": [
+        {
+          "seq": 1,
+          "threadId": "a",
+          "add": [],
+          "remove": [
+            "INBOX"
+          ]
+        },
+        {
+          "seq": 2,
+          "threadId": "b",
+          "add": [
+            "STARRED"
+          ],
+          "remove": []
+        }
+      ],
+      "same": [
+        1
+      ]
+    }
+  ],
+  "sendable": [
+    {
+      "name": "a thread waits whole while any of its changes names a label not made yet",
+      "changes": [
+        {
+          "seq": 1,
+          "threadId": "a",
+          "add": [],
+          "remove": [
+            "INBOX"
+          ]
+        },
+        {
+          "seq": 2,
+          "threadId": "b",
+          "add": [
+            "STARRED"
+          ],
+          "remove": []
+        },
+        {
+          "seq": 3,
+          "threadId": "a",
+          "add": [
+            "local:label"
+          ],
+          "remove": []
+        }
+      ],
+      "expect": [
+        2
+      ]
+    },
+    {
+      "name": "nothing waits without local labels",
+      "changes": [
+        {
+          "seq": 1,
+          "threadId": "a",
+          "add": [],
+          "remove": [
+            "INBOX"
+          ]
+        },
+        {
+          "seq": 2,
+          "threadId": "b",
+          "add": [
+            "Label_9"
+          ],
+          "remove": []
+        }
+      ],
+      "expect": [
+        1,
+        2
+      ]
+    }
+  ],
+  "labels": [
+    {
+      "name": "queued new labels, renames and colors show",
+      "labels": [
+        {
+          "id": "Label_1",
+          "name": "Work",
+          "type": "user"
+        }
+      ],
+      "queue": [
+        {
+          "seq": 1,
+          "kind": "createLabel",
+          "labelId": "local:label",
+          "name": "Trips"
+        },
+        {
+          "seq": 2,
+          "kind": "patchLabel",
+          "labelId": "local:label",
+          "name": "Travel"
+        },
+        {
+          "seq": 3,
+          "kind": "createFilter",
+          "filterId": "local:filter",
+          "criteria": {
+            "from": "air@example.com"
+          },
+          "action": {
+            "addLabelIds": [
+              "local:label"
+            ],
+            "removeLabelIds": [
+              "INBOX"
+            ]
+          }
+        },
+        {
+          "seq": 4,
+          "kind": "labelMatching",
+          "query": "from:air@example.com",
+          "add": [
+            "local:label"
+          ],
+          "remove": [
+            "INBOX"
+          ]
+        },
+        {
+          "seq": 5,
+          "kind": "deleteFilter",
+          "filterId": "local:filter"
+        },
+        {
+          "seq": 6,
+          "kind": "patchLabel",
+          "labelId": "Label_1",
+          "color": {
+            "textColor": "#000000",
+            "backgroundColor": "#ffffff"
+          }
+        }
+      ],
+      "expect": [
+        {
+          "id": "Label_1",
+          "name": "Work",
+          "type": "user",
+          "color": {
+            "textColor": "#000000",
+            "backgroundColor": "#ffffff"
+          }
+        },
+        {
+          "id": "local:label",
+          "name": "Travel",
+          "type": "user",
+          "labelListVisibility": "labelShow"
+        }
+      ]
+    },
+    {
+      "name": "showing them again changes nothing",
+      "labels": [
+        {
+          "id": "Label_1",
+          "name": "Work",
+          "type": "user"
+        },
+        {
+          "id": "local:label",
+          "name": "Travel",
+          "type": "user",
+          "labelListVisibility": "labelShow"
+        }
+      ],
+      "queue": [
+        {
+          "seq": 1,
+          "kind": "createLabel",
+          "labelId": "local:label",
+          "name": "Trips"
+        },
+        {
+          "seq": 2,
+          "kind": "patchLabel",
+          "labelId": "local:label",
+          "name": "Travel"
+        },
+        {
+          "seq": 3,
+          "kind": "createFilter",
+          "filterId": "local:filter",
+          "criteria": {
+            "from": "air@example.com"
+          },
+          "action": {
+            "addLabelIds": [
+              "local:label"
+            ],
+            "removeLabelIds": [
+              "INBOX"
+            ]
+          }
+        },
+        {
+          "seq": 4,
+          "kind": "labelMatching",
+          "query": "from:air@example.com",
+          "add": [
+            "local:label"
+          ],
+          "remove": [
+            "INBOX"
+          ]
+        },
+        {
+          "seq": 5,
+          "kind": "deleteFilter",
+          "filterId": "local:filter"
+        }
+      ],
+      "expect": [
+        {
+          "id": "Label_1",
+          "name": "Work",
+          "type": "user"
+        },
+        {
+          "id": "local:label",
+          "name": "Travel",
+          "type": "user",
+          "labelListVisibility": "labelShow"
+        }
+      ]
+    },
+    {
+      "name": "a new label's color",
+      "labels": [],
+      "queue": [
+        {
+          "seq": 1,
+          "kind": "createLabel",
+          "labelId": "local:label",
+          "name": "Trips",
+          "color": {
+            "textColor": "#000000",
+            "backgroundColor": "#ffffff"
+          }
+        }
+      ],
+      "expect": [
+        {
+          "id": "local:label",
+          "name": "Trips",
+          "type": "user",
+          "labelListVisibility": "labelShow",
+          "color": {
+            "textColor": "#000000",
+            "backgroundColor": "#ffffff"
+          }
+        }
+      ]
+    }
+  ],
+  "filters": [
+    {
+      "name": "queued new ones show, without deleted or replaced ones",
+      "filters": [
+        {
+          "id": "F1",
+          "criteria": {
+            "to": "you"
+          }
+        },
+        {
+          "id": "F2",
+          "criteria": {
+            "from": "x"
+          }
+        },
+        {
+          "id": "F3",
+          "criteria": {
+            "from": "y"
+          }
+        }
+      ],
+      "queue": [
+        {
+          "seq": 1,
+          "kind": "createFilter",
+          "filterId": "local:filter",
+          "criteria": {
+            "to": "me"
+          },
+          "action": {
+            "addLabelIds": [
+              "STARRED"
+            ]
+          },
+          "replacing": "F1"
+        },
+        {
+          "seq": 2,
+          "kind": "deleteFilter",
+          "filterId": "F2"
+        }
+      ],
+      "expect": [
+        {
+          "id": "F3",
+          "criteria": {
+            "from": "y"
+          }
+        },
+        {
+          "id": "local:filter",
+          "criteria": {
+            "to": "me"
+          },
+          "action": {
+            "addLabelIds": [
+              "STARRED"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "an edit then a delete of the new one",
+      "filters": [
+        {
+          "id": "F1",
+          "criteria": {
+            "to": "you"
+          }
+        }
+      ],
+      "queue": [
+        {
+          "seq": 1,
+          "kind": "createFilter",
+          "filterId": "local:filter",
+          "criteria": {
+            "to": "me"
+          },
+          "action": {
+            "addLabelIds": [
+              "STARRED"
+            ]
+          },
+          "replacing": "F1"
+        },
+        {
+          "seq": 2,
+          "kind": "deleteFilter",
+          "filterId": "local:filter"
+        }
+      ],
+      "expect": []
+    }
+  ],
+  "unsynced": [
+    {
+      "name": "nothing waiting",
+      "threadChanges": [],
+      "queue": [],
+      "expect": 0
+    },
+    {
+      "name": "thread changes and label or filter edits both count",
+      "threadChanges": [
+        {
+          "seq": 1,
+          "threadId": "t1",
+          "add": [],
+          "remove": [
+            "INBOX"
+          ]
+        }
+      ],
+      "queue": [
+        {
+          "seq": 1,
+          "kind": "createLabel",
+          "labelId": "local:label",
+          "name": "Trips"
+        },
+        {
+          "seq": 2,
+          "kind": "patchLabel",
+          "labelId": "local:label",
+          "name": "Travel"
+        },
+        {
+          "seq": 3,
+          "kind": "createFilter",
+          "filterId": "local:filter",
+          "criteria": {
+            "from": "air@example.com"
+          },
+          "action": {
+            "addLabelIds": [
+              "local:label"
+            ],
+            "removeLabelIds": [
+              "INBOX"
+            ]
+          }
+        },
+        {
+          "seq": 4,
+          "kind": "labelMatching",
+          "query": "from:air@example.com",
+          "add": [
+            "local:label"
+          ],
+          "remove": [
+            "INBOX"
+          ]
+        },
+        {
+          "seq": 5,
+          "kind": "deleteFilter",
+          "filterId": "local:filter"
+        }
+      ],
+      "expect": 6
+    }
+  ]
+}

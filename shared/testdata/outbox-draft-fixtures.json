@@ -1,0 +1,593 @@
+{
+  "_doc": "Drafts the Outbox holds (shared/src/outbox-drafts.ts, Android :core OutboxDrafts.kt). A scheduled send stays a Gmail draft until it goes, but shows only in the Outbox. `drafts` are Gmail's (drafts.list) as {draftId, messageId, threadId}; `docs` the outbox docs as {draftId, status}. outboxDrafts(drafts, docs, sending, listedFor): every doc but a `sent` one holds its draft; `messageIds` are those drafts' message ids, `threadIds` the threads with no draft but those (sorted here). `count` is draftThreadCount(labelThreads, outbox): the DRAFT label's thread count less threadIds' size, never below 0. `listed` cases: onlyInOutbox(threadId, sentOrReceived, outboxDrafts(drafts, docs)) is true when the thread has no sent or received message and every draft in it is held, so it shows in no view but the Outbox (search included). `sending` (absent: none) are the drafts this device is sending, queued or with a doc just written, as {draftId, messageId, threadId} (any may be null); they hold their draft too, and their messageId is hidden. Gmail's listing lags, so `listedFor` (absent: none) is the drafts the Outbox held when `drafts` was listed: a held draft the listing leaves out and wasn't made for is newer than it and leaves Drafts by the threadId its sending entry or doc (`docs` may carry threadId) names, unless that thread has a draft not held; one the listing was made for and left out is gone and hides nothing. A sending entry with no draftId isn't in Gmail yet and hides no thread.",
+  "cases": [
+    {
+      "name": "no outbox: every draft shows",
+      "drafts": [
+        {
+          "draftId": "r1",
+          "messageId": "m1",
+          "threadId": "t1"
+        },
+        {
+          "draftId": "r2",
+          "messageId": "m2",
+          "threadId": "t2"
+        }
+      ],
+      "docs": [],
+      "labelThreads": 2,
+      "expect": {
+        "messageIds": [],
+        "threadIds": [],
+        "count": 2
+      }
+    },
+    {
+      "name": "a scheduled new message leaves Drafts",
+      "drafts": [
+        {
+          "draftId": "r1",
+          "messageId": "m1",
+          "threadId": "t1"
+        },
+        {
+          "draftId": "r2",
+          "messageId": "m2",
+          "threadId": "t2"
+        }
+      ],
+      "docs": [
+        {
+          "draftId": "r1",
+          "status": "waiting"
+        }
+      ],
+      "labelThreads": 2,
+      "expect": {
+        "messageIds": [
+          "m1"
+        ],
+        "threadIds": [
+          "t1"
+        ],
+        "count": 1
+      }
+    },
+    {
+      "name": "a scheduled reply hides only itself when its thread has another draft",
+      "drafts": [
+        {
+          "draftId": "r1",
+          "messageId": "m1",
+          "threadId": "t1"
+        },
+        {
+          "draftId": "r2",
+          "messageId": "m2",
+          "threadId": "t1"
+        }
+      ],
+      "docs": [
+        {
+          "draftId": "r1",
+          "status": "waiting"
+        }
+      ],
+      "labelThreads": 1,
+      "expect": {
+        "messageIds": [
+          "m1"
+        ],
+        "threadIds": [],
+        "count": 1
+      }
+    },
+    {
+      "name": "sending, retrying, blocked and failed sends stay in the Outbox",
+      "drafts": [
+        {
+          "draftId": "r1",
+          "messageId": "m1",
+          "threadId": "t1"
+        },
+        {
+          "draftId": "r2",
+          "messageId": "m2",
+          "threadId": "t2"
+        },
+        {
+          "draftId": "r3",
+          "messageId": "m3",
+          "threadId": "t3"
+        },
+        {
+          "draftId": "r4",
+          "messageId": "m4",
+          "threadId": "t4"
+        }
+      ],
+      "docs": [
+        {
+          "draftId": "r1",
+          "status": "sending"
+        },
+        {
+          "draftId": "r2",
+          "status": "retrying"
+        },
+        {
+          "draftId": "r3",
+          "status": "blocked"
+        },
+        {
+          "draftId": "r4",
+          "status": "failed"
+        }
+      ],
+      "labelThreads": 4,
+      "expect": {
+        "messageIds": [
+          "m1",
+          "m2",
+          "m3",
+          "m4"
+        ],
+        "threadIds": [
+          "t1",
+          "t2",
+          "t3",
+          "t4"
+        ],
+        "count": 0
+      }
+    },
+    {
+      "name": "a sent doc no longer holds its draft",
+      "drafts": [
+        {
+          "draftId": "r1",
+          "messageId": "m1",
+          "threadId": "t1"
+        }
+      ],
+      "docs": [
+        {
+          "draftId": "r1",
+          "status": "sent"
+        }
+      ],
+      "labelThreads": 1,
+      "expect": {
+        "messageIds": [],
+        "threadIds": [],
+        "count": 1
+      }
+    },
+    {
+      "name": "an encrypted send's Bcc copies each hold their draft",
+      "drafts": [
+        {
+          "draftId": "r1",
+          "messageId": "m1",
+          "threadId": "t1"
+        },
+        {
+          "draftId": "r2",
+          "messageId": "m2",
+          "threadId": "t1"
+        },
+        {
+          "draftId": "r3",
+          "messageId": "m3",
+          "threadId": "t1"
+        }
+      ],
+      "docs": [
+        {
+          "draftId": "r1",
+          "status": "waiting"
+        },
+        {
+          "draftId": "r2",
+          "status": "waiting"
+        },
+        {
+          "draftId": "r3",
+          "status": "waiting"
+        }
+      ],
+      "labelThreads": 1,
+      "expect": {
+        "messageIds": [
+          "m1",
+          "m2",
+          "m3"
+        ],
+        "threadIds": [
+          "t1"
+        ],
+        "count": 0
+      }
+    },
+    {
+      "name": "a doc whose draft Gmail no longer lists hides nothing",
+      "drafts": [
+        {
+          "draftId": "r1",
+          "messageId": "m1",
+          "threadId": "t1"
+        }
+      ],
+      "docs": [
+        {
+          "draftId": "gone",
+          "status": "failed"
+        }
+      ],
+      "labelThreads": 1,
+      "expect": {
+        "messageIds": [],
+        "threadIds": [],
+        "count": 1
+      }
+    },
+    {
+      "name": "the count never goes below zero",
+      "drafts": [
+        {
+          "draftId": "r1",
+          "messageId": "m1",
+          "threadId": "t1"
+        }
+      ],
+      "docs": [
+        {
+          "draftId": "r1",
+          "status": "waiting"
+        }
+      ],
+      "labelThreads": 0,
+      "expect": {
+        "messageIds": [
+          "m1"
+        ],
+        "threadIds": [
+          "t1"
+        ],
+        "count": 0
+      }
+    },
+    {
+      "name": "a send queued on the device leaves Drafts before Gmail lists it",
+      "drafts": [],
+      "docs": [],
+      "sending": [
+        {
+          "draftId": "r1",
+          "messageId": "m1",
+          "threadId": "t1"
+        }
+      ],
+      "labelThreads": 1,
+      "expect": {
+        "messageIds": [
+          "m1"
+        ],
+        "threadIds": [
+          "t1"
+        ],
+        "count": 0
+      }
+    },
+    {
+      "name": "a queued send of a listed draft hides the message the device saved too",
+      "drafts": [
+        {
+          "draftId": "r1",
+          "messageId": "m1",
+          "threadId": "t1"
+        },
+        {
+          "draftId": "r2",
+          "messageId": "m2",
+          "threadId": "t2"
+        }
+      ],
+      "docs": [],
+      "sending": [
+        {
+          "draftId": "r1",
+          "messageId": "m1b",
+          "threadId": "t1"
+        }
+      ],
+      "labelThreads": 2,
+      "expect": {
+        "messageIds": [
+          "m1",
+          "m1b"
+        ],
+        "threadIds": [
+          "t1"
+        ],
+        "count": 1
+      }
+    },
+    {
+      "name": "a queued send not yet saved to Gmail hides no thread",
+      "drafts": [],
+      "docs": [],
+      "sending": [
+        {
+          "draftId": null,
+          "messageId": null,
+          "threadId": "t1"
+        }
+      ],
+      "labelThreads": 1,
+      "expect": {
+        "messageIds": [],
+        "threadIds": [],
+        "count": 1
+      }
+    },
+    {
+      "name": "a queued send whose thread has an ordinary draft hides only its message",
+      "drafts": [
+        {
+          "draftId": "r2",
+          "messageId": "m2",
+          "threadId": "t1"
+        }
+      ],
+      "docs": [],
+      "sending": [
+        {
+          "draftId": "r1",
+          "messageId": "m1",
+          "threadId": "t1"
+        }
+      ],
+      "labelThreads": 1,
+      "expect": {
+        "messageIds": [
+          "m1"
+        ],
+        "threadIds": [],
+        "count": 1
+      }
+    },
+    {
+      "name": "a doc newer than Gmail's listing leaves Drafts by its thread",
+      "drafts": [
+        {
+          "draftId": "r2",
+          "messageId": "m2",
+          "threadId": "t2"
+        }
+      ],
+      "docs": [
+        {
+          "draftId": "r1",
+          "status": "waiting",
+          "threadId": "t1"
+        }
+      ],
+      "labelThreads": 2,
+      "expect": {
+        "messageIds": [],
+        "threadIds": [
+          "t1"
+        ],
+        "count": 1
+      }
+    },
+    {
+      "name": "a newer doc's thread stays listed beside an ordinary draft",
+      "drafts": [
+        {
+          "draftId": "r2",
+          "messageId": "m2",
+          "threadId": "t1"
+        }
+      ],
+      "docs": [
+        {
+          "draftId": "r1",
+          "status": "waiting",
+          "threadId": "t1"
+        }
+      ],
+      "labelThreads": 1,
+      "expect": {
+        "messageIds": [],
+        "threadIds": [],
+        "count": 1
+      }
+    },
+    {
+      "name": "a doc the listing was made for and left out is gone and hides nothing",
+      "drafts": [
+        {
+          "draftId": "r2",
+          "messageId": "m2",
+          "threadId": "t2"
+        }
+      ],
+      "docs": [
+        {
+          "draftId": "r1",
+          "status": "failed",
+          "threadId": "t1"
+        }
+      ],
+      "listedFor": [
+        "r1"
+      ],
+      "labelThreads": 1,
+      "expect": {
+        "messageIds": [],
+        "threadIds": [],
+        "count": 1
+      }
+    },
+    {
+      "name": "a queued send the listing was made for and left out hides only its message",
+      "drafts": [],
+      "docs": [],
+      "sending": [
+        {
+          "draftId": "r1",
+          "messageId": "m1",
+          "threadId": "t1"
+        }
+      ],
+      "listedFor": [
+        "r1"
+      ],
+      "labelThreads": 0,
+      "expect": {
+        "messageIds": [
+          "m1"
+        ],
+        "threadIds": [],
+        "count": 0
+      }
+    },
+    {
+      "name": "a sent doc hides nothing by its thread",
+      "drafts": [],
+      "docs": [
+        {
+          "draftId": "r1",
+          "status": "sent",
+          "threadId": "t1"
+        }
+      ],
+      "labelThreads": 1,
+      "expect": {
+        "messageIds": [],
+        "threadIds": [],
+        "count": 1
+      }
+    }
+  ],
+  "listed": [
+    {
+      "name": "a new message scheduled to send shows only in the Outbox",
+      "drafts": [
+        {
+          "draftId": "r1",
+          "messageId": "m1",
+          "threadId": "t1"
+        }
+      ],
+      "docs": [
+        {
+          "draftId": "r1",
+          "status": "waiting"
+        }
+      ],
+      "threadId": "t1",
+      "sentOrReceived": 0,
+      "expect": true
+    },
+    {
+      "name": "a scheduled reply leaves its conversation listed",
+      "drafts": [
+        {
+          "draftId": "r1",
+          "messageId": "m1",
+          "threadId": "t1"
+        }
+      ],
+      "docs": [
+        {
+          "draftId": "r1",
+          "status": "waiting"
+        }
+      ],
+      "threadId": "t1",
+      "sentOrReceived": 3,
+      "expect": false
+    },
+    {
+      "name": "a thread with an ordinary draft beside the scheduled one stays listed",
+      "drafts": [
+        {
+          "draftId": "r1",
+          "messageId": "m1",
+          "threadId": "t1"
+        },
+        {
+          "draftId": "r2",
+          "messageId": "m2",
+          "threadId": "t1"
+        }
+      ],
+      "docs": [
+        {
+          "draftId": "r1",
+          "status": "waiting"
+        }
+      ],
+      "threadId": "t1",
+      "sentOrReceived": 0,
+      "expect": false
+    },
+    {
+      "name": "once sent, the message lists as usual",
+      "drafts": [
+        {
+          "draftId": "r1",
+          "messageId": "m1",
+          "threadId": "t1"
+        }
+      ],
+      "docs": [
+        {
+          "draftId": "r1",
+          "status": "sent"
+        }
+      ],
+      "threadId": "t1",
+      "sentOrReceived": 0,
+      "expect": false
+    },
+    {
+      "name": "a failed send stays in the Outbox only",
+      "drafts": [
+        {
+          "draftId": "r1",
+          "messageId": "m1",
+          "threadId": "t1"
+        }
+      ],
+      "docs": [
+        {
+          "draftId": "r1",
+          "status": "failed"
+        }
+      ],
+      "threadId": "t1",
+      "sentOrReceived": 0,
+      "expect": true
+    },
+    {
+      "name": "a new message queued to send shows only in the Outbox before Gmail lists it",
+      "drafts": [],
+      "docs": [],
+      "sending": [
+        {
+          "draftId": "r1",
+          "messageId": "m1",
+          "threadId": "t1"
+        }
+      ],
+      "threadId": "t1",
+      "sentOrReceived": 0,
+      "expect": true
+    }
+  ]
+}

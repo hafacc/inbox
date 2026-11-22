@@ -1,0 +1,27 @@
+{
+  "_doc": "Ended snoozes and the check for newer mail on snoozed threads (shared/src/wake.ts, Android :core Wake.kt). Times are epoch milliseconds; the window is 7 days (604800000 ms). `window`: inLapseWindow(snoozeUntil, now) and recentlyLapsed(snoozeUntil, now). `start`: scanStart(watermarks, unfinishedStart). `still`: stillFound(found, scanned, current).",
+  "window": [
+    { "name": "no snooze", "snoozeUntil": null, "now": 1794492000000, "inWindow": false, "recentlyLapsed": false },
+    { "name": "still ahead", "snoozeUntil": 1794495600000, "now": 1794492000000, "inWindow": true, "recentlyLapsed": false },
+    { "name": "ended just now", "snoozeUntil": 1794492000000, "now": 1794492000000, "inWindow": true, "recentlyLapsed": true },
+    { "name": "ended six days ago", "snoozeUntil": 1793973600000, "now": 1794492000000, "inWindow": true, "recentlyLapsed": true },
+    { "name": "ended a moment inside seven days", "snoozeUntil": 1793887200001, "now": 1794492000000, "inWindow": true, "recentlyLapsed": true },
+    { "name": "ended exactly seven days ago", "snoozeUntil": 1793887200000, "now": 1794492000000, "inWindow": false, "recentlyLapsed": false },
+    { "name": "ended a month ago", "snoozeUntil": 1791900000000, "now": 1794492000000, "inWindow": false, "recentlyLapsed": false }
+  ],
+  "start": [
+    { "name": "nothing snoozed", "watermarks": {}, "unfinishedStart": null, "expect": null },
+    { "name": "nothing snoozed drops a scan cut short", "watermarks": {}, "unfinishedStart": "100", "expect": null },
+    { "name": "a new scan starts at the lowest watermark", "watermarks": { "t1": "300", "t2": "120", "t3": "99999999999999999999" }, "unfinishedStart": null, "expect": { "start": "120", "resume": false } },
+    { "name": "history ids compare as numbers, not text", "watermarks": { "t1": "9", "t2": "10" }, "unfinishedStart": null, "expect": { "start": "9", "resume": false } },
+    { "name": "a scan cut short goes on when it started at or below every watermark", "watermarks": { "t1": "300", "t2": "120" }, "unfinishedStart": "100", "expect": { "start": "100", "resume": true } },
+    { "name": "it goes on from the very watermark it started at", "watermarks": { "t1": "120" }, "unfinishedStart": "120", "expect": { "start": "120", "resume": true } },
+    { "name": "a thread snoozed below where it started starts a new scan", "watermarks": { "t1": "300", "t2": "90" }, "unfinishedStart": "100", "expect": { "start": "90", "resume": false } }
+  ],
+  "still": [
+    { "name": "findings on unchanged snoozes hold", "found": ["t1", "t2"], "scanned": { "t1": "100", "t2": "200" }, "current": { "t1": "100", "t2": "200" }, "expect": ["t1", "t2"] },
+    { "name": "a thread snoozed again during the check stays snoozed", "found": ["t1", "t2"], "scanned": { "t1": "100", "t2": "200" }, "current": { "t1": "150", "t2": "200" }, "expect": ["t2"] },
+    { "name": "a snooze cleared during the check drops out", "found": ["t1"], "scanned": { "t1": "100" }, "current": {}, "expect": [] },
+    { "name": "nothing found", "found": [], "scanned": { "t1": "100" }, "current": { "t1": "100" }, "expect": [] }
+  ]
+}

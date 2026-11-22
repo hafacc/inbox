@@ -1,0 +1,874 @@
+{
+  "charset": [
+    {
+      "name": "utf-8 by default",
+      "charset": "utf-8",
+      "data": "R3LDvMOfZSDigJQgMTk6MzA",
+      "text": "Grüße — 19:30"
+    },
+    {
+      "name": "padded base64",
+      "charset": "utf-8",
+      "data": "YWI=",
+      "text": "ab"
+    },
+    {
+      "name": "base64url's - and _",
+      "charset": "utf-8",
+      "data": "w78_Pg",
+      "text": "ÿ?>"
+    },
+    {
+      "name": "iso-8859-1 reads as windows-1252, so smart quotes survive",
+      "charset": "iso-8859-1",
+      "data": "k2NhZumUIJYggDU",
+      "text": "“café” – €5"
+    },
+    {
+      "name": "us-ascii reads as windows-1252",
+      "charset": "us-ascii",
+      "data": "kmE",
+      "text": "’a"
+    },
+    {
+      "name": "latin1 label",
+      "charset": "latin1",
+      "data": "6Q",
+      "text": "é"
+    },
+    {
+      "name": "windows-1252 bytes it leaves undefined read as C1 controls",
+      "charset": "windows-1252",
+      "data": "gY2PkJ0",
+      "text": ""
+    },
+    {
+      "name": "iso-8859-9 reads as windows-1254",
+      "charset": "iso-8859-9",
+      "data": "k_4",
+      "text": "“ş"
+    },
+    {
+      "name": "iso-8859-15 has the euro at 0xA4",
+      "charset": "iso-8859-15",
+      "data": "pA",
+      "text": "€"
+    },
+    {
+      "name": "iso-8859-2",
+      "charset": "iso-8859-2",
+      "data": "seo",
+      "text": "ąę"
+    },
+    {
+      "name": "windows-1251",
+      "charset": "windows-1251",
+      "data": "z_Do4uXy",
+      "text": "Привет"
+    },
+    {
+      "name": "koi8-r",
+      "charset": "koi8-r",
+      "data": "8NLJ18XU",
+      "text": "Привет"
+    },
+    {
+      "name": "gb2312 reads as gbk",
+      "charset": "gb2312",
+      "data": "xOO6ww",
+      "text": "你好"
+    },
+    {
+      "name": "shift_jis",
+      "charset": "shift_jis",
+      "data": "grGC8YLJgr-CzQ",
+      "text": "こんにちは"
+    },
+    {
+      "name": "ks_c_5601-1987 reads as euc-kr",
+      "charset": "ks_c_5601-1987",
+      "data": "vsiz5w",
+      "text": "안녕"
+    },
+    {
+      "name": "big5",
+      "charset": "big5",
+      "data": "p0Gmbg",
+      "text": "你好"
+    },
+    {
+      "name": "utf-16 with no byte order mark is little-endian",
+      "charset": "utf-16",
+      "data": "SABpAA",
+      "text": "Hi"
+    },
+    {
+      "name": "utf-16be",
+      "charset": "utf-16be",
+      "data": "AEgAaQ",
+      "text": "Hi"
+    },
+    {
+      "name": "a utf-8 byte order mark goes",
+      "charset": "utf-8",
+      "data": "77u_SGk",
+      "text": "Hi"
+    },
+    {
+      "name": "a utf-16le byte order mark goes",
+      "charset": "utf-16le",
+      "data": "__5IAA",
+      "text": "H"
+    },
+    {
+      "name": "a bad utf-8 byte reads as one replacement character",
+      "charset": "utf-8",
+      "data": "Yf9i",
+      "text": "a�b"
+    },
+    {
+      "name": "unknown labels read as utf-8",
+      "charset": "x-unknown-charset",
+      "data": "cGxhaW4gw6k",
+      "text": "plain é"
+    },
+    {
+      "name": "labels mapped to replacement read as utf-8",
+      "charset": "iso-2022-kr",
+      "data": "cGxhaW4gw6k",
+      "text": "plain é"
+    },
+    {
+      "name": "labels ignore case and surrounding spaces",
+      "charset": " ISO-8859-1 ",
+      "data": "kw",
+      "text": "“"
+    }
+  ],
+  "contentType": [
+    {
+      "name": "quoted, any case",
+      "contentType": "text/html; charset=\"ISO-8859-1\"",
+      "charset": "iso-8859-1"
+    },
+    {
+      "name": "bare, with more parameters",
+      "contentType": "text/calendar; charset=UTF-8; method=REQUEST",
+      "charset": "utf-8"
+    },
+    {
+      "name": "absent",
+      "contentType": "text/plain",
+      "charset": "utf-8"
+    },
+    {
+      "name": "no header",
+      "contentType": null,
+      "charset": "utf-8"
+    }
+  ],
+  "body": [
+    {
+      "name": "the main alternative's bodies, inline parts and attachments; a forwarded message's body doesn't win",
+      "payload": {
+        "partId": "",
+        "mimeType": "multipart/mixed",
+        "parts": [
+          {
+            "partId": "0",
+            "mimeType": "multipart/related",
+            "parts": [
+              {
+                "partId": "0.0",
+                "mimeType": "multipart/alternative",
+                "parts": [
+                  {
+                    "partId": "0.0.0",
+                    "mimeType": "text/plain",
+                    "headers": [
+                      {
+                        "name": "Content-Type",
+                        "value": "text/plain; charset=UTF-8"
+                      }
+                    ],
+                    "body": {
+                      "size": 5,
+                      "data": "SGVsbG8"
+                    }
+                  },
+                  {
+                    "partId": "0.0.1",
+                    "mimeType": "text/html",
+                    "body": {
+                      "size": 30,
+                      "data": "PHA-SGVsbG8gPGltZyBzcmM9ImNpZDpsb2dvQHgiPjwvcD4"
+                    }
+                  }
+                ]
+              },
+              {
+                "partId": "0.1",
+                "mimeType": "image/png",
+                "filename": "logo.png",
+                "headers": [
+                  {
+                    "name": "Content-ID",
+                    "value": "<logo@x>"
+                  },
+                  {
+                    "name": "Content-Disposition",
+                    "value": "inline"
+                  }
+                ],
+                "body": {
+                  "size": 100,
+                  "attachmentId": "att-logo"
+                }
+              }
+            ]
+          },
+          {
+            "partId": "1",
+            "mimeType": "application/pdf",
+            "filename": "Lease_2027.pdf",
+            "headers": [
+              {
+                "name": "Content-Disposition",
+                "value": "attachment; filename=\"Lease_2027.pdf\""
+              }
+            ],
+            "body": {
+              "size": 421888,
+              "attachmentId": "att-pdf"
+            }
+          },
+          {
+            "partId": "2",
+            "mimeType": "message/rfc822",
+            "parts": [
+              {
+                "partId": "2.0",
+                "mimeType": "text/html",
+                "body": {
+                  "size": 9,
+                  "data": "PHA-b2xkPC9wPg"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "html": "<p>Hello <img src=\"cid:logo@x\"></p>",
+        "text": "Hello",
+        "attachments": [
+          {
+            "partId": "1",
+            "filename": "Lease_2027.pdf",
+            "mimeType": "application/pdf",
+            "size": 421888,
+            "attachmentId": "att-pdf",
+            "data": null
+          }
+        ],
+        "inline": [
+          {
+            "partId": "0.1",
+            "contentId": "logo@x",
+            "mimeType": "image/png",
+            "filename": "logo.png",
+            "size": 100,
+            "attachmentId": "att-logo",
+            "data": null
+          }
+        ],
+        "calendar": null
+      }
+    },
+    {
+      "name": "a single-part message is its own body",
+      "payload": {
+        "mimeType": "text/plain",
+        "body": {
+          "size": 2,
+          "data": "SGk"
+        }
+      },
+      "expect": {
+        "html": null,
+        "text": "Hi",
+        "attachments": [],
+        "inline": [],
+        "calendar": null
+      }
+    },
+    {
+      "name": "a body part decodes in its own charset",
+      "payload": {
+        "partId": "",
+        "mimeType": "text/html",
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "text/html; charset=iso-8859-1"
+          }
+        ],
+        "body": {
+          "size": 4,
+          "data": "k2hplA"
+        }
+      },
+      "expect": {
+        "html": "“hi”",
+        "text": null,
+        "attachments": [],
+        "inline": [],
+        "calendar": null
+      }
+    },
+    {
+      "name": "an inline part marked as an attachment, a text part with a Content-ID, and a nameless attachment",
+      "payload": {
+        "partId": "",
+        "mimeType": "multipart/mixed",
+        "parts": [
+          {
+            "partId": "0",
+            "mimeType": "text/html",
+            "body": {
+              "size": 4,
+              "data": "PHAvPg"
+            }
+          },
+          {
+            "partId": "1",
+            "mimeType": "image/jpeg",
+            "filename": "photo.jpg",
+            "headers": [
+              {
+                "name": "Content-ID",
+                "value": "<photo@x>"
+              },
+              {
+                "name": "Content-Disposition",
+                "value": "attachment"
+              }
+            ],
+            "body": {
+              "size": 7,
+              "attachmentId": "att-photo"
+            }
+          },
+          {
+            "partId": "2",
+            "mimeType": "text/plain",
+            "headers": [
+              {
+                "name": "Content-ID",
+                "value": "<note@x>"
+              }
+            ],
+            "body": {
+              "size": 4,
+              "data": "bm90ZQ"
+            }
+          },
+          {
+            "partId": "3",
+            "mimeType": "application/octet-stream",
+            "headers": [
+              {
+                "name": "Content-Disposition",
+                "value": " ATTACHMENT"
+              }
+            ],
+            "body": {
+              "size": 3,
+              "data": "YWJj"
+            }
+          },
+          {
+            "partId": "4",
+            "mimeType": "image/gif",
+            "headers": [
+              {
+                "name": "Content-ID",
+                "value": "  <dot@x>  "
+              }
+            ],
+            "body": {
+              "size": 1,
+              "data": "AA"
+            }
+          },
+          {
+            "partId": "5",
+            "mimeType": "image/gif",
+            "headers": [
+              {
+                "name": "Content-ID",
+                "value": "<>"
+              }
+            ],
+            "body": {
+              "size": 1,
+              "data": "AA"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "html": "<p/>",
+        "text": "note",
+        "attachments": [
+          {
+            "partId": "1",
+            "filename": "photo.jpg",
+            "mimeType": "image/jpeg",
+            "size": 7,
+            "attachmentId": "att-photo",
+            "data": null
+          },
+          {
+            "partId": "3",
+            "filename": "attachment",
+            "mimeType": "application/octet-stream",
+            "size": 3,
+            "attachmentId": null,
+            "data": "YWJj"
+          }
+        ],
+        "inline": [
+          {
+            "partId": "4",
+            "contentId": "dot@x",
+            "mimeType": "image/gif",
+            "filename": "",
+            "size": 1,
+            "attachmentId": null,
+            "data": "AA"
+          }
+        ],
+        "calendar": null
+      }
+    },
+    {
+      "name": "the bare text/calendar is the invite, over an earlier .ics file, which lists as an attachment",
+      "payload": {
+        "partId": "",
+        "mimeType": "multipart/mixed",
+        "parts": [
+          {
+            "partId": "0",
+            "mimeType": "application/ics",
+            "filename": "invite.ics",
+            "headers": [
+              {
+                "name": "Content-Disposition",
+                "value": "attachment; filename=\"invite.ics\""
+              }
+            ],
+            "body": {
+              "size": 10,
+              "attachmentId": "att-ics"
+            }
+          },
+          {
+            "partId": "1",
+            "mimeType": "multipart/alternative",
+            "parts": [
+              {
+                "partId": "1.0",
+                "mimeType": "text/plain",
+                "body": {
+                  "size": 2,
+                  "data": "SGk"
+                }
+              },
+              {
+                "partId": "1.1",
+                "mimeType": "text/calendar",
+                "headers": [
+                  {
+                    "name": "Content-Type",
+                    "value": "text/calendar; charset=\"UTF-8\"; method=REQUEST"
+                  }
+                ],
+                "body": {
+                  "size": 5,
+                  "data": "QkVHSU4"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "html": null,
+        "text": "Hi",
+        "attachments": [
+          {
+            "partId": "0",
+            "filename": "invite.ics",
+            "mimeType": "application/ics",
+            "size": 10,
+            "attachmentId": "att-ics",
+            "data": null
+          }
+        ],
+        "inline": [],
+        "calendar": {
+          "partId": "1.1",
+          "data": "QkVHSU4",
+          "attachmentId": null,
+          "charset": "utf-8"
+        }
+      }
+    },
+    {
+      "name": "with no bare text/calendar, the first calendar file is the invite",
+      "payload": {
+        "partId": "",
+        "mimeType": "multipart/mixed",
+        "parts": [
+          {
+            "partId": "0",
+            "mimeType": "text/plain",
+            "body": {
+              "size": 2,
+              "data": "SGk"
+            }
+          },
+          {
+            "partId": "1",
+            "mimeType": "application/ics",
+            "filename": "a.ics",
+            "body": {
+              "size": 10,
+              "attachmentId": "att-a"
+            }
+          },
+          {
+            "partId": "2",
+            "mimeType": "text/calendar",
+            "filename": "b.ics",
+            "headers": [
+              {
+                "name": "Content-Type",
+                "value": "text/calendar; charset=ISO-8859-1"
+              }
+            ],
+            "body": {
+              "size": 10,
+              "attachmentId": "att-b"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "html": null,
+        "text": "Hi",
+        "attachments": [
+          {
+            "partId": "1",
+            "filename": "a.ics",
+            "mimeType": "application/ics",
+            "size": 10,
+            "attachmentId": "att-a",
+            "data": null
+          },
+          {
+            "partId": "2",
+            "filename": "b.ics",
+            "mimeType": "text/calendar",
+            "size": 10,
+            "attachmentId": "att-b",
+            "data": null
+          }
+        ],
+        "inline": [],
+        "calendar": {
+          "partId": "1",
+          "data": null,
+          "attachmentId": "att-a",
+          "charset": "utf-8"
+        }
+      }
+    },
+    {
+      "name": "a bare application/ics is an invite file, not a body, and an empty calendar part is skipped",
+      "payload": {
+        "partId": "",
+        "mimeType": "multipart/mixed",
+        "parts": [
+          {
+            "partId": "0",
+            "mimeType": "text/calendar",
+            "body": {
+              "size": 0
+            }
+          },
+          {
+            "partId": "1",
+            "mimeType": "application/ics",
+            "headers": [
+              {
+                "name": "Content-Type",
+                "value": "application/ics; charset=windows-1252"
+              }
+            ],
+            "body": {
+              "size": 5,
+              "data": "QkVHSU4"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "html": null,
+        "text": null,
+        "attachments": [],
+        "inline": [],
+        "calendar": {
+          "partId": "1",
+          "data": "QkVHSU4",
+          "attachmentId": null,
+          "charset": "windows-1252"
+        }
+      }
+    }
+  ],
+  "address": [
+    {
+      "name": "quoted name with a comma",
+      "value": "\"Chen, Maya\" <Maya.Chen@Gmail.example.com>",
+      "expect": [
+        {
+          "name": "Chen, Maya",
+          "email": "maya.chen@gmail.example.com"
+        }
+      ]
+    },
+    {
+      "name": "bare address",
+      "value": "sam@proton.example.net",
+      "expect": [
+        {
+          "name": "",
+          "email": "sam@proton.example.net"
+        }
+      ]
+    },
+    {
+      "name": "a list with a trailing comma",
+      "value": "\"Chen, Maya\" <maya@x.example.com>, Dana Ortiz <dana@y.example.com>,",
+      "expect": [
+        {
+          "name": "Chen, Maya",
+          "email": "maya@x.example.com"
+        },
+        {
+          "name": "Dana Ortiz",
+          "email": "dana@y.example.com"
+        }
+      ]
+    },
+    {
+      "name": "escaped quotes inside a quoted name don't end it",
+      "value": "\"Maya \\\"M, C\\\" Chen\" <maya@x.example.com>, dana@y.example.com",
+      "expect": [
+        {
+          "name": "Maya \"M, C\" Chen",
+          "email": "maya@x.example.com"
+        },
+        {
+          "name": "",
+          "email": "dana@y.example.com"
+        }
+      ]
+    },
+    {
+      "name": "a name folded onto two lines reads as one",
+      "value": "\"Chen,\r\n Maya\" <maya@x.example.com>",
+      "expect": [
+        {
+          "name": "Chen, Maya",
+          "email": "maya@x.example.com"
+        }
+      ]
+    },
+    {
+      "name": "an unquoted name across a line break",
+      "value": "Maya\n  Chen <maya@x.example.com>",
+      "expect": [
+        {
+          "name": "Maya Chen",
+          "email": "maya@x.example.com"
+        }
+      ]
+    },
+    {
+      "name": "a name in a comment after a bare address",
+      "value": "maya@x.example.com (Maya Chen), dana@y.example.com (Ortiz, Dana)",
+      "expect": [
+        {
+          "name": "Maya Chen",
+          "email": "maya@x.example.com"
+        },
+        {
+          "name": "Ortiz, Dana",
+          "email": "dana@y.example.com"
+        }
+      ]
+    },
+    {
+      "name": "a comment after an angled address isn't part of it",
+      "value": "Maya Chen <maya@x.example.com> (work)",
+      "expect": [
+        {
+          "name": "Maya Chen",
+          "email": "maya@x.example.com"
+        }
+      ]
+    },
+    {
+      "name": "a comma inside angle brackets",
+      "value": "Odd <odd,one@x.example.com>",
+      "expect": [
+        {
+          "name": "Odd",
+          "email": "odd,one@x.example.com"
+        }
+      ]
+    },
+    {
+      "name": "a group gives its members without its name",
+      "value": "Team: a@x.example.com, Bo <b@x.example.com>; c@x.example.com",
+      "expect": [
+        {
+          "name": "",
+          "email": "a@x.example.com"
+        },
+        {
+          "name": "Bo",
+          "email": "b@x.example.com"
+        },
+        {
+          "name": "",
+          "email": "c@x.example.com"
+        }
+      ]
+    },
+    {
+      "name": "an empty group gives no one",
+      "value": "undisclosed-recipients:;",
+      "expect": []
+    },
+    {
+      "name": "a colon after an @ doesn't start a group",
+      "value": "a@b\nbcc:x@y.z, c@x.example.com",
+      "expect": [
+        {
+          "name": "",
+          "email": "a@b\nbcc:x@y.z"
+        },
+        {
+          "name": "",
+          "email": "c@x.example.com"
+        }
+      ]
+    },
+    {
+      "name": "angle brackets with no name",
+      "value": "<Maya@X.example.com>",
+      "expect": [
+        {
+          "name": "",
+          "email": "maya@x.example.com"
+        }
+      ]
+    },
+    {
+      "name": "a quoted name with no angle brackets is part of the address",
+      "value": "\"maya\"@x.example.com",
+      "expect": [
+        {
+          "name": "",
+          "email": "maya@x.example.com"
+        }
+      ]
+    },
+    {
+      "name": "an unclosed angle bracket runs to the end",
+      "value": "Maya <maya@x.example.com",
+      "expect": [
+        {
+          "name": "Maya",
+          "email": "maya@x.example.com"
+        }
+      ]
+    },
+    {
+      "name": "empty",
+      "value": "",
+      "expect": []
+    },
+    {
+      "name": "only commas and spaces",
+      "value": " , ,",
+      "expect": []
+    },
+    {
+      "name": "the last angle brackets hold the address",
+      "value": "Maya <old@x.example.com> <maya@x.example.com>",
+      "expect": [
+        {
+          "name": "Maya",
+          "email": "maya@x.example.com"
+        }
+      ]
+    }
+  ],
+  "entities": [
+    {
+      "name": "named and numeric",
+      "value": "I&#39;ll book &amp; pay &lt;3 &#x2014; &nbsp;ok &bogus;",
+      "expect": "I'll book & pay <3 —  ok &bogus;"
+    },
+    {
+      "name": "names in any case",
+      "value": "&AMP; &Quot; &APOS; &GT;",
+      "expect": "& \" ' >"
+    },
+    {
+      "name": "astral by decimal and hex",
+      "value": "&#128512; &#X1F600;",
+      "expect": "😀 😀"
+    },
+    {
+      "name": "past U+10FFFF reads as U+FFFD, not an error",
+      "value": "a&#99999999;b&#x110000;c&#x7FFFFFFFFFFF;d",
+      "expect": "a�b�c�d"
+    },
+    {
+      "name": "very long digits",
+      "value": "&#000000000000065;&#99999999999999999999999;",
+      "expect": "A�"
+    },
+    {
+      "name": "zero and surrogates read as U+FFFD",
+      "value": "&#0;&#xD800;&#57343;",
+      "expect": "���"
+    },
+    {
+      "name": "0x80–0x9F read as windows-1252",
+      "value": "&#147;hi&#148; &#x80;5 &#x81;",
+      "expect": "“hi” €5 "
+    },
+    {
+      "name": "no semicolon stays as written",
+      "value": "&amp &#39 &#x;",
+      "expect": "&amp &#39 &#x;"
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "_doc": "Recent searches kept on the device (shared/src/recent-searches.ts, Android :core RecentSearches.kt), newest first. `add`: addRecentSearch(recent, query). `remove`: removeRecentSearch(recent, query).",
+  "add": [
+    { "name": "first search", "recent": [], "query": "from:ann", "expect": ["from:ann"] },
+    { "name": "newest first", "recent": ["from:ann"], "query": "invoice", "expect": ["invoice", "from:ann"] },
+    { "name": "trimmed", "recent": [], "query": "  invoice  ", "expect": ["invoice"] },
+    { "name": "blank ignored", "recent": ["invoice"], "query": "   ", "expect": ["invoice"] },
+    { "name": "empty ignored", "recent": ["invoice"], "query": "", "expect": ["invoice"] },
+    {
+      "name": "a repeat moves to the front",
+      "recent": ["invoice", "from:ann", "has:attachment"],
+      "query": "from:ann",
+      "expect": ["from:ann", "invoice", "has:attachment"]
+    },
+    {
+      "name": "a repeat in other case keeps the newest spelling",
+      "recent": ["invoice", "From:Ann"],
+      "query": "from:ann",
+      "expect": ["from:ann", "invoice"]
+    },
+    {
+      "name": "kept to eight",
+      "recent": ["one", "two", "three", "four", "five", "six", "seven", "eight"],
+      "query": "nine",
+      "expect": ["nine", "one", "two", "three", "four", "five", "six", "seven"]
+    },
+    {
+      "name": "a repeat at the limit drops nothing else",
+      "recent": ["one", "two", "three", "four", "five", "six", "seven", "eight"],
+      "query": "EIGHT",
+      "expect": ["EIGHT", "one", "two", "three", "four", "five", "six", "seven"]
+    }
+  ],
+  "remove": [
+    { "name": "removed", "recent": ["invoice", "from:ann"], "query": "invoice", "expect": ["from:ann"] },
+    { "name": "removed ignoring case", "recent": ["invoice", "From:Ann"], "query": "from:ann", "expect": ["invoice"] },
+    { "name": "absent", "recent": ["invoice"], "query": "receipt", "expect": ["invoice"] }
+  ]
+}

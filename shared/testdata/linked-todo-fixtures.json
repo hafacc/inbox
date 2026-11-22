@@ -1,0 +1,57 @@
+{
+  "_doc": {
+      "about": "Todos on an email: the todo holds only its text; whether it is done, snoozed, pinned or in the inbox is its email's. Its doc id is its thread id, so an email has at most one (shared/src/todos/linked.ts, Android :core todo/Linked.kt). Run by shared/src/todos/linked.spec.ts and Android :core LinkedTodoFixturesTest.",
+      "todos": "Every todo is `base` with the listed fields replaced; times are epoch milliseconds.",
+      "read": "isEmailTodoDoc(data): whether the stored doc is a todo on an email; when it is, readEmailTodo(id, data, now) is `todo`.",
+      "fields": "emailTodoFields(newEmailTodo(threadId, text, now)): every field a write stores (the store adds serverModifiedAt).",
+      "text": "withEmailTodoText(todo, text): its text after; modifiedAt waits for the edit to end.",
+      "ended": "emailTodoEditEnded(todo, startText, now): `todo` as editing it ends, `startText` its text when editing began (null for one new in this edit); changed text stamps modifiedAt, once.",
+      "delete": "withEmailTodoDeleted(todo, now): a tombstone, text blanked.",
+      "row": "rowEmailTodo(emailTodosByThread(todos), threadIds): the id of the todo a row of these Gmail threads (lead first) shows, or null; tombstones show nowhere.",
+      "edit": "emailTodoToEdit(emailTodosByThread(todos), threadIds, now): the id Add todo opens, and whether it is a new one (on the lead)."
+  },
+  "base": {
+      "id": "18c2f0a9b1d3e4f5",
+      "threadId": "18c2f0a9b1d3e4f5",
+      "text": "Call *Maya* #home",
+      "createdAt": 1794400000000,
+      "modifiedAt": 1794400000000,
+      "deleted": false
+  },
+  "read": [
+    { "name": "on an email", "id": "18c2f0a9b1d3e4f5", "data": { "threadId": "18c2f0a9b1d3e4f5", "text": "Call *Maya* #home", "createdAt": 1794400000000, "modifiedAt": 1794400000000, "serverModifiedAt": 1794400000000, "deleted": false }, "email": true, "todo": { "id": "18c2f0a9b1d3e4f5", "threadId": "18c2f0a9b1d3e4f5", "text": "Call *Maya* #home", "createdAt": 1794400000000, "modifiedAt": 1794400000000, "deleted": false }},
+    { "name": "missing times read as now", "id": "18c2f0a9b1d3e4f5", "data": { "threadId": "18c2f0a9b1d3e4f5", "text": "x", "deleted": false }, "now": 1794500000000, "email": true, "todo": { "id": "18c2f0a9b1d3e4f5", "threadId": "18c2f0a9b1d3e4f5", "text": "x", "createdAt": 1794500000000, "modifiedAt": 1794500000000, "deleted": false }},
+    { "name": "a tombstone", "id": "18c2f0a9b1d3e4f5", "data": { "threadId": "18c2f0a9b1d3e4f5", "text": "", "createdAt": 1794400000000, "modifiedAt": 1794450000000, "deleted": true }, "email": true, "todo": { "id": "18c2f0a9b1d3e4f5", "threadId": "18c2f0a9b1d3e4f5", "text": "", "createdAt": 1794400000000, "modifiedAt": 1794450000000, "deleted": true }},
+    { "name": "a todo of its own", "id": "a", "data": { "text": "Buy milk", "state": "ACTIVE", "deleted": false }, "email": false },
+    { "name": "an empty thread id is a todo of its own", "id": "a", "data": { "text": "Buy milk", "threadId": "", "deleted": false }, "email": false },
+    { "name": "a thread id that isn't a string", "id": "a", "data": { "text": "Buy milk", "threadId": 42, "deleted": false }, "email": false }
+  ],
+  "fields": [
+    { "name": "text and bookkeeping only", "threadId": "18c2f0a9b1d3e4f5", "text": "Call Maya", "now": 1794400000000, "fields": { "threadId": "18c2f0a9b1d3e4f5", "text": "Call Maya", "createdAt": 1794400000000, "modifiedAt": 1794400000000, "deleted": false }}
+  ],
+  "text": [
+    { "name": "new text", "todo": {}, "text": "Call Maya back", "out": { "text": "Call Maya back", "modifiedAt": 1794400000000}},
+    { "name": "the same text", "todo": {}, "text": "Call *Maya* #home", "out": { "text": "Call *Maya* #home", "modifiedAt": 1794400000000}}
+  ],
+  "ended": [
+    { "name": "changed text stamps the end time", "todo": { "text": "Call Maya back" }, "startText": "Call *Maya* #home", "now": 1794500000000, "out": { "text": "Call Maya back", "modifiedAt": 1794500000000}},
+    { "name": "text as it was keeps its time", "todo": {}, "startText": "Call *Maya* #home", "now": 1794500000000, "out": { "modifiedAt": 1794400000000}},
+    { "name": "a todo new in this edit keeps its time", "todo": { "text": "Call Maya back" }, "startText": null, "now": 1794500000000, "out": { "text": "Call Maya back", "modifiedAt": 1794400000000}}
+  ],
+  "delete": [
+    { "name": "a tombstone", "todo": {}, "now": 1794500000000, "out": { "deleted": true, "text": "", "modifiedAt": 1794500000000}}
+  ],
+  "row": [
+    { "name": "the email's todo", "todos": [{ "id": "t1", "threadId": "t1" }, { "id": "t2", "threadId": "t2" }], "threadIds": ["t2"], "id": "t2" },
+    { "name": "none", "todos": [{ "id": "t1", "threadId": "t1" }], "threadIds": ["t9"], "id": null },
+    { "name": "a tombstone shows nowhere", "todos": [{ "id": "t1", "threadId": "t1", "deleted": true, "text": "" }], "threadIds": ["t1"], "id": null },
+    { "name": "a joined row: its lead's first", "todos": [{ "id": "t2", "threadId": "t2" }, { "id": "t1", "threadId": "t1" }], "threadIds": ["t1", "t2"], "id": "t1" },
+    { "name": "a joined row: another of its threads", "todos": [{ "id": "t2", "threadId": "t2" }], "threadIds": ["t1", "t2"], "id": "t2" }
+  ],
+  "edit": [
+    { "name": "the one it has", "todos": [{ "id": "t1", "threadId": "t1" }], "threadIds": ["t1"], "now": 1794500000000, "id": "t1", "fresh": false },
+    { "name": "a joined row's, on another of its threads", "todos": [{ "id": "t2", "threadId": "t2" }], "threadIds": ["t1", "t2"], "now": 1794500000000, "id": "t2", "fresh": false },
+    { "name": "a new one on the lead", "todos": [], "threadIds": ["t1", "t2"], "now": 1794500000000, "id": "t1", "fresh": true },
+    { "name": "a new one over a tombstone", "todos": [{ "id": "t1", "threadId": "t1", "deleted": true, "text": "" }], "threadIds": ["t1"], "now": 1794500000000, "id": "t1", "fresh": true }
+  ]
+}

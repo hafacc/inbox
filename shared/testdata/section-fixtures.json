@@ -1,0 +1,355 @@
+{
+  "_doc": {
+    "about": "List section headings, run by shared/src/sections.spec.ts and Android :core SectionFixturesTest (America/New_York; now and date are local wall times). Days are calendar days, so a 23- or 25-hour day around a clock change is still one day.",
+    "past": "pastSection(date, now): Today (also future dates), Yesterday, This week (weeks start Sunday), This month, then one section per month for this year and last year (key month:YYYY-M; title \"October\", or \"December 2025\" for last year), then one section per year before that (key year:YYYY, title \"2024\").",
+    "future": "futureSection(date, now): Today on now's day, Tonight from 18:00 on it, Tomorrow, then \"This Saturday\" (key day:Saturday) for the rest of this week (weeks start Sunday), Next week for the week after, then one section per month (key month:YYYY-M; title \"November\", or \"January 2027\" in another year). A date already past is due now, so it goes where now does: Today, or Tonight once now is 18:00 or later."
+  },
+  "past": [
+    {
+      "now": "2026-11-02T11:50:00",
+      "date": "2026-11-02T00:00:00",
+      "key": "today",
+      "title": "Today"
+    },
+    {
+      "now": "2026-11-02T11:50:00",
+      "date": "2026-11-03T09:00:00",
+      "key": "today",
+      "title": "Today"
+    },
+    {
+      "now": "2026-11-02T11:50:00",
+      "date": "2026-11-01T23:00:00",
+      "key": "yesterday",
+      "title": "Yesterday"
+    },
+    {
+      "now": "2026-11-12T10:00:00",
+      "date": "2026-11-08T00:00:00",
+      "key": "week",
+      "title": "This week"
+    },
+    {
+      "now": "2026-11-12T10:00:00",
+      "date": "2026-11-07T09:00:00",
+      "key": "month",
+      "title": "This month"
+    },
+    {
+      "now": "2026-11-02T11:50:00",
+      "date": "2026-10-31T09:00:00",
+      "key": "month:2026-10",
+      "title": "October"
+    },
+    {
+      "now": "2026-11-02T11:50:00",
+      "date": "2026-01-01T00:00:00",
+      "key": "month:2026-1",
+      "title": "January"
+    },
+    {
+      "now": "2026-11-02T11:50:00",
+      "date": "2025-12-24T09:00:00",
+      "key": "month:2025-12",
+      "title": "December 2025"
+    },
+    {
+      "now": "2026-11-02T11:50:00",
+      "date": "2025-01-01T00:00:00",
+      "key": "month:2025-1",
+      "title": "January 2025"
+    },
+    {
+      "now": "2026-11-02T11:50:00",
+      "date": "2024-12-31T23:59:00",
+      "key": "year:2024",
+      "title": "2024"
+    },
+    {
+      "now": "2026-11-02T11:50:00",
+      "date": "2019-06-15T12:00:00",
+      "key": "year:2019",
+      "title": "2019"
+    },
+    {
+      "now": "2027-01-01T08:00:00",
+      "date": "2025-12-31T09:00:00",
+      "key": "year:2025",
+      "title": "2025"
+    },
+    {
+      "now": "2027-01-01T08:00:00",
+      "date": "2026-01-05T09:00:00",
+      "key": "month:2026-1",
+      "title": "January 2026"
+    },
+    {
+      "name": "new year: yesterday",
+      "now": "2027-01-02T10:00:00",
+      "date": "2027-01-01T09:00:00",
+      "key": "yesterday",
+      "title": "Yesterday"
+    },
+    {
+      "name": "new year: this week reaches into last year",
+      "now": "2027-01-02T10:00:00",
+      "date": "2026-12-27T00:00:00",
+      "key": "week",
+      "title": "This week"
+    },
+    {
+      "name": "new year: before this week, last year's month with its year",
+      "now": "2027-01-02T10:00:00",
+      "date": "2026-12-26T23:59:00",
+      "key": "month:2026-12",
+      "title": "December 2026"
+    },
+    {
+      "name": "new year: two years back by year",
+      "now": "2027-01-02T10:00:00",
+      "date": "2025-12-31T09:00:00",
+      "key": "year:2025",
+      "title": "2025"
+    },
+    {
+      "name": "month rollover: last month this year",
+      "now": "2026-12-01T10:00:00",
+      "date": "2026-11-28T09:00:00",
+      "key": "month:2026-11",
+      "title": "November"
+    },
+    {
+      "name": "clock change: yesterday across a 25-hour day",
+      "now": "2026-11-02T00:30:00",
+      "date": "2026-11-01T00:30:00",
+      "key": "yesterday",
+      "title": "Yesterday"
+    },
+    {
+      "name": "clock change: today on a 25-hour day",
+      "now": "2026-11-01T23:30:00",
+      "date": "2026-11-01T00:30:00",
+      "key": "today",
+      "title": "Today"
+    },
+    {
+      "name": "clock change: yesterday across a 23-hour day",
+      "now": "2026-03-09T00:30:00",
+      "date": "2026-03-08T00:30:00",
+      "key": "yesterday",
+      "title": "Yesterday"
+    }
+  ],
+  "future": [
+    {
+      "name": "base: 17:59 today",
+      "now": "2026-11-02T11:50:00",
+      "date": "2026-11-02T17:59:00",
+      "key": "today",
+      "title": "Today"
+    },
+    {
+      "name": "Tonight from 18:00",
+      "now": "2026-11-02T11:50:00",
+      "date": "2026-11-02T18:00:00",
+      "key": "tonight",
+      "title": "Tonight"
+    },
+    {
+      "name": "late tonight",
+      "now": "2026-11-02T11:50:00",
+      "date": "2026-11-02T23:59:00",
+      "key": "tonight",
+      "title": "Tonight"
+    },
+    {
+      "name": "overdue from yesterday evening is Today, not Tonight",
+      "now": "2026-11-02T11:50:00",
+      "date": "2026-11-01T20:00:00",
+      "key": "today",
+      "title": "Today"
+    },
+    {
+      "name": "overdue from last week is Today",
+      "now": "2026-11-02T11:50:00",
+      "date": "2026-10-26T09:00:00",
+      "key": "today",
+      "title": "Today"
+    },
+    {
+      "name": "overdue this morning is Tonight once now is 18:00",
+      "now": "2026-11-02T19:00:00",
+      "date": "2026-11-02T09:00:00",
+      "key": "tonight",
+      "title": "Tonight"
+    },
+    {
+      "name": "tomorrow just after midnight",
+      "now": "2026-11-02T11:50:00",
+      "date": "2026-11-03T00:00:00",
+      "key": "tomorrow",
+      "title": "Tomorrow"
+    },
+    {
+      "name": "tomorrow evening isn't Tonight",
+      "now": "2026-11-02T11:50:00",
+      "date": "2026-11-03T20:00:00",
+      "key": "tomorrow",
+      "title": "Tomorrow"
+    },
+    {
+      "name": "rest of this week by day",
+      "now": "2026-11-02T11:50:00",
+      "date": "2026-11-04T09:00:00",
+      "key": "day:Wednesday",
+      "title": "This Wednesday"
+    },
+    {
+      "name": "Saturday of this week",
+      "now": "2026-11-02T11:50:00",
+      "date": "2026-11-07T10:00:00",
+      "key": "day:Saturday",
+      "title": "This Saturday"
+    },
+    {
+      "name": "Sunday starts next week",
+      "now": "2026-11-02T11:50:00",
+      "date": "2026-11-08T09:00:00",
+      "key": "next-week",
+      "title": "Next week"
+    },
+    {
+      "name": "last day of next week",
+      "now": "2026-11-02T11:50:00",
+      "date": "2026-11-14T23:59:00",
+      "key": "next-week",
+      "title": "Next week"
+    },
+    {
+      "name": "after next week, by month",
+      "now": "2026-11-02T11:50:00",
+      "date": "2026-11-15T00:00:00",
+      "key": "month:2026-11",
+      "title": "November"
+    },
+    {
+      "name": "on a Saturday, today",
+      "now": "2026-11-07T10:00:00",
+      "date": "2026-11-07T12:00:00",
+      "key": "today",
+      "title": "Today"
+    },
+    {
+      "name": "on a Saturday, Sunday is tomorrow",
+      "now": "2026-11-07T10:00:00",
+      "date": "2026-11-08T09:00:00",
+      "key": "tomorrow",
+      "title": "Tomorrow"
+    },
+    {
+      "name": "on a Saturday, Monday is next week",
+      "now": "2026-11-07T10:00:00",
+      "date": "2026-11-09T09:00:00",
+      "key": "next-week",
+      "title": "Next week"
+    },
+    {
+      "name": "on a Saturday, next Saturday is next week",
+      "now": "2026-11-07T10:00:00",
+      "date": "2026-11-14T09:00:00",
+      "key": "next-week",
+      "title": "Next week"
+    },
+    {
+      "name": "on a Saturday, the Sunday after is by month",
+      "now": "2026-11-07T10:00:00",
+      "date": "2026-11-15T09:00:00",
+      "key": "month:2026-11",
+      "title": "November"
+    },
+    {
+      "name": "on a Thursday, Saturday is This Saturday",
+      "now": "2026-11-05T10:00:00",
+      "date": "2026-11-07T09:00:00",
+      "key": "day:Saturday",
+      "title": "This Saturday"
+    },
+    {
+      "name": "on a Friday, Saturday is tomorrow",
+      "now": "2026-11-06T10:00:00",
+      "date": "2026-11-07T09:00:00",
+      "key": "tomorrow",
+      "title": "Tomorrow"
+    },
+    {
+      "name": "into the new year, this week",
+      "now": "2026-12-30T10:00:00",
+      "date": "2027-01-02T09:00:00",
+      "key": "day:Saturday",
+      "title": "This Saturday"
+    },
+    {
+      "name": "into the new year, next week",
+      "now": "2026-12-30T10:00:00",
+      "date": "2027-01-04T09:00:00",
+      "key": "next-week",
+      "title": "Next week"
+    },
+    {
+      "name": "into the new year, by month with the year",
+      "now": "2026-12-30T10:00:00",
+      "date": "2027-01-11T09:00:00",
+      "key": "month:2027-1",
+      "title": "January 2027"
+    },
+    {
+      "name": "month rollover by month",
+      "now": "2026-11-20T10:00:00",
+      "date": "2026-12-10T09:00:00",
+      "key": "month:2026-12",
+      "title": "December"
+    },
+    {
+      "name": "clock change: Tonight on the day clocks go back",
+      "now": "2026-11-01T09:00:00",
+      "date": "2026-11-01T18:00:00",
+      "key": "tonight",
+      "title": "Tonight"
+    },
+    {
+      "name": "clock change: tomorrow across it",
+      "now": "2026-10-31T23:00:00",
+      "date": "2026-11-01T03:00:00",
+      "key": "tomorrow",
+      "title": "Tomorrow"
+    },
+    {
+      "name": "clock change: last minute of next week",
+      "now": "2026-10-31T10:00:00",
+      "date": "2026-11-07T23:30:00",
+      "key": "next-week",
+      "title": "Next week"
+    },
+    {
+      "name": "clock change: after next week",
+      "now": "2026-10-31T10:00:00",
+      "date": "2026-11-08T00:30:00",
+      "key": "month:2026-11",
+      "title": "November"
+    },
+    {
+      "name": "clock change in spring: next week",
+      "now": "2026-03-07T10:00:00",
+      "date": "2026-03-14T23:30:00",
+      "key": "next-week",
+      "title": "Next week"
+    },
+    {
+      "name": "clock change in spring: after next week",
+      "now": "2026-03-07T10:00:00",
+      "date": "2026-03-15T00:30:00",
+      "key": "month:2026-3",
+      "title": "March"
+    }
+  ]
+}

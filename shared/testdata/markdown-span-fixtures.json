@@ -1,0 +1,198 @@
+{
+  "_doc": {
+    "about": "The composer's text, read the same way by web (shared/src/compose/markdown-spans.ts) and Android :core (MarkdownSpans.kt): latr's *bold* and _italic_ (inline-style-fixtures.json has the full rules), bare URLs and inline images.",
+    "spans": "Each span is [start, end, kind] in UTF-16 units, end exclusive. image: '![alt](cid:id)' (alt without ']' or a line break; id without whitespace or parentheses), read first. url: at a character not preceded by a letter or number, 'http://', 'https://' or 'www.' (any case) then characters up to whitespace or '<', with trailing ? ! . , : ; * _ ~ ' \" and unmatched ')' dropped, and something left after the prefix. Images and URLs are then treated as letters while latr's style rules find bold and italic; each of those spans includes its markers and each marker also has its own 'marker' span. Order: start ascending, then end descending, then kind in the order image, url, bold, italic, marker.",
+    "wrap": "wrapSelection(text, start, end, marker) as latr's: trim whitespace off the selection; if the marker sits just outside it, remove those two; else if it starts and ends with the marker (2+ characters), remove those; else wrap it. Gives the replaced range [from, to), the insert, and the selection after."
+  },
+  "spans": [
+    {
+      "name": "plain text has no spans",
+      "text": "Hello there",
+      "spans": []
+    },
+    {
+      "name": "empty text",
+      "text": "",
+      "spans": []
+    },
+    {
+      "name": "one star is bold",
+      "text": "a *bold* b",
+      "spans": [[2,8,"bold"], [2,3,"marker"], [7,8,"marker"]]
+    },
+    {
+      "name": "underscore is italic",
+      "text": "an _idea_",
+      "spans": [[3,9,"italic"], [3,4,"marker"], [8,9,"marker"]]
+    },
+    {
+      "name": "double stars stay literal",
+      "text": "a **b** c",
+      "spans": []
+    },
+    {
+      "name": "snake_case stays literal",
+      "text": "snake_case_name",
+      "spans": []
+    },
+    {
+      "name": "arithmetic stays literal",
+      "text": "2*3*4",
+      "spans": []
+    },
+    {
+      "name": "bold around italic",
+      "text": "*_both_*",
+      "spans": [[0,8,"bold"], [0,1,"marker"], [1,7,"italic"], [1,2,"marker"], [6,7,"marker"], [7,8,"marker"]]
+    },
+    {
+      "name": "styles never cross a line break",
+      "text": "*a\nb*",
+      "spans": []
+    },
+    {
+      "name": "bare url",
+      "text": "visit https://example.com/a?b=1 now",
+      "spans": [[6,31,"url"]]
+    },
+    {
+      "name": "www url",
+      "text": "www.example.org",
+      "spans": [[0,15,"url"]]
+    },
+    {
+      "name": "url keeps balanced parentheses",
+      "text": "(https://en.wikipedia.org/wiki/A_(b))",
+      "spans": [[1,36,"url"]]
+    },
+    {
+      "name": "url drops trailing punctuation",
+      "text": "see https://example.com.",
+      "spans": [[4,23,"url"]]
+    },
+    {
+      "name": "url inside a word is text",
+      "text": "xhttps://example.com",
+      "spans": []
+    },
+    {
+      "name": "scheme alone is not a url",
+      "text": "http:// and www.",
+      "spans": []
+    },
+    {
+      "name": "underscores inside a url never style",
+      "text": "https://example.com/_a_ and _b_",
+      "spans": [[0,22,"url"], [28,31,"italic"], [28,29,"marker"], [30,31,"marker"]]
+    },
+    {
+      "name": "bold around a url",
+      "text": "*https://example.com*",
+      "spans": [[0,21,"bold"], [0,1,"marker"], [1,20,"url"], [20,21,"marker"]]
+    },
+    {
+      "name": "italic across a url",
+      "text": "_see https://example.com/x_y today_",
+      "spans": [[0,35,"italic"], [0,1,"marker"], [5,28,"url"], [34,35,"marker"]]
+    },
+    {
+      "name": "inline image",
+      "text": "Look: ![chart](cid:chart1)",
+      "spans": [[6,26,"image"]]
+    },
+    {
+      "name": "markers inside an image never style",
+      "text": "![my_photo_x](cid:a_b_c@inbox)",
+      "spans": [[0,30,"image"]]
+    },
+    {
+      "name": "image inside bold",
+      "text": "*![p](cid:p1)*",
+      "spans": [[0,14,"bold"], [0,1,"marker"], [1,13,"image"], [13,14,"marker"]]
+    },
+    {
+      "name": "image needs a cid source",
+      "text": "![p](https://example.com/p.png)",
+      "spans": [[5,30,"url"]]
+    },
+    {
+      "name": "old markdown stays text",
+      "text": "# Plan\n- one\n`code` ~~old~~ [docs](https://hafa.cc)",
+      "spans": [[35,50,"url"]]
+    }
+  ],
+  "wrap": [
+    {
+      "name": "wraps the selection and keeps it selected inside the markers",
+      "text": "buy milk",
+      "start": 4,
+      "end": 8,
+      "marker": "*",
+      "from": 4,
+      "to": 8,
+      "insert": "*milk*",
+      "selStart": 5,
+      "selEnd": 9
+    },
+    {
+      "name": "with no selection inserts a pair and puts the caret between",
+      "text": "buy ",
+      "start": 4,
+      "end": 4,
+      "marker": "_",
+      "from": 4,
+      "to": 4,
+      "insert": "__",
+      "selStart": 5,
+      "selEnd": 5
+    },
+    {
+      "name": "trims whitespace off the selection before wrapping",
+      "text": "buy milk now",
+      "start": 4,
+      "end": 9,
+      "marker": "*",
+      "from": 4,
+      "to": 8,
+      "insert": "*milk*",
+      "selStart": 5,
+      "selEnd": 9
+    },
+    {
+      "name": "unwraps a selection whose markers sit just outside it",
+      "text": "buy *milk*",
+      "start": 5,
+      "end": 9,
+      "marker": "*",
+      "from": 4,
+      "to": 10,
+      "insert": "milk",
+      "selStart": 4,
+      "selEnd": 8
+    },
+    {
+      "name": "unwraps a selection that includes its own markers",
+      "text": "buy _milk_",
+      "start": 4,
+      "end": 10,
+      "marker": "_",
+      "from": 4,
+      "to": 10,
+      "insert": "milk",
+      "selStart": 4,
+      "selEnd": 8
+    },
+    {
+      "name": "a different marker wraps rather than unwraps",
+      "text": "buy *milk*",
+      "start": 5,
+      "end": 9,
+      "marker": "_",
+      "from": 5,
+      "to": 9,
+      "insert": "_milk_",
+      "selStart": 6,
+      "selEnd": 10
+    }
+  ]
+}

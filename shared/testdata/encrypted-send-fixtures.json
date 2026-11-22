@@ -1,0 +1,466 @@
+{
+  "_doc": {
+    "about": "Encrypted sends with Bcc: one message for To and Cc, one per Bcc recipient, so no recipient sees a Bcc recipient's key id. Every client must match. Contract: docs/pgp-contract.md (Sending). Strings use CRLF where messages do.",
+    "plan": "planEncryptedSends(input) == expect. Addresses in encryptTo are addressKey form (trimmed, lower-case); the sender's own key is added by the caller, never listed.",
+    "protect": "The messages of the second plan entry, built with buildMime (compose-fixtures' rules, boundary token fixture2): protectedParts(mime, { bccCopy }) == { outerHeaders, inner }. A Bcc copy keeps To and Cc only inside and has Bcc both inside and outside."
+  },
+  "plan": [
+    {
+      "name": "no Bcc: one message",
+      "input": {
+        "from": "test@hafa.cc",
+        "to": [
+          {
+            "name": "Bob Test",
+            "email": "bob@example.com"
+          }
+        ],
+        "cc": [
+          {
+            "name": "",
+            "email": "carol@example.org"
+          }
+        ],
+        "bcc": []
+      },
+      "expect": [
+        {
+          "kind": "main",
+          "to": [
+            {
+              "name": "Bob Test",
+              "email": "bob@example.com"
+            }
+          ],
+          "cc": [
+            {
+              "name": "",
+              "email": "carol@example.org"
+            }
+          ],
+          "bcc": [],
+          "encryptTo": [
+            "bob@example.com",
+            "carol@example.org"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Bcc: main message, then one copy per Bcc recipient",
+      "input": {
+        "from": "test@hafa.cc",
+        "to": [
+          {
+            "name": "Bob Test",
+            "email": "bob@example.com"
+          }
+        ],
+        "cc": [
+          {
+            "name": "",
+            "email": "carol@example.org"
+          }
+        ],
+        "bcc": [
+          {
+            "name": "Hidden Person",
+            "email": "hidden@example.net"
+          },
+          {
+            "name": "",
+            "email": "Dana@Example.com"
+          }
+        ]
+      },
+      "expect": [
+        {
+          "kind": "main",
+          "to": [
+            {
+              "name": "Bob Test",
+              "email": "bob@example.com"
+            }
+          ],
+          "cc": [
+            {
+              "name": "",
+              "email": "carol@example.org"
+            }
+          ],
+          "bcc": [],
+          "encryptTo": [
+            "bob@example.com",
+            "carol@example.org"
+          ]
+        },
+        {
+          "kind": "bcc",
+          "to": [
+            {
+              "name": "Bob Test",
+              "email": "bob@example.com"
+            }
+          ],
+          "cc": [
+            {
+              "name": "",
+              "email": "carol@example.org"
+            }
+          ],
+          "bcc": [
+            {
+              "name": "Hidden Person",
+              "email": "hidden@example.net"
+            }
+          ],
+          "encryptTo": [
+            "hidden@example.net"
+          ]
+        },
+        {
+          "kind": "bcc",
+          "to": [
+            {
+              "name": "Bob Test",
+              "email": "bob@example.com"
+            }
+          ],
+          "cc": [
+            {
+              "name": "",
+              "email": "carol@example.org"
+            }
+          ],
+          "bcc": [
+            {
+              "name": "",
+              "email": "Dana@Example.com"
+            }
+          ],
+          "encryptTo": [
+            "dana@example.com"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "only Bcc: no main message",
+      "input": {
+        "from": "test@hafa.cc",
+        "to": [],
+        "cc": [],
+        "bcc": [
+          {
+            "name": "Hidden Person",
+            "email": "hidden@example.net"
+          },
+          {
+            "name": "",
+            "email": "carol@example.org"
+          }
+        ]
+      },
+      "expect": [
+        {
+          "kind": "bcc",
+          "to": [],
+          "cc": [],
+          "bcc": [
+            {
+              "name": "Hidden Person",
+              "email": "hidden@example.net"
+            }
+          ],
+          "encryptTo": [
+            "hidden@example.net"
+          ]
+        },
+        {
+          "kind": "bcc",
+          "to": [],
+          "cc": [],
+          "bcc": [
+            {
+              "name": "",
+              "email": "carol@example.org"
+            }
+          ],
+          "encryptTo": [
+            "carol@example.org"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "a Bcc address also in To or Cc gets no copy; a repeated one gets one",
+      "input": {
+        "from": "test@hafa.cc",
+        "to": [
+          {
+            "name": "Bob Test",
+            "email": "bob@example.com"
+          }
+        ],
+        "cc": [
+          {
+            "name": "",
+            "email": "carol@example.org"
+          }
+        ],
+        "bcc": [
+          {
+            "name": "",
+            "email": " BOB@example.com "
+          },
+          {
+            "name": "Hidden Person",
+            "email": "hidden@example.net"
+          },
+          {
+            "name": "Again",
+            "email": "hidden@EXAMPLE.net"
+          },
+          {
+            "name": "",
+            "email": "Carol@example.org"
+          }
+        ]
+      },
+      "expect": [
+        {
+          "kind": "main",
+          "to": [
+            {
+              "name": "Bob Test",
+              "email": "bob@example.com"
+            }
+          ],
+          "cc": [
+            {
+              "name": "",
+              "email": "carol@example.org"
+            }
+          ],
+          "bcc": [],
+          "encryptTo": [
+            "bob@example.com",
+            "carol@example.org"
+          ]
+        },
+        {
+          "kind": "bcc",
+          "to": [
+            {
+              "name": "Bob Test",
+              "email": "bob@example.com"
+            }
+          ],
+          "cc": [
+            {
+              "name": "",
+              "email": "carol@example.org"
+            }
+          ],
+          "bcc": [
+            {
+              "name": "Hidden Person",
+              "email": "hidden@example.net"
+            }
+          ],
+          "encryptTo": [
+            "hidden@example.net"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "the sender's own address is never in encryptTo",
+      "input": {
+        "from": "Test@Hafa.cc",
+        "to": [
+          {
+            "name": "Bob Test",
+            "email": "bob@example.com"
+          },
+          {
+            "name": "Alice Test",
+            "email": "test@hafa.cc"
+          }
+        ],
+        "cc": [],
+        "bcc": [
+          {
+            "name": "Alice Test",
+            "email": "test@hafa.cc"
+          }
+        ]
+      },
+      "expect": [
+        {
+          "kind": "main",
+          "to": [
+            {
+              "name": "Bob Test",
+              "email": "bob@example.com"
+            },
+            {
+              "name": "Alice Test",
+              "email": "test@hafa.cc"
+            }
+          ],
+          "cc": [],
+          "bcc": [],
+          "encryptTo": [
+            "bob@example.com"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "a Bcc copy to the sender is encrypted to the sender's key alone",
+      "input": {
+        "from": "test@hafa.cc",
+        "to": [
+          {
+            "name": "Bob Test",
+            "email": "bob@example.com"
+          }
+        ],
+        "cc": [],
+        "bcc": [
+          {
+            "name": "",
+            "email": "TEST@hafa.cc"
+          }
+        ]
+      },
+      "expect": [
+        {
+          "kind": "main",
+          "to": [
+            {
+              "name": "Bob Test",
+              "email": "bob@example.com"
+            }
+          ],
+          "cc": [],
+          "bcc": [],
+          "encryptTo": [
+            "bob@example.com"
+          ]
+        },
+        {
+          "kind": "bcc",
+          "to": [
+            {
+              "name": "Bob Test",
+              "email": "bob@example.com"
+            }
+          ],
+          "cc": [],
+          "bcc": [
+            {
+              "name": "",
+              "email": "TEST@hafa.cc"
+            }
+          ],
+          "encryptTo": []
+        }
+      ]
+    },
+    {
+      "name": "repeated To and Cc addresses are encrypted to once",
+      "input": {
+        "from": "test@hafa.cc",
+        "to": [
+          {
+            "name": "Bob Test",
+            "email": "bob@example.com"
+          },
+          {
+            "name": "Bob",
+            "email": "Bob@Example.com"
+          }
+        ],
+        "cc": [
+          {
+            "name": "Bob Test",
+            "email": "bob@example.com"
+          }
+        ],
+        "bcc": []
+      },
+      "expect": [
+        {
+          "kind": "main",
+          "to": [
+            {
+              "name": "Bob Test",
+              "email": "bob@example.com"
+            },
+            {
+              "name": "Bob",
+              "email": "Bob@Example.com"
+            }
+          ],
+          "cc": [
+            {
+              "name": "Bob Test",
+              "email": "bob@example.com"
+            }
+          ],
+          "bcc": [],
+          "encryptTo": [
+            "bob@example.com"
+          ]
+        }
+      ]
+    }
+  ],
+  "protect": [
+    {
+      "kind": "main",
+      "mime": "From: Alice Test <test@hafa.cc>\r\nTo: Bob Test <bob@example.com>\r\nCc: carol@example.org\r\nSubject: =?UTF-8?B?UGxhbnMgZm9yIFRodXJzZGF5IOKAlCBjYWbDqT8=?=\r\nIn-Reply-To: <prev@example.com>\r\nReferences: <prev@example.com>\r\nMIME-Version: 1.0\r\nContent-Type: multipart/alternative; boundary=\"=_fixture2_0\"\r\n\r\n--=_fixture2_0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\nLunch at *noon*?\r\n--=_fixture2_0\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n<div dir=3D\"auto\">Lunch at <b>noon</b>?</div>\r\n--=_fixture2_0--\r\n",
+      "bccCopy": false,
+      "outerHeaders": [
+        "From: Alice Test <test@hafa.cc>",
+        "To: Bob Test <bob@example.com>",
+        "Cc: carol@example.org",
+        "Subject: ...",
+        "In-Reply-To: <prev@example.com>",
+        "References: <prev@example.com>",
+        "MIME-Version: 1.0"
+      ],
+      "inner": "Content-Type: multipart/alternative; boundary=\"=_fixture2_0\";\r\n protected-headers=\"v1\"; hp=\"cipher\"\r\nFrom: Alice Test <test@hafa.cc>\r\nTo: Bob Test <bob@example.com>\r\nCc: carol@example.org\r\nSubject: =?UTF-8?B?UGxhbnMgZm9yIFRodXJzZGF5IOKAlCBjYWbDqT8=?=\r\nIn-Reply-To: <prev@example.com>\r\nReferences: <prev@example.com>\r\nHP-Outer: From: Alice Test <test@hafa.cc>\r\nHP-Outer: To: Bob Test <bob@example.com>\r\nHP-Outer: Cc: carol@example.org\r\nHP-Outer: Subject: ...\r\nHP-Outer: In-Reply-To: <prev@example.com>\r\nHP-Outer: References: <prev@example.com>\r\n\r\n--=_fixture2_0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\nLunch at *noon*?\r\n--=_fixture2_0\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n<div dir=3D\"auto\">Lunch at <b>noon</b>?</div>\r\n--=_fixture2_0--\r\n"
+    },
+    {
+      "kind": "bcc",
+      "mime": "From: Alice Test <test@hafa.cc>\r\nTo: Bob Test <bob@example.com>\r\nCc: carol@example.org\r\nBcc: Hidden Person <hidden@example.net>\r\nSubject: =?UTF-8?B?UGxhbnMgZm9yIFRodXJzZGF5IOKAlCBjYWbDqT8=?=\r\nIn-Reply-To: <prev@example.com>\r\nReferences: <prev@example.com>\r\nMIME-Version: 1.0\r\nContent-Type: multipart/alternative; boundary=\"=_fixture2_0\"\r\n\r\n--=_fixture2_0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\nLunch at *noon*?\r\n--=_fixture2_0\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n<div dir=3D\"auto\">Lunch at <b>noon</b>?</div>\r\n--=_fixture2_0--\r\n",
+      "bccCopy": true,
+      "outerHeaders": [
+        "From: Alice Test <test@hafa.cc>",
+        "Bcc: Hidden Person <hidden@example.net>",
+        "Subject: ...",
+        "In-Reply-To: <prev@example.com>",
+        "References: <prev@example.com>",
+        "MIME-Version: 1.0"
+      ],
+      "inner": "Content-Type: multipart/alternative; boundary=\"=_fixture2_0\";\r\n protected-headers=\"v1\"; hp=\"cipher\"\r\nFrom: Alice Test <test@hafa.cc>\r\nTo: Bob Test <bob@example.com>\r\nCc: carol@example.org\r\nBcc: Hidden Person <hidden@example.net>\r\nSubject: =?UTF-8?B?UGxhbnMgZm9yIFRodXJzZGF5IOKAlCBjYWbDqT8=?=\r\nIn-Reply-To: <prev@example.com>\r\nReferences: <prev@example.com>\r\nHP-Outer: From: Alice Test <test@hafa.cc>\r\nHP-Outer: Subject: ...\r\nHP-Outer: In-Reply-To: <prev@example.com>\r\nHP-Outer: References: <prev@example.com>\r\n\r\n--=_fixture2_0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\nLunch at *noon*?\r\n--=_fixture2_0\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n<div dir=3D\"auto\">Lunch at <b>noon</b>?</div>\r\n--=_fixture2_0--\r\n"
+    },
+    {
+      "kind": "bcc",
+      "mime": "From: Alice Test <test@hafa.cc>\r\nTo: Bob Test <bob@example.com>\r\nCc: carol@example.org\r\nBcc: Dana@Example.com\r\nSubject: =?UTF-8?B?UGxhbnMgZm9yIFRodXJzZGF5IOKAlCBjYWbDqT8=?=\r\nIn-Reply-To: <prev@example.com>\r\nReferences: <prev@example.com>\r\nMIME-Version: 1.0\r\nContent-Type: multipart/alternative; boundary=\"=_fixture2_0\"\r\n\r\n--=_fixture2_0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\nLunch at *noon*?\r\n--=_fixture2_0\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n<div dir=3D\"auto\">Lunch at <b>noon</b>?</div>\r\n--=_fixture2_0--\r\n",
+      "bccCopy": true,
+      "outerHeaders": [
+        "From: Alice Test <test@hafa.cc>",
+        "Bcc: Dana@Example.com",
+        "Subject: ...",
+        "In-Reply-To: <prev@example.com>",
+        "References: <prev@example.com>",
+        "MIME-Version: 1.0"
+      ],
+      "inner": "Content-Type: multipart/alternative; boundary=\"=_fixture2_0\";\r\n protected-headers=\"v1\"; hp=\"cipher\"\r\nFrom: Alice Test <test@hafa.cc>\r\nTo: Bob Test <bob@example.com>\r\nCc: carol@example.org\r\nBcc: Dana@Example.com\r\nSubject: =?UTF-8?B?UGxhbnMgZm9yIFRodXJzZGF5IOKAlCBjYWbDqT8=?=\r\nIn-Reply-To: <prev@example.com>\r\nReferences: <prev@example.com>\r\nHP-Outer: From: Alice Test <test@hafa.cc>\r\nHP-Outer: Subject: ...\r\nHP-Outer: In-Reply-To: <prev@example.com>\r\nHP-Outer: References: <prev@example.com>\r\n\r\n--=_fixture2_0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\nLunch at *noon*?\r\n--=_fixture2_0\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n<div dir=3D\"auto\">Lunch at <b>noon</b>?</div>\r\n--=_fixture2_0--\r\n"
+    }
+  ]
+}

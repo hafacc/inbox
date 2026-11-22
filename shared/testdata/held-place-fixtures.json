@@ -1,0 +1,80 @@
+{
+  "_doc": {
+    "about": "Places an open thread or bundle keeps until it closes, run by shared/src/held-places.spec.ts and Android :core. How a list places held threads and bundles is in label-group-fixtures.json.",
+    "hold": "holdPlaces(held, open, release): threads by id ({date, pinned, single}), bundles by label id (date of their newest thread) and pins: the focused thread not open, by id, whether it was pinned when focus came to it (missing is {}). One held before keeps its held place though it shows elsewhere now; one newly open holds the place it shows at; one no longer open lets go, unless release is false. A pin lets go as soon as its thread loses focus, whatever release is. same: whether nothing changed, so held comes back as it was."
+  },
+  "hold": [
+    {
+      "name": "a bundle that opens holds the date it shows at",
+      "held": { "threads": {}, "bundles": {} },
+      "open": { "threads": {}, "bundles": { "L": 500 } },
+      "release": true,
+      "expect": { "threads": {}, "bundles": { "L": 500 } },
+      "same": false
+    },
+    {
+      "name": "a bundle still open keeps its held date though its newest thread changed",
+      "held": { "threads": {}, "bundles": { "L": 500 } },
+      "open": { "threads": {}, "bundles": { "L": 900 } },
+      "release": true,
+      "expect": { "threads": {}, "bundles": { "L": 500 } },
+      "same": true
+    },
+    {
+      "name": "a bundle that closes lets go",
+      "held": { "threads": {}, "bundles": { "L": 500 } },
+      "open": { "threads": {}, "bundles": {} },
+      "release": true,
+      "expect": { "threads": {}, "bundles": {} },
+      "same": false
+    },
+    {
+      "name": "while its close plays, a closed bundle stays held and a newly open one is held too",
+      "held": { "threads": {}, "bundles": { "L": 500 } },
+      "open": { "threads": {}, "bundles": { "M": 700 } },
+      "release": false,
+      "expect": { "threads": {}, "bundles": { "L": 500, "M": 700 } },
+      "same": false
+    },
+    {
+      "name": "an open thread keeps its date and pinning after a reply and a star",
+      "held": { "threads": { "a": { "date": 100, "pinned": false, "single": true } }, "bundles": {} },
+      "open": { "threads": { "a": { "date": 900, "pinned": true, "single": true } }, "bundles": {} },
+      "release": true,
+      "expect": { "threads": { "a": { "date": 100, "pinned": false, "single": true } }, "bundles": {} },
+      "same": true
+    },
+    {
+      "name": "opening another thread lets the first go and holds the second",
+      "held": { "threads": { "a": { "date": 100, "pinned": false, "single": true } }, "bundles": {} },
+      "open": { "threads": { "b": { "date": 300, "pinned": false, "single": false } }, "bundles": { "L": 400 } },
+      "release": true,
+      "expect": { "threads": { "b": { "date": 300, "pinned": false, "single": false } }, "bundles": { "L": 400 } },
+      "same": false
+    },
+    {
+      "name": "the focused thread keeps its pinning after a star",
+      "held": { "threads": {}, "bundles": {}, "pins": { "a": false } },
+      "open": { "threads": {}, "bundles": {}, "pins": { "a": true } },
+      "release": true,
+      "expect": { "threads": {}, "bundles": {}, "pins": { "a": false } },
+      "same": true
+    },
+    {
+      "name": "focus moving lets the first pin go at once and holds the next, though a close still plays",
+      "held": { "threads": { "a": { "date": 100, "pinned": false, "single": true } }, "bundles": {}, "pins": { "b": true } },
+      "open": { "threads": {}, "bundles": {}, "pins": { "c": false } },
+      "release": false,
+      "expect": { "threads": { "a": { "date": 100, "pinned": false, "single": true } }, "bundles": {}, "pins": { "c": false } },
+      "same": false
+    },
+    {
+      "name": "closing a thread holds its pinning as it is now, apart from its open place",
+      "held": { "threads": { "a": { "date": 100, "pinned": false, "single": true } }, "bundles": {} },
+      "open": { "threads": {}, "bundles": {}, "pins": { "a": true } },
+      "release": true,
+      "expect": { "threads": {}, "bundles": {}, "pins": { "a": true } },
+      "same": false
+    }
+  ]
+}

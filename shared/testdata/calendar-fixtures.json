@@ -1,0 +1,1021 @@
+{
+  "_doc": {
+    "about": "Calendar invites every client must match: web (shared/src/calendar.ts, ical.js) and Android :core. iCalendar texts are given as `lines`, joined with CRLF and ended with CRLF; lines starting with a space are folded continuations. All people and addresses are made up.",
+    "parse": "parseCalendar(text, defaultTimeZone) → { method (upper-case or null), events } or null when it isn't iCalendar or has no VEVENT with DTSTART. Times: VALUE=DATE → { kind: 'date', date: 'yyyy-mm-dd' }; 'Z' → { kind: 'dateTime', utc, timeZone: 'UTC' }; TZID with a VTIMEZONE of that TZID in the part → resolved by it, timeZone = ianaZone(TZID); TZID without one → the wall time in ianaZone(TZID) (an IANA name, or a Windows name from WINDOWS_ZONES), or defaultTimeZone when it names neither, timeZone = ianaZone(TZID) (null when none); no TZID and no Z (floating) → wall time in defaultTimeZone, timeZone null. A wall time the clock repeats takes the earlier instant; one it skips moves forward by the gap (java.time ZonedDateTime.of). utc is ISO 8601 to the second with Z. end: DTEND, else DTSTART + DURATION, else the next day for a date, else the start (same TZID as DTSTART). Text values are unescaped and trimmed; missing ones are ''. People: email = the EMAIL parameter if it is a plain address, else the value without 'mailto:' (case-insensitive) if that is one (plain address: exactly one '@' with text on each side; no whitespace, control characters, ',', ';', '<' or '>'); an organizer with neither is null (no RSVP by mail), an attendee with neither is left out; name = CN, or '' when missing or equal to the email (case-insensitive). Attendee partstat/role/kind(CUTYPE) upper-case, defaults NEEDS-ACTION, REQ-PARTICIPANT, INDIVIDUAL; rsvp = RSVP is TRUE. sequence defaults to 0; status upper-case or null. recurrence = recurrenceText(RRULE, start's timeZone or defaultTimeZone) or null. A VTIMEZONE STANDARD/DAYLIGHT RRULE whose FREQ isn't YEARLY is ignored (the observance applies from its DTSTART on), so a hostile rule can't stall parsing; a VEVENT that can't be read is skipped.",
+    "recurrence": "recurrenceText(rrule, timeZone). FREQ DAILY/WEEKLY/MONTHLY/YEARLY → 'Daily'/'Weekly'/'Monthly'/'Annually', or with INTERVAL n > 1 'Every n days/weeks/months/years'; any other FREQ → 'Repeats'. WEEKLY with BYDAY: ' on weekdays' for exactly MO–FR, else ' on ' + day names joined 'A, B and C' in the order given. MONTHLY: BYMONTHDAY=n → ' on day n'; BYMONTHDAY=-1 → ' on the last day'; one BYDAY with a position (1..5, -1), or with BYSETPOS → ' on the first|second|third|fourth|fifth|last Dayname'. Then COUNT → ', once' or ', n times'; else UNTIL → ', until Mon d, yyyy' (English short month; a UTC UNTIL as its date in timeZone).",
+    "reply": "buildReply({ event (parsed from the named invite, its event at index `event`), attendee, partstat, now, comment }); see shared/src/calendar.ts. Lines, in order: BEGIN:VCALENDAR, PRODID:-//hafa.cc//Inbox//EN, VERSION:2.0, CALSCALE:GREGORIAN, METHOD:REPLY, BEGIN:VEVENT, DTSTART and DTEND (UTC 'yyyymmddThhmmssZ', or ';VALUE=DATE:yyyymmdd'), DTSTAMP (now, UTC, seconds truncated), ORGANIZER[;CN=…]:mailto:…, UID (TEXT escaped like SUMMARY), RECURRENCE-ID (when the event has one, same form as DTSTART), ATTENDEE;PARTSTAT=…[;CN=…]:mailto:…, COMMENT (when non-blank, trimmed and escaped), SEQUENCE, SUMMARY (TEXT escaped: backslash, semicolon and comma get a backslash, line breaks become \\n), END:VEVENT, END:VCALENDAR. CN: quotes and line breaks dropped, then in double quotes when it holds : ; or ,; left out when the name is empty. Lines folded at 75 octets (74 after the first piece, plus the leading space), never inside a UTF-8 sequence; CRLF after every line. replyMail: to = organizer, subject 'Accepted: ' / 'Tentatively accepted: ' / 'Declined: ' + summary, with every run of whitespace (line breaks too) as one space and trimmed, markdown '<name or email> has accepted|tentatively accepted|declined this invitation.' plus a blank line and the trimmed comment when there is one.",
+    "fold": "foldLine(line): pieces joined by CRLF + space; the first at most 75 octets, the rest at most 74 plus the space; a character is never split.",
+    "mime": "buildMime with calendar { method, content }: a third alternative part after text/html: 'Content-Type: text/calendar; charset=UTF-8; method=<method>', 'Content-Transfer-Encoding: base64', body base64 of the UTF-8 content in 76-character lines.",
+    "replyRefused": "buildReply (and replyMail when it is the organizer's) must throw InvalidAddressError (Android: its typed error) when the organizer's or attendee's address isn't a plain address; fields as in reply."
+  },
+  "invites": {
+    "google": [
+      "BEGIN:VCALENDAR",
+      "PRODID:-//Google Inc//Google Calendar 70.9054//EN",
+      "VERSION:2.0",
+      "CALSCALE:GREGORIAN",
+      "METHOD:REQUEST",
+      "BEGIN:VTIMEZONE",
+      "TZID:America/Los_Angeles",
+      "X-LIC-LOCATION:America/Los_Angeles",
+      "BEGIN:DAYLIGHT",
+      "TZOFFSETFROM:-0800",
+      "TZOFFSETTO:-0700",
+      "TZNAME:PDT",
+      "DTSTART:19700308T020000",
+      "RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU",
+      "END:DAYLIGHT",
+      "BEGIN:STANDARD",
+      "TZOFFSETFROM:-0700",
+      "TZOFFSETTO:-0800",
+      "TZNAME:PST",
+      "DTSTART:19701101T020000",
+      "RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU",
+      "END:STANDARD",
+      "END:VTIMEZONE",
+      "BEGIN:VEVENT",
+      "DTSTART;TZID=America/Los_Angeles:20261110T090000",
+      "DTEND;TZID=America/Los_Angeles:20261110T093000",
+      "RRULE:FREQ=WEEKLY;BYDAY=TU",
+      "DTSTAMP:20261104T160512Z",
+      "ORGANIZER;CN=Priya Raman:mailto:priya.raman@example.com",
+      "UID:4k2v8q1m0c7s9d3f5h6j8l0n2p@google.com",
+      "ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=TRUE",
+      " ;CN=Priya Raman;X-NUM-GUESTS=0:mailto:priya.raman@example.com",
+      "ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=",
+      " TRUE;CN=maya.chen@example.org;X-NUM-GUESTS=0:mailto:maya.chen@example.org",
+      "ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=OPT-PARTICIPANT;PARTSTAT=TENTATIVE;RSVP=TRUE",
+      " ;CN=Leo Brandt;X-NUM-GUESTS=0:mailto:leo@brandt.example",
+      "X-MICROSOFT-CDO-OWNERAPPTID:-1960482214",
+      "CREATED:20261104T160510Z",
+      "DESCRIPTION:Weekly design review: bring one screen.\\n\\nJoin with Google Meet",
+      " : https://meet.google.com/abc-defg-hij\\n\\n-::~:~::~:~:~:~:~:~:~:~:~:~:~:~:",
+      " ~:~:~:~:~:~:~:~::~:~::-",
+      "LAST-MODIFIED:20261104T160511Z",
+      "LOCATION:Room 4B\\, 2nd floor",
+      "SEQUENCE:0",
+      "STATUS:CONFIRMED",
+      "SUMMARY:Design review",
+      "TRANSP:OPAQUE",
+      "END:VEVENT",
+      "END:VCALENDAR"
+    ],
+    "googleException": [
+      "BEGIN:VCALENDAR",
+      "PRODID:-//Google Inc//Google Calendar 70.9054//EN",
+      "VERSION:2.0",
+      "CALSCALE:GREGORIAN",
+      "METHOD:REQUEST",
+      "BEGIN:VTIMEZONE",
+      "TZID:America/Los_Angeles",
+      "X-LIC-LOCATION:America/Los_Angeles",
+      "BEGIN:DAYLIGHT",
+      "TZOFFSETFROM:-0800",
+      "TZOFFSETTO:-0700",
+      "TZNAME:PDT",
+      "DTSTART:19700308T020000",
+      "RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU",
+      "END:DAYLIGHT",
+      "BEGIN:STANDARD",
+      "TZOFFSETFROM:-0700",
+      "TZOFFSETTO:-0800",
+      "TZNAME:PST",
+      "DTSTART:19701101T020000",
+      "RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU",
+      "END:STANDARD",
+      "END:VTIMEZONE",
+      "BEGIN:VEVENT",
+      "DTSTART;TZID=America/Los_Angeles:20261117T100000",
+      "DTEND;TZID=America/Los_Angeles:20261117T103000",
+      "DTSTAMP:20261105T091500Z",
+      "ORGANIZER;CN=Priya Raman:mailto:priya.raman@example.com",
+      "UID:4k2v8q1m0c7s9d3f5h6j8l0n2p@google.com",
+      "RECURRENCE-ID;TZID=America/Los_Angeles:20261117T090000",
+      "ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=TRUE",
+      " ;CN=Priya Raman;X-NUM-GUESTS=0:mailto:priya.raman@example.com",
+      "ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=TRUE",
+      " ;CN=Maya Chen;X-NUM-GUESTS=0:mailto:maya.chen@example.org",
+      "SEQUENCE:1",
+      "STATUS:CONFIRMED",
+      "SUMMARY:Design review (moved)",
+      "LOCATION:",
+      "END:VEVENT",
+      "END:VCALENDAR"
+    ],
+    "outlook": [
+      "BEGIN:VCALENDAR",
+      "METHOD:REQUEST",
+      "PRODID:Microsoft Exchange Server 2010",
+      "VERSION:2.0",
+      "BEGIN:VTIMEZONE",
+      "TZID:Eastern Standard Time",
+      "BEGIN:STANDARD",
+      "DTSTART:16010101T020000",
+      "TZOFFSETFROM:-0400",
+      "TZOFFSETTO:-0500",
+      "RRULE:FREQ=YEARLY;INTERVAL=1;BYDAY=1SU;BYMONTH=11",
+      "END:STANDARD",
+      "BEGIN:DAYLIGHT",
+      "DTSTART:16010101T020000",
+      "TZOFFSETFROM:-0500",
+      "TZOFFSETTO:-0400",
+      "RRULE:FREQ=YEARLY;INTERVAL=1;BYDAY=2SU;BYMONTH=3",
+      "END:DAYLIGHT",
+      "END:VTIMEZONE",
+      "BEGIN:VEVENT",
+      "ORGANIZER;CN=\"Okafor, Daniel\":mailto:daniel.okafor@contoso.example",
+      "ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=Maya Chen:",
+      " mailto:Maya.Chen@example.org",
+      "ATTENDEE;ROLE=OPT-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=Ana Lima:m",
+      " ailto:ana.lima@contoso.example",
+      "ATTENDEE;CUTYPE=RESOURCE;ROLE=NON-PARTICIPANT;RSVP=TRUE;CN=Conf Room Hudson",
+      " :mailto:hudson@contoso.example",
+      "DESCRIPTION;LANGUAGE=en-US:Agenda: budget\\, hiring\\; roadmap.\\n",
+      "RRULE:FREQ=MONTHLY;COUNT=6;BYDAY=3MO",
+      "UID:040000008200E00074C5B7101A82E00800000000A0B1C2D3E4F5DC01000000000000000",
+      " 010000000F1E2D3C4B5A6978812345678",
+      "SUMMARY;LANGUAGE=en-US:Q4 planning",
+      "DTSTART;TZID=Eastern Standard Time:20261116T140000",
+      "DTEND;TZID=Eastern Standard Time:20261116T153000",
+      "CLASS:PUBLIC",
+      "PRIORITY:5",
+      "DTSTAMP:20261104T151205Z",
+      "TRANSP:OPAQUE",
+      "STATUS:CONFIRMED",
+      "SEQUENCE:0",
+      "LOCATION;LANGUAGE=en-US:Conf Room Hudson",
+      "X-MICROSOFT-CDO-APPT-SEQUENCE:0",
+      "X-MICROSOFT-CDO-OWNERAPPTID:2120449221",
+      "X-MICROSOFT-CDO-BUSYSTATUS:TENTATIVE",
+      "X-MICROSOFT-CDO-INTENDEDSTATUS:BUSY",
+      "X-MICROSOFT-CDO-ALLDAYEVENT:FALSE",
+      "X-MICROSOFT-CDO-IMPORTANCE:1",
+      "X-MICROSOFT-CDO-INSTTYPE:1",
+      "X-MICROSOFT-DONOTFORWARDMEETING:FALSE",
+      "X-MICROSOFT-DISALLOW-COUNTER:FALSE",
+      "BEGIN:VALARM",
+      "DESCRIPTION:REMINDER",
+      "TRIGGER;RELATED=START:-PT15M",
+      "ACTION:DISPLAY",
+      "END:VALARM",
+      "END:VEVENT",
+      "END:VCALENDAR"
+    ],
+    "outlookCancel": [
+      "BEGIN:VCALENDAR",
+      "METHOD:CANCEL",
+      "PRODID:Microsoft Exchange Server 2010",
+      "VERSION:2.0",
+      "BEGIN:VEVENT",
+      "ORGANIZER;CN=\"Okafor, Daniel\":mailto:daniel.okafor@contoso.example",
+      "ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=Maya Chen:",
+      " mailto:Maya.Chen@example.org",
+      "UID:040000008200E00074C5B7101A82E00800000000A0B1C2D3E4F5DC01000000000000000",
+      " 010000000F1E2D3C4B5A6978812345678",
+      "SUMMARY;LANGUAGE=en-US:Canceled: Q4 planning",
+      "DTSTART:20261116T190000Z",
+      "DTEND:20261116T203000Z",
+      "CLASS:PUBLIC",
+      "PRIORITY:1",
+      "DTSTAMP:20261106T101500Z",
+      "TRANSP:TRANSPARENT",
+      "STATUS:CANCELLED",
+      "SEQUENCE:1",
+      "LOCATION;LANGUAGE=en-US:Conf Room Hudson",
+      "END:VEVENT",
+      "END:VCALENDAR"
+    ],
+    "apple": [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//Apple Inc.//macOS 15.1//EN",
+      "CALSCALE:GREGORIAN",
+      "METHOD:REQUEST",
+      "BEGIN:VTIMEZONE",
+      "TZID:Europe/Berlin",
+      "BEGIN:DAYLIGHT",
+      "TZOFFSETFROM:+0100",
+      "RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU",
+      "DTSTART:19810329T020000",
+      "TZNAME:CEST",
+      "TZOFFSETTO:+0200",
+      "END:DAYLIGHT",
+      "BEGIN:STANDARD",
+      "TZOFFSETFROM:+0200",
+      "RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU",
+      "DTSTART:19961027T030000",
+      "TZNAME:CET",
+      "TZOFFSETTO:+0100",
+      "END:STANDARD",
+      "END:VTIMEZONE",
+      "BEGIN:VEVENT",
+      "ATTENDEE;CN=\"Jonas Weber\";CUTYPE=INDIVIDUAL;EMAIL=\"jonas@weber.example\";PARTST",
+      " AT=ACCEPTED;ROLE=CHAIR:urn:uuid:7c1e2f6a-3b4d-4e5f-8a9b-0c1d2e3f4a5b",
+      "ATTENDEE;CN=\"Maya Chen\";CUTYPE=INDIVIDUAL;EMAIL=\"maya.chen@example.org\";PARTS",
+      " TAT=NEEDS-ACTION;ROLE=REQ-PARTICIPANT;RSVP=TRUE:mailto:maya.chen@example.or",
+      " g",
+      "CREATED:20261103T200101Z",
+      "DTEND;TZID=Europe/Berlin:20261204T213000",
+      "DTSTAMP:20261103T200140Z",
+      "DTSTART;TZID=Europe/Berlin:20261204T190000",
+      "LAST-MODIFIED:20261103T200140Z",
+      "LOCATION:Kastanienallee 12\\nBerlin\\, Germany",
+      "ORGANIZER;CN=\"Jonas Weber\";EMAIL=\"jonas@weber.example\":urn:uuid:7c1e2f6a-3b4d-4e",
+      " 5f-8a9b-0c1d2e3f4a5b",
+      "SEQUENCE:1",
+      "SUMMARY:Dinner at Lukas'",
+      "TRANSP:OPAQUE",
+      "UID:9B1F2E3D-4C5B-4A69-8778-6F5E4D3C2B1A",
+      "URL;VALUE=URI:",
+      "X-APPLE-TRAVEL-ADVISORY-BEHAVIOR:AUTOMATIC",
+      "END:VEVENT",
+      "END:VCALENDAR"
+    ],
+    "allDay": [
+      "BEGIN:VCALENDAR",
+      "PRODID:-//Google Inc//Google Calendar 70.9054//EN",
+      "VERSION:2.0",
+      "CALSCALE:GREGORIAN",
+      "METHOD:REQUEST",
+      "BEGIN:VEVENT",
+      "DTSTART;VALUE=DATE:20261126",
+      "DTEND;VALUE=DATE:20261127",
+      "RRULE:FREQ=YEARLY",
+      "DTSTAMP:20261104T120000Z",
+      "ORGANIZER;CN=Sam Ortiz:mailto:sam@ortiz.example",
+      "UID:7h3k9m2p5r8t1v4x6z0b3d6f9g@google.com",
+      "ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=",
+      " TRUE;CN=Maya Chen;X-NUM-GUESTS=0:mailto:maya.chen@example.org",
+      "SEQUENCE:0",
+      "STATUS:CONFIRMED",
+      "SUMMARY:Thanksgiving potluck 🦃",
+      "TRANSP:TRANSPARENT",
+      "END:VEVENT",
+      "END:VCALENDAR"
+    ],
+    "zoneWithoutVtimezone": [
+      "BEGIN:VCALENDAR",
+      "PRODID:-//Example Meetings//Scheduler 4.2//EN",
+      "VERSION:2.0",
+      "METHOD:REQUEST",
+      "BEGIN:VEVENT",
+      "UID:mtg-5521-8834@scheduler.example",
+      "DTSTAMP:20261104T130000Z",
+      "DTSTART;TZID=America/Chicago:20261105T080000",
+      "DURATION:PT45M",
+      "RRULE:FREQ=DAILY;INTERVAL=2;UNTIL=20261130T235959Z",
+      "SUMMARY:Standup\\, platform team\\; please be on time – a long title that need",
+      " s folding",
+      "ORGANIZER:mailto:scheduler-noreply@scheduler.example",
+      "ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:maya.chen@example.org",
+      "END:VEVENT",
+      "END:VCALENDAR"
+    ],
+    "floatingAndWindowsName": [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//Example//Floating//EN",
+      "BEGIN:VEVENT",
+      "UID:floating-1@example.net",
+      "DTSTART:20261201T100000",
+      "DTEND;TZID=Pacific Standard Time:20261201T080000",
+      "SUMMARY:Floating start",
+      "END:VEVENT",
+      "BEGIN:VEVENT",
+      "UID:skipped-hour@example.net",
+      "DTSTART;TZID=America/New_York:20270314T023000",
+      "SUMMARY:In the skipped hour",
+      "END:VEVENT",
+      "BEGIN:VEVENT",
+      "UID:no-start@example.net",
+      "SUMMARY:No start, left out",
+      "END:VEVENT",
+      "END:VCALENDAR"
+    ],
+    "reply": [
+      "BEGIN:VCALENDAR",
+      "PRODID:-//Google Inc//Google Calendar 70.9054//EN",
+      "VERSION:2.0",
+      "CALSCALE:GREGORIAN",
+      "METHOD:REPLY",
+      "BEGIN:VEVENT",
+      "DTSTART:20261110T170000Z",
+      "DTEND:20261110T173000Z",
+      "DTSTAMP:20261105T080000Z",
+      "ORGANIZER;CN=Maya Chen:mailto:maya.chen@example.org",
+      "UID:0a1b2c3d4e5f@hafa.cc",
+      "ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=DECLINED;CN=Leo Bra",
+      " ndt;X-NUM-GUESTS=0:mailto:leo@brandt.example",
+      "COMMENT:Out that week\\, sorry!",
+      "SEQUENCE:0",
+      "SUMMARY:Coffee",
+      "END:VEVENT",
+      "END:VCALENDAR"
+    ],
+    "notCalendar": ["Hello, this is not iCalendar."],
+    "noEvents": [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//Example//Empty//EN",
+      "BEGIN:VTODO",
+      "UID:todo@example.net",
+      "SUMMARY:A task",
+      "END:VTODO",
+      "END:VCALENDAR"
+    ],
+    "hostileAddresses": [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//Example//EN",
+      "METHOD:REQUEST",
+      "BEGIN:VEVENT",
+      "DTSTART:20261110T170000Z",
+      "DTEND:20261110T173000Z",
+      "UID:evil-1\\nBcc: eve@evil.example\\, x;y",
+      "ORGANIZER;CN=Priya Raman;EMAIL=\"priya@example.com^nBcc: eve@evil.example\":mailto:priya.raman@example.com",
+      "ATTENDEE;PARTSTAT=NEEDS-ACTION;CN=Maya Chen;EMAIL=\"maya.chen@example.org,eve@evil.example\":mailto:maya.chen@example.org",
+      "ATTENDEE;PARTSTAT=NEEDS-ACTION;CN=Nobody:mailto:not-an-address",
+      "SUMMARY:Plan\\nBcc: eve@evil.example",
+      "END:VEVENT",
+      "END:VCALENDAR"
+    ],
+    "organizerWithoutAddress": [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//Example//EN",
+      "METHOD:REQUEST",
+      "BEGIN:VEVENT",
+      "DTSTART:20261110T170000Z",
+      "DTEND:20261110T173000Z",
+      "UID:evil-2",
+      "ORGANIZER;CN=Mallory;EMAIL=\"a@x.example, b@y.example\":mailto:a@x.example\\, b@y.example",
+      "ATTENDEE;PARTSTAT=NEEDS-ACTION;CN=Maya Chen:mailto:maya.chen@example.org",
+      "SUMMARY:No reply possible",
+      "END:VEVENT",
+      "END:VCALENDAR"
+    ],
+    "zoneRuleEverySecond": [
+      "BEGIN:VCALENDAR",
+      "PRODID:-//Example//Odd zones//EN",
+      "VERSION:2.0",
+      "METHOD:REQUEST",
+      "BEGIN:VTIMEZONE",
+      "TZID:Custom Eastern",
+      "BEGIN:STANDARD",
+      "TZOFFSETFROM:-0500",
+      "TZOFFSETTO:-0500",
+      "TZNAME:CE",
+      "DTSTART:19700101T000000",
+      "RRULE:FREQ=SECONDLY",
+      "END:STANDARD",
+      "END:VTIMEZONE",
+      "BEGIN:VEVENT",
+      "DTSTART;TZID=Custom Eastern:20261110T090000",
+      "DTEND;TZID=Custom Eastern:20261110T093000",
+      "DTSTAMP:20261104T160512Z",
+      "ORGANIZER;CN=Priya Raman:mailto:priya.raman@example.com",
+      "UID:odd-zone-1",
+      "ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=Maya Chen:mailto:maya.chen@example.org",
+      "SUMMARY:Odd zone",
+      "END:VEVENT",
+      "END:VCALENDAR"
+    ]
+  },
+  "parse": [
+    {
+      "invite": "google",
+      "defaultTimeZone": "America/New_York",
+      "expect": {
+        "method": "REQUEST",
+        "events": [
+          {
+            "uid": "4k2v8q1m0c7s9d3f5h6j8l0n2p@google.com",
+            "sequence": 0,
+            "recurrenceId": null,
+            "status": "CONFIRMED",
+            "summary": "Design review",
+            "location": "Room 4B, 2nd floor",
+            "description": "Weekly design review: bring one screen.\n\nJoin with Google Meet: https://meet.google.com/abc-defg-hij\n\n-::~:~::~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~::~:~::-",
+            "organizer": { "email": "priya.raman@example.com", "name": "Priya Raman" },
+            "attendees": [
+              { "email": "priya.raman@example.com", "name": "Priya Raman", "partstat": "ACCEPTED", "role": "REQ-PARTICIPANT", "kind": "INDIVIDUAL", "rsvp": true },
+              { "email": "maya.chen@example.org", "name": "", "partstat": "NEEDS-ACTION", "role": "REQ-PARTICIPANT", "kind": "INDIVIDUAL", "rsvp": true },
+              { "email": "leo@brandt.example", "name": "Leo Brandt", "partstat": "TENTATIVE", "role": "OPT-PARTICIPANT", "kind": "INDIVIDUAL", "rsvp": true }
+            ],
+            "start": { "kind": "dateTime", "utc": "2026-11-10T17:00:00Z", "timeZone": "America/Los_Angeles" },
+            "end": { "kind": "dateTime", "utc": "2026-11-10T17:30:00Z", "timeZone": "America/Los_Angeles" },
+            "recurrence": "Weekly on Tuesday"
+          }
+        ]
+      }
+    },
+    {
+      "invite": "googleException",
+      "defaultTimeZone": "America/New_York",
+      "expect": {
+        "method": "REQUEST",
+        "events": [
+          {
+            "uid": "4k2v8q1m0c7s9d3f5h6j8l0n2p@google.com",
+            "sequence": 1,
+            "recurrenceId": { "kind": "dateTime", "utc": "2026-11-17T17:00:00Z", "timeZone": "America/Los_Angeles" },
+            "status": "CONFIRMED",
+            "summary": "Design review (moved)",
+            "location": "",
+            "description": "",
+            "organizer": { "email": "priya.raman@example.com", "name": "Priya Raman" },
+            "attendees": [
+              { "email": "priya.raman@example.com", "name": "Priya Raman", "partstat": "ACCEPTED", "role": "REQ-PARTICIPANT", "kind": "INDIVIDUAL", "rsvp": true },
+              { "email": "maya.chen@example.org", "name": "Maya Chen", "partstat": "ACCEPTED", "role": "REQ-PARTICIPANT", "kind": "INDIVIDUAL", "rsvp": true }
+            ],
+            "start": { "kind": "dateTime", "utc": "2026-11-17T18:00:00Z", "timeZone": "America/Los_Angeles" },
+            "end": { "kind": "dateTime", "utc": "2026-11-17T18:30:00Z", "timeZone": "America/Los_Angeles" },
+            "recurrence": null
+          }
+        ]
+      }
+    },
+    {
+      "invite": "outlook",
+      "defaultTimeZone": "America/Los_Angeles",
+      "expect": {
+        "method": "REQUEST",
+        "events": [
+          {
+            "uid": "040000008200E00074C5B7101A82E00800000000A0B1C2D3E4F5DC01000000000000000010000000F1E2D3C4B5A6978812345678",
+            "sequence": 0,
+            "recurrenceId": null,
+            "status": "CONFIRMED",
+            "summary": "Q4 planning",
+            "location": "Conf Room Hudson",
+            "description": "Agenda: budget, hiring; roadmap.",
+            "organizer": { "email": "daniel.okafor@contoso.example", "name": "Okafor, Daniel" },
+            "attendees": [
+              { "email": "Maya.Chen@example.org", "name": "Maya Chen", "partstat": "NEEDS-ACTION", "role": "REQ-PARTICIPANT", "kind": "INDIVIDUAL", "rsvp": true },
+              { "email": "ana.lima@contoso.example", "name": "Ana Lima", "partstat": "NEEDS-ACTION", "role": "OPT-PARTICIPANT", "kind": "INDIVIDUAL", "rsvp": true },
+              { "email": "hudson@contoso.example", "name": "Conf Room Hudson", "partstat": "NEEDS-ACTION", "role": "NON-PARTICIPANT", "kind": "RESOURCE", "rsvp": true }
+            ],
+            "start": { "kind": "dateTime", "utc": "2026-11-16T19:00:00Z", "timeZone": "America/New_York" },
+            "end": { "kind": "dateTime", "utc": "2026-11-16T20:30:00Z", "timeZone": "America/New_York" },
+            "recurrence": "Monthly on the third Monday, 6 times"
+          }
+        ]
+      }
+    },
+    {
+      "invite": "outlookCancel",
+      "defaultTimeZone": "America/New_York",
+      "expect": {
+        "method": "CANCEL",
+        "events": [
+          {
+            "uid": "040000008200E00074C5B7101A82E00800000000A0B1C2D3E4F5DC01000000000000000010000000F1E2D3C4B5A6978812345678",
+            "sequence": 1,
+            "recurrenceId": null,
+            "status": "CANCELLED",
+            "summary": "Canceled: Q4 planning",
+            "location": "Conf Room Hudson",
+            "description": "",
+            "organizer": { "email": "daniel.okafor@contoso.example", "name": "Okafor, Daniel" },
+            "attendees": [
+              { "email": "Maya.Chen@example.org", "name": "Maya Chen", "partstat": "NEEDS-ACTION", "role": "REQ-PARTICIPANT", "kind": "INDIVIDUAL", "rsvp": true }
+            ],
+            "start": { "kind": "dateTime", "utc": "2026-11-16T19:00:00Z", "timeZone": "UTC" },
+            "end": { "kind": "dateTime", "utc": "2026-11-16T20:30:00Z", "timeZone": "UTC" },
+            "recurrence": null
+          }
+        ]
+      }
+    },
+    {
+      "invite": "apple",
+      "defaultTimeZone": "America/New_York",
+      "expect": {
+        "method": "REQUEST",
+        "events": [
+          {
+            "uid": "9B1F2E3D-4C5B-4A69-8778-6F5E4D3C2B1A",
+            "sequence": 1,
+            "recurrenceId": null,
+            "status": null,
+            "summary": "Dinner at Lukas'",
+            "location": "Kastanienallee 12\nBerlin, Germany",
+            "description": "",
+            "organizer": { "email": "jonas@weber.example", "name": "Jonas Weber" },
+            "attendees": [
+              { "email": "jonas@weber.example", "name": "Jonas Weber", "partstat": "ACCEPTED", "role": "CHAIR", "kind": "INDIVIDUAL", "rsvp": false },
+              { "email": "maya.chen@example.org", "name": "Maya Chen", "partstat": "NEEDS-ACTION", "role": "REQ-PARTICIPANT", "kind": "INDIVIDUAL", "rsvp": true }
+            ],
+            "start": { "kind": "dateTime", "utc": "2026-12-04T18:00:00Z", "timeZone": "Europe/Berlin" },
+            "end": { "kind": "dateTime", "utc": "2026-12-04T20:30:00Z", "timeZone": "Europe/Berlin" },
+            "recurrence": null
+          }
+        ]
+      }
+    },
+    {
+      "invite": "allDay",
+      "defaultTimeZone": "America/New_York",
+      "expect": {
+        "method": "REQUEST",
+        "events": [
+          {
+            "uid": "7h3k9m2p5r8t1v4x6z0b3d6f9g@google.com",
+            "sequence": 0,
+            "recurrenceId": null,
+            "status": "CONFIRMED",
+            "summary": "Thanksgiving potluck 🦃",
+            "location": "",
+            "description": "",
+            "organizer": { "email": "sam@ortiz.example", "name": "Sam Ortiz" },
+            "attendees": [
+              { "email": "maya.chen@example.org", "name": "Maya Chen", "partstat": "NEEDS-ACTION", "role": "REQ-PARTICIPANT", "kind": "INDIVIDUAL", "rsvp": true }
+            ],
+            "start": { "kind": "date", "date": "2026-11-26" },
+            "end": { "kind": "date", "date": "2026-11-27" },
+            "recurrence": "Annually"
+          }
+        ]
+      }
+    },
+    {
+      "invite": "zoneWithoutVtimezone",
+      "defaultTimeZone": "America/New_York",
+      "expect": {
+        "method": "REQUEST",
+        "events": [
+          {
+            "uid": "mtg-5521-8834@scheduler.example",
+            "sequence": 0,
+            "recurrenceId": null,
+            "status": null,
+            "summary": "Standup, platform team; please be on time – a long title that needs folding",
+            "location": "",
+            "description": "",
+            "organizer": { "email": "scheduler-noreply@scheduler.example", "name": "" },
+            "attendees": [
+              { "email": "maya.chen@example.org", "name": "", "partstat": "NEEDS-ACTION", "role": "REQ-PARTICIPANT", "kind": "INDIVIDUAL", "rsvp": false }
+            ],
+            "start": { "kind": "dateTime", "utc": "2026-11-05T14:00:00Z", "timeZone": "America/Chicago" },
+            "end": { "kind": "dateTime", "utc": "2026-11-05T14:45:00Z", "timeZone": "America/Chicago" },
+            "recurrence": "Every 2 days, until Nov 30, 2026"
+          }
+        ]
+      }
+    },
+    {
+      "invite": "floatingAndWindowsName",
+      "defaultTimeZone": "America/New_York",
+      "expect": {
+        "method": null,
+        "events": [
+          {
+            "uid": "floating-1@example.net",
+            "sequence": 0,
+            "recurrenceId": null,
+            "status": null,
+            "summary": "Floating start",
+            "location": "",
+            "description": "",
+            "organizer": null,
+            "attendees": [],
+            "start": { "kind": "dateTime", "utc": "2026-12-01T15:00:00Z", "timeZone": null },
+            "end": { "kind": "dateTime", "utc": "2026-12-01T16:00:00Z", "timeZone": "America/Los_Angeles" },
+            "recurrence": null
+          },
+          {
+            "uid": "skipped-hour@example.net",
+            "sequence": 0,
+            "recurrenceId": null,
+            "status": null,
+            "summary": "In the skipped hour",
+            "location": "",
+            "description": "",
+            "organizer": null,
+            "attendees": [],
+            "start": { "kind": "dateTime", "utc": "2027-03-14T07:30:00Z", "timeZone": "America/New_York" },
+            "end": { "kind": "dateTime", "utc": "2027-03-14T07:30:00Z", "timeZone": "America/New_York" },
+            "recurrence": null
+          }
+        ]
+      }
+    },
+    {
+      "invite": "reply",
+      "defaultTimeZone": "America/New_York",
+      "expect": {
+        "method": "REPLY",
+        "events": [
+          {
+            "uid": "0a1b2c3d4e5f@hafa.cc",
+            "sequence": 0,
+            "recurrenceId": null,
+            "status": null,
+            "summary": "Coffee",
+            "location": "",
+            "description": "",
+            "organizer": { "email": "maya.chen@example.org", "name": "Maya Chen" },
+            "attendees": [
+              { "email": "leo@brandt.example", "name": "Leo Brandt", "partstat": "DECLINED", "role": "REQ-PARTICIPANT", "kind": "INDIVIDUAL", "rsvp": false }
+            ],
+            "start": { "kind": "dateTime", "utc": "2026-11-10T17:00:00Z", "timeZone": "UTC" },
+            "end": { "kind": "dateTime", "utc": "2026-11-10T17:30:00Z", "timeZone": "UTC" },
+            "recurrence": null
+          }
+        ]
+      }
+    },
+    { "invite": "notCalendar", "defaultTimeZone": "America/New_York", "expect": null },
+    { "invite": "noEvents", "defaultTimeZone": "America/New_York", "expect": null },
+    {
+      "invite": "hostileAddresses",
+      "defaultTimeZone": "America/New_York",
+      "expect": {
+        "method": "REQUEST",
+        "events": [
+          {
+            "uid": "evil-1\nBcc: eve@evil.example, x;y",
+            "sequence": 0,
+            "recurrenceId": null,
+            "status": null,
+            "summary": "Plan\nBcc: eve@evil.example",
+            "location": "",
+            "description": "",
+            "organizer": {
+              "email": "priya.raman@example.com",
+              "name": "Priya Raman"
+            },
+            "attendees": [
+              {
+                "email": "maya.chen@example.org",
+                "name": "Maya Chen",
+                "partstat": "NEEDS-ACTION",
+                "role": "REQ-PARTICIPANT",
+                "kind": "INDIVIDUAL",
+                "rsvp": false
+              }
+            ],
+            "start": {
+              "kind": "dateTime",
+              "utc": "2026-11-10T17:00:00Z",
+              "timeZone": "UTC"
+            },
+            "end": {
+              "kind": "dateTime",
+              "utc": "2026-11-10T17:30:00Z",
+              "timeZone": "UTC"
+            },
+            "recurrence": null
+          }
+        ]
+      }
+    },
+    {
+      "invite": "organizerWithoutAddress",
+      "defaultTimeZone": "America/New_York",
+      "expect": {
+        "method": "REQUEST",
+        "events": [
+          {
+            "uid": "evil-2",
+            "sequence": 0,
+            "recurrenceId": null,
+            "status": null,
+            "summary": "No reply possible",
+            "location": "",
+            "description": "",
+            "organizer": null,
+            "attendees": [
+              {
+                "email": "maya.chen@example.org",
+                "name": "Maya Chen",
+                "partstat": "NEEDS-ACTION",
+                "role": "REQ-PARTICIPANT",
+                "kind": "INDIVIDUAL",
+                "rsvp": false
+              }
+            ],
+            "start": {
+              "kind": "dateTime",
+              "utc": "2026-11-10T17:00:00Z",
+              "timeZone": "UTC"
+            },
+            "end": {
+              "kind": "dateTime",
+              "utc": "2026-11-10T17:30:00Z",
+              "timeZone": "UTC"
+            },
+            "recurrence": null
+          }
+        ]
+      }
+    },
+    {
+      "invite": "zoneRuleEverySecond",
+      "defaultTimeZone": "America/New_York",
+      "expect": {
+        "method": "REQUEST",
+        "events": [
+          {
+            "uid": "odd-zone-1",
+            "sequence": 0,
+            "recurrenceId": null,
+            "status": null,
+            "summary": "Odd zone",
+            "location": "",
+            "description": "",
+            "organizer": {
+              "email": "priya.raman@example.com",
+              "name": "Priya Raman"
+            },
+            "attendees": [
+              {
+                "email": "maya.chen@example.org",
+                "name": "Maya Chen",
+                "partstat": "NEEDS-ACTION",
+                "role": "REQ-PARTICIPANT",
+                "kind": "INDIVIDUAL",
+                "rsvp": true
+              }
+            ],
+            "start": {
+              "kind": "dateTime",
+              "utc": "2026-11-10T14:00:00Z",
+              "timeZone": null
+            },
+            "end": {
+              "kind": "dateTime",
+              "utc": "2026-11-10T14:30:00Z",
+              "timeZone": null
+            },
+            "recurrence": null
+          }
+        ]
+      }
+    }
+  ],
+  "recurrence": [
+    { "rrule": "FREQ=DAILY", "timeZone": "America/New_York", "expect": "Daily" },
+    { "rrule": "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR", "timeZone": "America/New_York", "expect": "Weekly on weekdays" },
+    { "rrule": "FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE,FR", "timeZone": "America/New_York", "expect": "Every 2 weeks on Monday, Wednesday and Friday" },
+    { "rrule": "RRULE:FREQ=WEEKLY;WKST=SU;BYDAY=TH,TU", "timeZone": "America/New_York", "expect": "Weekly on Thursday and Tuesday" },
+    { "rrule": "FREQ=MONTHLY;BYMONTHDAY=15;COUNT=1", "timeZone": "America/New_York", "expect": "Monthly on day 15, once" },
+    { "rrule": "FREQ=MONTHLY;BYDAY=-1FR", "timeZone": "America/New_York", "expect": "Monthly on the last Friday" },
+    { "rrule": "FREQ=MONTHLY;BYDAY=TH;BYSETPOS=2", "timeZone": "America/New_York", "expect": "Monthly on the second Thursday" },
+    { "rrule": "FREQ=MONTHLY;BYMONTHDAY=-1", "timeZone": "America/New_York", "expect": "Monthly on the last day" },
+    { "rrule": "FREQ=MONTHLY;INTERVAL=3", "timeZone": "America/New_York", "expect": "Every 3 months" },
+    { "rrule": "FREQ=YEARLY;UNTIL=20301231", "timeZone": "America/New_York", "expect": "Annually, until Dec 31, 2030" },
+    { "rrule": "FREQ=WEEKLY;BYDAY=TU;UNTIL=20261218T045959Z", "timeZone": "America/New_York", "expect": "Weekly on Tuesday, until Dec 17, 2026" },
+    { "rrule": "FREQ=WEEKLY;BYDAY=TU;UNTIL=20261218T045959Z", "timeZone": "Europe/Berlin", "expect": "Weekly on Tuesday, until Dec 18, 2026" },
+    { "rrule": "FREQ=HOURLY;INTERVAL=4", "timeZone": "America/New_York", "expect": "Repeats" }
+  ],
+  "reply": [
+    {
+      "name": "accept a Google invite",
+      "invite": "google",
+      "event": 0,
+      "attendee": { "email": "maya.chen@example.org", "name": "Maya Chen" },
+      "partstat": "ACCEPTED",
+      "now": "2026-11-04T16:20:05.912Z",
+      "comment": null,
+      "expect": [
+        "BEGIN:VCALENDAR",
+        "PRODID:-//hafa.cc//Inbox//EN",
+        "VERSION:2.0",
+        "CALSCALE:GREGORIAN",
+        "METHOD:REPLY",
+        "BEGIN:VEVENT",
+        "DTSTART:20261110T170000Z",
+        "DTEND:20261110T173000Z",
+        "DTSTAMP:20261104T162005Z",
+        "ORGANIZER;CN=Priya Raman:mailto:priya.raman@example.com",
+        "UID:4k2v8q1m0c7s9d3f5h6j8l0n2p@google.com",
+        "ATTENDEE;PARTSTAT=ACCEPTED;CN=Maya Chen:mailto:maya.chen@example.org",
+        "SEQUENCE:0",
+        "SUMMARY:Design review",
+        "END:VEVENT",
+        "END:VCALENDAR"
+      ],
+      "mail": {
+        "to": { "name": "Priya Raman", "email": "priya.raman@example.com" },
+        "subject": "Accepted: Design review",
+        "markdown": "Maya Chen has accepted this invitation."
+      }
+    },
+    {
+      "name": "decline one occurrence, with a note",
+      "invite": "googleException",
+      "event": 0,
+      "attendee": { "email": "maya.chen@example.org", "name": "" },
+      "partstat": "DECLINED",
+      "now": "2026-11-05T10:00:00Z",
+      "comment": " Traveling that day; sorry, next week? ",
+      "expect": [
+        "BEGIN:VCALENDAR",
+        "PRODID:-//hafa.cc//Inbox//EN",
+        "VERSION:2.0",
+        "CALSCALE:GREGORIAN",
+        "METHOD:REPLY",
+        "BEGIN:VEVENT",
+        "DTSTART:20261117T180000Z",
+        "DTEND:20261117T183000Z",
+        "DTSTAMP:20261105T100000Z",
+        "ORGANIZER;CN=Priya Raman:mailto:priya.raman@example.com",
+        "UID:4k2v8q1m0c7s9d3f5h6j8l0n2p@google.com",
+        "RECURRENCE-ID:20261117T170000Z",
+        "ATTENDEE;PARTSTAT=DECLINED:mailto:maya.chen@example.org",
+        "COMMENT:Traveling that day\\; sorry\\, next week?",
+        "SEQUENCE:1",
+        "SUMMARY:Design review (moved)",
+        "END:VEVENT",
+        "END:VCALENDAR"
+      ],
+      "mail": {
+        "to": { "name": "Priya Raman", "email": "priya.raman@example.com" },
+        "subject": "Declined: Design review (moved)",
+        "markdown": "maya.chen@example.org has declined this invitation.\n\nTraveling that day; sorry, next week?"
+      }
+    },
+    {
+      "name": "tentative to Outlook, name with a comma",
+      "invite": "outlook",
+      "event": 0,
+      "attendee": { "email": "Maya.Chen@example.org", "name": "Chen, Maya" },
+      "partstat": "TENTATIVE",
+      "now": "2026-11-04T15:30:00Z",
+      "comment": "",
+      "expect": [
+        "BEGIN:VCALENDAR",
+        "PRODID:-//hafa.cc//Inbox//EN",
+        "VERSION:2.0",
+        "CALSCALE:GREGORIAN",
+        "METHOD:REPLY",
+        "BEGIN:VEVENT",
+        "DTSTART:20261116T190000Z",
+        "DTEND:20261116T203000Z",
+        "DTSTAMP:20261104T153000Z",
+        "ORGANIZER;CN=\"Okafor, Daniel\":mailto:daniel.okafor@contoso.example",
+        "UID:040000008200E00074C5B7101A82E00800000000A0B1C2D3E4F5DC01000000000000000",
+        " 010000000F1E2D3C4B5A6978812345678",
+        "ATTENDEE;PARTSTAT=TENTATIVE;CN=\"Chen, Maya\":mailto:Maya.Chen@example.org",
+        "SEQUENCE:0",
+        "SUMMARY:Q4 planning",
+        "END:VEVENT",
+        "END:VCALENDAR"
+      ],
+      "mail": {
+        "to": { "name": "Okafor, Daniel", "email": "daniel.okafor@contoso.example" },
+        "subject": "Tentatively accepted: Q4 planning",
+        "markdown": "Chen, Maya has tentatively accepted this invitation."
+      }
+    },
+    {
+      "name": "all-day, long non-ASCII comment folded at 75 octets",
+      "invite": "allDay",
+      "event": 0,
+      "attendee": { "email": "maya.chen@example.org", "name": "Maya Chen" },
+      "partstat": "DECLINED",
+      "now": "2026-11-04T12:00:00Z",
+      "comment": "Schöne Grüße — wir sind leider über die Feiertage verreist, nächstes Jahr gerne!",
+      "expect": [
+        "BEGIN:VCALENDAR",
+        "PRODID:-//hafa.cc//Inbox//EN",
+        "VERSION:2.0",
+        "CALSCALE:GREGORIAN",
+        "METHOD:REPLY",
+        "BEGIN:VEVENT",
+        "DTSTART;VALUE=DATE:20261126",
+        "DTEND;VALUE=DATE:20261127",
+        "DTSTAMP:20261104T120000Z",
+        "ORGANIZER;CN=Sam Ortiz:mailto:sam@ortiz.example",
+        "UID:7h3k9m2p5r8t1v4x6z0b3d6f9g@google.com",
+        "ATTENDEE;PARTSTAT=DECLINED;CN=Maya Chen:mailto:maya.chen@example.org",
+        "COMMENT:Schöne Grüße — wir sind leider über die Feiertage verreist\\, ",
+        " nächstes Jahr gerne!",
+        "SEQUENCE:0",
+        "SUMMARY:Thanksgiving potluck 🦃",
+        "END:VEVENT",
+        "END:VCALENDAR"
+      ],
+      "mail": {
+        "to": { "name": "Sam Ortiz", "email": "sam@ortiz.example" },
+        "subject": "Declined: Thanksgiving potluck 🦃",
+        "markdown": "Maya Chen has declined this invitation.\n\nSchöne Grüße — wir sind leider über die Feiertage verreist, nächstes Jahr gerne!"
+      }
+    },
+    {
+      "name": "addresses, UID and summary from a hostile invite",
+      "invite": "hostileAddresses",
+      "event": 0,
+      "attendee": {
+        "email": "maya.chen@example.org",
+        "name": "Maya Chen"
+      },
+      "partstat": "ACCEPTED",
+      "now": "2026-11-04T16:20:05.000Z",
+      "comment": null,
+      "expect": [
+        "BEGIN:VCALENDAR",
+        "PRODID:-//hafa.cc//Inbox//EN",
+        "VERSION:2.0",
+        "CALSCALE:GREGORIAN",
+        "METHOD:REPLY",
+        "BEGIN:VEVENT",
+        "DTSTART:20261110T170000Z",
+        "DTEND:20261110T173000Z",
+        "DTSTAMP:20261104T162005Z",
+        "ORGANIZER;CN=Priya Raman:mailto:priya.raman@example.com",
+        "UID:evil-1\\nBcc: eve@evil.example\\, x\\;y",
+        "ATTENDEE;PARTSTAT=ACCEPTED;CN=Maya Chen:mailto:maya.chen@example.org",
+        "SEQUENCE:0",
+        "SUMMARY:Plan\\nBcc: eve@evil.example",
+        "END:VEVENT",
+        "END:VCALENDAR"
+      ],
+      "mail": {
+        "to": {
+          "name": "Priya Raman",
+          "email": "priya.raman@example.com"
+        },
+        "subject": "Accepted: Plan Bcc: eve@evil.example",
+        "markdown": "Maya Chen has accepted this invitation."
+      }
+    }
+  ],
+  "mime": [
+    {
+      "name": "an RSVP with its calendar part",
+      "input": {
+        "from": { "name": "Maya Chen", "email": "maya.chen@example.org" },
+        "to": [{ "name": "Priya Raman", "email": "priya.raman@example.com" }],
+        "cc": [],
+        "bcc": [],
+        "subject": "Accepted: Design review",
+        "markdown": "Maya Chen has accepted this invitation.",
+        "signature": null,
+        "inReplyTo": null,
+        "references": [],
+        "inlineImages": [],
+        "attachments": [],
+        "extraHeaders": [],
+        "boundary": "c0ffee",
+        "calendar": {
+          "method": "REPLY",
+          "content": "BEGIN:VCALENDAR\r\nMETHOD:REPLY\r\nEND:VCALENDAR\r\n"
+        }
+      },
+      "expect": [
+        "From: Maya Chen <maya.chen@example.org>",
+        "To: Priya Raman <priya.raman@example.com>",
+        "Subject: Accepted: Design review",
+        "MIME-Version: 1.0",
+        "Content-Type: multipart/alternative; boundary=\"=_c0ffee_0\"",
+        "",
+        "--=_c0ffee_0",
+        "Content-Type: text/plain; charset=UTF-8",
+        "Content-Transfer-Encoding: quoted-printable",
+        "",
+        "Maya Chen has accepted this invitation.",
+        "--=_c0ffee_0",
+        "Content-Type: text/html; charset=UTF-8",
+        "Content-Transfer-Encoding: quoted-printable",
+        "",
+        "<div dir=3D\"auto\">Maya Chen has accepted this invitation.</div>",
+        "--=_c0ffee_0",
+        "Content-Type: text/calendar; charset=UTF-8; method=REPLY",
+        "Content-Transfer-Encoding: base64",
+        "",
+        "QkVHSU46VkNBTEVOREFSDQpNRVRIT0Q6UkVQTFkNCkVORDpWQ0FMRU5EQVINCg==",
+        "--=_c0ffee_0--",
+        ""
+      ]
+    }
+  ],
+  "fold": [{"line": "SUMMARY:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaéé", "expect": ["SUMMARY:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", " éé"]}, {"line": "DESCRIPTION:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "expect": ["DESCRIPTION:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", " bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", " bbbbbbbbbbbbb"]}, {"line": "SUMMARY:short", "expect": ["SUMMARY:short"]}],
+  "replyRefused": [
+    {
+      "name": "attendee address with a line break",
+      "invite": "google",
+      "event": 0,
+      "attendee": {
+        "email": "maya.chen@example.org\r\nBcc: eve@evil.example",
+        "name": "Maya"
+      },
+      "partstat": "ACCEPTED",
+      "now": "2026-11-04T16:20:05.000Z",
+      "comment": null
+    },
+    {
+      "name": "attendee address with a comma",
+      "invite": "google",
+      "event": 0,
+      "attendee": {
+        "email": "maya.chen@example.org,eve@evil.example",
+        "name": ""
+      },
+      "partstat": "DECLINED",
+      "now": "2026-11-04T16:20:05.000Z",
+      "comment": null
+    }
+  ]
+}

@@ -1,0 +1,1152 @@
+// Learned snooze suggestions (see CLAUDE.md "Snooze Options"). Pure functions only.
+
+import { LABEL_LOCALE } from "./format";
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const HOUR_MS = 60 * 60 * 1000;
+const MINUTE_MS = 60 * 1000;
+export const TOD_HALF_LIFE_DAYS = 21;
+const SLOT_MINUTES = 5;
+const QUICK_TIMES_MAX = 4;
+const SCORE_EPS = 1e-9;
+// A key must resolve at least this far ahead of now.
+const MIN_LEAD_MS = MINUTE_MS;
+// A time this far from a pick gives way by half: half the pick's weight in the menu, half its own votes when the pick is snoozed to.
+const NEARBY_HALF_DISTANCE_MINUTES = 30;
+const LITTLE_WHILE_MAX_HOURS = 3;
+export const SHOWN_ROWS = 5;
+export const DEEP_ROWS = 20;
+
+export const KEY_RE =
+  /^(D(0|[1-9]\d*)|W[1-4]|Wd[1-7]|Wn[1-7]|Dom1|Dom15|DomL|Mo[1-3])(@([01]\d|2[0-3])[0-5][05]|_h([0-9]|1[0-2]))$/;
+export const SLOT_RE = /^([01]\d|2[0-3])[0-5][05]$/;
+export const PICK_RE = /^([1-9]|1\d|20|none)$/;
+
+export type SnoozeSource = "suggestion" | "last" | "custom";
+
+export type SetEntry = { c: number; t: number };
+export type DevicePartition = {
+  deviceId: string;
+  sets: Record<string, SetEntry>;
+  // Date-independent counts per "HHMM" clock slot, for the custom picker's quick times.
+  tod: Record<string, SetEntry>;
+  lastCustom: { target: number; at: number } | null;
+  // Lifetime counts per pick log key (see pickLogKey); only written while the user opts in.
+  picks: Record<string, number>;
+};
+
+export function emptyPartition(deviceId: string): DevicePartition {
+  return { deviceId, sets: {}, tod: {}, lastCustom: null, picks: {} };
+}
+
+function addDays(d: Date, days: number): Date {
+  const out = new Date(d);
+  out.setDate(out.getDate() + days);
+  return out;
+}
+
+function dateOnly(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+/** Calendar date of `d` shifted so the "day" runs 05:00 -> 04:59 (a post-midnight pick is still "tonight"). */
+function snoozeDay(d: Date): Date {
+  return dateOnly(
+    new Date(
+      d.getFullYear(),
+      d.getMonth(),
+      d.getDate(),
+      d.getHours() - 5,
+      d.getMinutes(),
+    ),
+  );
+}
+
+function minutesSince0500(d: Date): number {
+  const m = d.getHours() * 60 + d.getMinutes();
+  return (((m - 300) % 1440) + 1440) % 1440;
+}
+
+export type Bucket = "morning" | "afternoon" | "evening" | "night";
+
+export function bucketOf(minsSince0500: number): Bucket {
+  if (minsSince0500 < 420) return "morning";
+  if (minsSince0500 < 720) return "afternoon";
+  if (minsSince0500 < 960) return "evening";
+  return "night";
+}
+
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+/** The "HHMM" wall-clock slot of `d`, rounded to 5 minutes but never past the snooze day's 04:55. */
+export function slotOf(d: Date): string {
+  const slot = Math.min(
+    1440 - SLOT_MINUTES,
+    Math.round(minutesSince0500(d) / SLOT_MINUTES) * SLOT_MINUTES,
+  );
+  const clock = (slot + 300) % 1440;
+  return `${pad2(Math.floor(clock / 60))}${pad2(clock % 60)}`;
+}
+
+function slotClockMinutes(slot: string): number {
+  return (
+    Number.parseInt(slot.slice(0, 2), 10) * 60 +
+    Number.parseInt(slot.slice(2), 10)
+  );
+}
+
+/** The next occurrence of `day`-of-month strictly after `a` (an occurrence on `a` itself doesn't count). */
+function nextDom(a: Date, day: number): Date {
+  const y = a.getFullYear();
+  const m = a.getMonth();
+  let candidate = new Date(y, m, day);
+  if (dateOnly(candidate).getTime() <= dateOnly(a).getTime()) {
+    candidate = new Date(y, m + 1, day);
+  }
+  return candidate;
+}
+
+function monthEnd(y: number, m: number): Date {
+  return new Date(y, m + 1, 0);
+}
+
+/** The next month-end strictly after `a` (a is a month-end doesn't count). */
+function nextMonthEnd(a: Date): Date {
+  let candidate = monthEnd(a.getFullYear(), a.getMonth());
+  if (dateOnly(candidate).getTime() <= dateOnly(a).getTime()) {
+    candidate = monthEnd(a.getFullYear(), a.getMonth() + 1);
+  }
+  return candidate;
+}
+
+function addMonthsClamped(a: Date, k: number): Date {
+  const day = a.getDate();
+  const y = a.getFullYear();
+  const targetMonth = a.getMonth() + k;
+  const daysInTargetMonth = new Date(y, targetMonth + 1, 0).getDate();
+  return new Date(y, targetMonth, Math.min(day, daysInTargetMonth));
+}
+
+function sameDate(a: Date, b: Date): boolean {
+  return dateOnly(a).getTime() === dateOnly(b).getTime();
+}
+
+/** ISO-8601 weekday number: Monday=1 .. Sunday=7 (matches java.time.DayOfWeek.value on Android, so weekday keys are identical cross-platform). */
+function isoDow(d: Date): number {
+  const jsDay = d.getDay();
+  return jsDay === 0 ? 7 : jsDay;
+}
+
+function nextWeekdayInRange(
+  from: Date,
+  dow: number,
+  minD: number,
+  maxD: number,
+): Date {
+  for (let d = minD; d <= maxD; d++) {
+    const cand = addDays(from, d);
+    if (isoDow(cand) === dow) return cand;
+  }
+  throw new Error(`unreachable: no ${dow} in [${minD},${maxD}]`);
+}
+
+type Family = "D" | "W" | "Wd" | "Wn" | "Dom" | "DomL" | "Mo";
+
+function familyOf(dateRule: string): Family {
+  if (dateRule === "DomL") return "DomL";
+  if (dateRule.startsWith("Dom")) return "Dom";
+  if (dateRule.startsWith("Mo")) return "Mo";
+  if (dateRule.startsWith("Wd")) return "Wd";
+  if (dateRule.startsWith("Wn")) return "Wn";
+  if (dateRule.startsWith("W")) return "W";
+  return "D";
+}
+
+function numOf(dateRule: string): number {
+  const m = dateRule.match(/(\d+)$/);
+  return m ? Number.parseInt(m[1], 10) : 0;
+}
+
+/** The date rules an hour offset from `a` can use to reach `base`'s snooze day. */
+function offsetRulesFor(a: Date, base: Date): string[] {
+  const d = Math.round(
+    (snoozeDay(base).getTime() - snoozeDay(a).getTime()) / DAY_MS,
+  );
+  if (d < 0) return [];
+  const rules = [`D${d}`];
+  if (d === 7 || d === 14 || d === 21 || d === 28) rules.push(`W${d / 7}`);
+  const dow = isoDow(snoozeDay(base));
+  if (d >= 1 && d <= 7) rules.push(`Wd${dow}`);
+  if (d >= 8 && d <= 14) rules.push(`Wn${dow}`);
+  return rules;
+}
+
+/** The snooze day an hour offset's date rule points to, counted from today's snooze day. */
+function offsetRuleDay(dateRule: string, now: Date): Date {
+  const today = snoozeDay(now);
+  const num = numOf(dateRule);
+  switch (familyOf(dateRule)) {
+    case "D":
+      return addDays(today, num);
+    case "W":
+      return addDays(today, num * 7);
+    case "Wd":
+      return nextWeekdayInRange(today, num, 1, 7);
+    case "Wn":
+      return nextWeekdayInRange(today, num, 8, 14);
+    default:
+      throw new Error(`unresolvable offset date rule ${dateRule}`);
+  }
+}
+
+/** `clockMinutes` on snooze day `day`, as wall-clock minutes past 05:00 so a night time keeps its clock reading across DST. */
+function onSnoozeDay(day: Date, clockMinutes: number): number {
+  return new Date(
+    day.getFullYear(),
+    day.getMonth(),
+    day.getDate(),
+    5,
+    (clockMinutes - 300 + 1440) % 1440,
+  ).getTime();
+}
+
+/** The snooze day of the first `clockMinutes` at least MIN_LEAD_MS after `from`. */
+function firstHitDay(clockMinutes: number, from: number): Date {
+  let day = snoozeDay(new Date(from));
+  while (onSnoozeDay(day, clockMinutes) <= from + MIN_LEAD_MS) {
+    day = addDays(day, 1);
+  }
+  return day;
+}
+
+/** The snooze day a clock key's date rule names: days and weeks count from `anchor` (its first hit), months from `now`'s snooze day. */
+function clockRuleDay(dateRule: string, anchor: Date, now: Date): Date {
+  const num = numOf(dateRule);
+  switch (familyOf(dateRule)) {
+    case "D":
+      return addDays(anchor, num);
+    case "W":
+      return addDays(anchor, num * 7);
+    case "Wd":
+      return nextWeekdayInRange(anchor, num, 0, 6);
+    case "Wn":
+      return nextWeekdayInRange(anchor, num, 7, 13);
+    case "Dom":
+      return nextDom(addDays(anchor, -1), num);
+    case "DomL":
+      return nextMonthEnd(addDays(anchor, -1));
+    default:
+      return addMonthsClamped(snoozeDay(now), num);
+  }
+}
+
+/** Every date rule whose clock key, resolved at `a`, lands on `t`'s slot. */
+function clockRulesFor(a: Date, t: Date, clockMinutes: number): string[] {
+  const anchor = firstHitDay(clockMinutes, a.getTime());
+  const st = snoozeDay(t);
+  const d = Math.round((st.getTime() - anchor.getTime()) / DAY_MS);
+  if (d < 0) return [];
+  if (sameDate(st, snoozeDay(a))) return [`D${d}`];
+  const dow = isoDow(st);
+  const candidates = [`D${d}`, `Wd${dow}`, `Wn${dow}`, "Dom1", "Dom15", "DomL"];
+  if (d % 7 === 0 && d >= 7 && d <= 28) candidates.push(`W${d / 7}`);
+  candidates.push("Mo1", "Mo2", "Mo3");
+  return candidates.filter((rule) =>
+    sameDate(clockRuleDay(rule, anchor, a), st),
+  );
+}
+
+/** Local wall-clock fields read as if UTC, so differences count calendar time, not elapsed time. */
+function naiveLocal(d: Date): number {
+  return Date.UTC(
+    d.getFullYear(),
+    d.getMonth(),
+    d.getDate(),
+    d.getHours(),
+    d.getMinutes(),
+    d.getSeconds(),
+    d.getMilliseconds(),
+  );
+}
+
+/** All composite keys a commit from `a` to `t` matches, e.g. ["D0@0900", "Wd1@0900"]. */
+export function extractKeys(a: Date, t: Date): string[] {
+  const slot = slotOf(t);
+  const timedKeys = clockRulesFor(a, t, slotClockMinutes(slot)).map(
+    (r) => `${r}@${slot}`,
+  );
+
+  // Whole days on the wall clock, then hours as elapsed time — the inverse of resolveKey.
+  const wallMin = Math.round((naiveLocal(t) - naiveLocal(a)) / MINUTE_MS);
+  const dEff = Math.round(wallMin / 1440);
+  const base = addDays(a, dEff);
+  const deltaMin = Math.round((t.getTime() - base.getTime()) / MINUTE_MS);
+  const h = Math.round(deltaMin / 60);
+
+  let offsetKeys: string[] = [];
+  // An offset that crosses into the next snooze day is really a clock time there, not "N hours later".
+  if (h >= 0 && h <= 12 && sameDate(snoozeDay(base), snoozeDay(t))) {
+    offsetKeys = offsetRulesFor(a, base)
+      .filter((r) => !(r === "D0" && h === 0))
+      .map((r) => `${r}_h${h}`);
+  }
+
+  return [...timedKeys, ...offsetKeys];
+}
+
+export function isTimedKey(keyId: string): boolean {
+  return keyId.includes("@");
+}
+
+type ParsedKey =
+  | { dateRule: string; kind: "timed"; clockMinutes: number }
+  | { dateRule: string; kind: "offset"; hours: number };
+
+function parseKey(keyId: string): ParsedKey {
+  const at = keyId.indexOf("@");
+  if (at >= 0) {
+    return {
+      dateRule: keyId.slice(0, at),
+      kind: "timed",
+      clockMinutes: slotClockMinutes(keyId.slice(at + 1)),
+    };
+  }
+  const h = keyId.indexOf("_h");
+  return {
+    dateRule: keyId.slice(0, h),
+    kind: "offset",
+    hours: Number.parseInt(keyId.slice(h + 2), 10),
+  };
+}
+
+export function classH(keyId: string): number {
+  const { dateRule } = parseKey(keyId);
+  const fam = familyOf(dateRule);
+  return fam === "Dom" || fam === "DomL" || fam === "Mo" ? 60 : 21;
+}
+
+function classHForSet(keys: string[]): number {
+  return Math.max(...keys.map(classH));
+}
+
+export function setHalfLifeDays(setId: string): number {
+  return classHForSet(splitSetId(setId));
+}
+
+export function canonicalSetId(keys: string[]): string {
+  return [...keys].sort().join("__");
+}
+
+export function splitSetId(setId: string): string[] {
+  return setId.split("__");
+}
+
+export type CommitUndoSnapshot = {
+  setId: string | null;
+  prevSet: SetEntry | null;
+  // The entries of every other set and quick-time slot the commit took votes from, as they were.
+  nearbySets: Record<string, SetEntry>;
+  nearbyTod: Record<string, SetEntry>;
+  // Null when the commit credited no quick-time slot.
+  tod: { slot: string; prev: SetEntry | null } | null;
+  prevLastCustom: DevicePartition["lastCustom"];
+  // Null when the commit logged no pick.
+  pick: { key: string; prev: number | null } | null;
+};
+
+export type CommitResult = {
+  next: DevicePartition;
+  undoSnapshot: CommitUndoSnapshot;
+};
+
+function decay(value: number, elapsedMs: number, halfLifeDays: number): number {
+  return value * 2 ** (-elapsedMs / (halfLifeDays * DAY_MS));
+}
+
+/** The share of its votes a time `distanceMinutes` from a snoozed-to time loses, and of a pick's weight it is discounted by. */
+function nearbyShare(distanceMinutes: number): number {
+  return 2 ** (-Math.abs(distanceMinutes) / NEARBY_HALF_DISTANCE_MINUTES);
+}
+
+/** Minutes between two clock times, the short way round midnight. */
+function clockDistance(clockMinutes: number, other: number): number {
+  const apart = Math.abs(clockMinutes - other);
+  return Math.min(apart, 1440 - apart);
+}
+
+/** The instant of `target`'s 5-minute slot, where the commit's own clock keys resolve. */
+function slotTime(target: Date): number {
+  return onSnoozeDay(snoozeDay(target), slotClockMinutes(slotOf(target)));
+}
+
+/** The share of its votes a set loses to a snooze to `targetTime`: the largest among its clock keys resolved at `at`, none if one lands exactly there. */
+function nearbySetShare(setId: string, at: Date, targetTime: number): number {
+  let share = 0;
+  for (const key of splitSetId(setId)) {
+    if (!isTimedKey(key)) continue;
+    const time = resolveKey(key, at);
+    if (time === null) continue;
+    if (time === targetTime) return 0;
+    share = Math.max(share, nearbyShare((time - targetTime) / MINUTE_MS));
+  }
+  return share;
+}
+
+/** Cuts each entry's count by its `shareOf`, in place; `taken` collects the changed entries as they were. */
+function takeVotes(
+  entries: Record<string, SetEntry>,
+  shareOf: (id: string) => number,
+  taken: Record<string, SetEntry>,
+): void {
+  for (const [id, entry] of Object.entries(entries)) {
+    const count = entry.c * (1 - shareOf(id));
+    if (count !== entry.c) {
+      taken[id] = entry;
+      entries[id] = { c: count, t: entry.t };
+    }
+  }
+}
+
+/** The quick-time slot a commit credits: none for same-day snoozes or hours-offset picks. */
+export function quickTimeSlot(
+  at: number,
+  target: number,
+  source: SnoozeSource,
+  pickedKey: string | null,
+): string | null {
+  const t = new Date(target);
+  if (snoozeDay(t).getTime() === snoozeDay(new Date(at)).getTime()) {
+    return null;
+  }
+  if (source === "suggestion" && pickedKey !== null && !isTimedKey(pickedKey)) {
+    return null;
+  }
+  return slotOf(t);
+}
+
+export function commit(
+  partition: DevicePartition,
+  at: number,
+  target: number,
+  source: SnoozeSource,
+  pickedKey: string | null = null,
+  pickLog: string | null = null,
+): CommitResult {
+  const keys = extractKeys(new Date(at), new Date(target));
+
+  const nextSets = { ...partition.sets };
+  let undoSetId: string | null = null;
+  let prevSet: SetEntry | null = null;
+  if (keys.length > 0) {
+    const setId = canonicalSetId(keys);
+    const prev = partition.sets[setId] ?? null;
+    prevSet = prev;
+    const decayed = prev ? decay(prev.c, at - prev.t, classHForSet(keys)) : 0;
+    nextSets[setId] = { c: decayed + 1, t: at };
+    undoSetId = setId;
+  }
+  const nearbySets: Record<string, SetEntry> = {};
+  const atDate = new Date(at);
+  const targetTime = slotTime(new Date(target));
+  takeVotes(
+    nextSets,
+    (setId) =>
+      setId === undoSetId ? 0 : nearbySetShare(setId, atDate, targetTime),
+    nearbySets,
+  );
+
+  const nextTod = { ...partition.tod };
+  let undoTod: CommitUndoSnapshot["tod"] = null;
+  const nearbyTod: Record<string, SetEntry> = {};
+  const slot = quickTimeSlot(at, target, source, pickedKey);
+  if (slot !== null) {
+    const prev = partition.tod[slot] ?? null;
+    const decayed = prev ? decay(prev.c, at - prev.t, TOD_HALF_LIFE_DAYS) : 0;
+    nextTod[slot] = { c: decayed + 1, t: at };
+    undoTod = { slot, prev };
+    const credited = slotClockMinutes(slot);
+    takeVotes(
+      nextTod,
+      (other) =>
+        other === slot
+          ? 0
+          : nearbyShare(clockDistance(slotClockMinutes(other), credited)),
+      nearbyTod,
+    );
+  }
+
+  const prevLastCustom = partition.lastCustom;
+  const lastCustom =
+    source === "custom" ? { target, at } : partition.lastCustom;
+
+  const nextPicks = { ...partition.picks };
+  let undoPick: CommitUndoSnapshot["pick"] = null;
+  if (pickLog !== null) {
+    const prev = partition.picks[pickLog] ?? null;
+    nextPicks[pickLog] = (prev ?? 0) + 1;
+    undoPick = { key: pickLog, prev };
+  }
+
+  return {
+    next: {
+      deviceId: partition.deviceId,
+      sets: nextSets,
+      tod: nextTod,
+      lastCustom,
+      picks: nextPicks,
+    },
+    undoSnapshot: {
+      setId: undoSetId,
+      prevSet,
+      nearbySets,
+      nearbyTod,
+      tod: undoTod,
+      prevLastCustom,
+      pick: undoPick,
+    },
+  };
+}
+
+/** A clock key as builds before the first-hit rule resolved it: its date rule counted from `at`'s snooze day. For upgradeLegacySets only. */
+function legacyClockTime(keyId: string, at: Date): number | null {
+  const key = parseKey(keyId);
+  if (key.kind !== "timed") return null;
+  const from = snoozeDay(at);
+  const num = numOf(key.dateRule);
+  let day: Date;
+  switch (familyOf(key.dateRule)) {
+    case "Dom":
+      day = nextDom(from, num);
+      break;
+    case "DomL":
+      day = nextMonthEnd(from);
+      break;
+    case "Mo":
+      day = addMonthsClamped(from, num);
+      break;
+    default:
+      day = offsetRuleDay(key.dateRule, at);
+  }
+  const epoch = onSnoozeDay(day, key.clockMinutes);
+  return epoch > at.getTime() + MIN_LEAD_MS ? epoch : null;
+}
+
+/** Sets saved before the first-hit rule, re-learned from the target their clock keys named at their last commit; sets that land on the same new id merge. A set whose clock keys don't agree on one target is kept as saved. */
+export function upgradeLegacySets(
+  sets: Record<string, SetEntry>,
+): Record<string, SetEntry> {
+  const out: Record<string, SetEntry> = {};
+  for (const [setId, entry] of Object.entries(sets)) {
+    const at = new Date(entry.t);
+    const targets = new Set(
+      splitSetId(setId)
+        .filter(isTimedKey)
+        .map((key) => legacyClockTime(key, at)),
+    );
+    const [target] = targets;
+    const keys =
+      targets.size === 1 && target != null
+        ? extractKeys(at, new Date(target))
+        : [];
+    const newId = keys.length > 0 ? canonicalSetId(keys) : setId;
+    const prev = out[newId];
+    if (prev) {
+      const halfLife = classHForSet(splitSetId(newId));
+      const t = Math.max(prev.t, entry.t);
+      out[newId] = {
+        c:
+          decay(prev.c, t - prev.t, halfLife) +
+          decay(entry.c, t - entry.t, halfLife),
+        t,
+      };
+    } else {
+      out[newId] = entry;
+    }
+  }
+  return out;
+}
+
+export function undoCommit(
+  partition: DevicePartition,
+  snap: CommitUndoSnapshot,
+): DevicePartition {
+  const sets = { ...partition.sets, ...snap.nearbySets };
+  if (snap.setId) {
+    if (snap.prevSet) sets[snap.setId] = snap.prevSet;
+    else delete sets[snap.setId];
+  }
+  const tod = { ...partition.tod, ...snap.nearbyTod };
+  if (snap.tod) {
+    if (snap.tod.prev) tod[snap.tod.slot] = snap.tod.prev;
+    else delete tod[snap.tod.slot];
+  }
+  const picks = { ...partition.picks };
+  if (snap.pick) {
+    if (snap.pick.prev !== null) picks[snap.pick.key] = snap.pick.prev;
+    else delete picks[snap.pick.key];
+  }
+  return {
+    deviceId: partition.deviceId,
+    sets,
+    tod,
+    lastCustom: snap.prevLastCustom,
+    picks,
+  };
+}
+
+function snapTo5Min(epoch: number): number {
+  return Math.round(epoch / (5 * MINUTE_MS)) * (5 * MINUTE_MS);
+}
+
+/** Resolves a composite key to a concrete epoch given `now`, or null if it can't happen (an offset off its day / <1min out). */
+export function resolveKey(keyId: string, now: Date): number | null {
+  const key = parseKey(keyId);
+  let epoch: number;
+  if (key.kind === "offset") {
+    let dayDate: Date;
+    try {
+      dayDate = offsetRuleDay(key.dateRule, now);
+    } catch {
+      return null;
+    }
+    const numDays = Math.round(
+      (dayDate.getTime() - snoozeDay(now).getTime()) / DAY_MS,
+    );
+    // Calendar days first (DST-safe), then the hours as elapsed time.
+    const base = new Date(now);
+    base.setDate(base.getDate() + numDays);
+    epoch = snapTo5Min(base.getTime() + key.hours * HOUR_MS);
+    if (!sameDate(snoozeDay(new Date(epoch)), dayDate)) return null;
+  } else {
+    const anchor = firstHitDay(key.clockMinutes, now.getTime());
+    epoch = onSnoozeDay(
+      clockRuleDay(key.dateRule, anchor, now),
+      key.clockMinutes,
+    );
+  }
+  if (epoch <= now.getTime() + MIN_LEAD_MS) return null;
+  return epoch;
+}
+
+export type RowIcon =
+  | "offset"
+  | "todayDay"
+  | "todayNight"
+  | "tomorrow"
+  | "days"
+  | "weekday"
+  | "monthly";
+
+// `text` is the label without its time, for layouts that show the time in its own column.
+export type Row = {
+  time: number;
+  text: string;
+  icon: RowIcon;
+  keyId: string;
+  score: number;
+};
+
+export type LastRow = { time: number; text: string };
+
+// Lower wins, after clock time over offset: a day count landing today/tomorrow, then named days (Wd/Wn/Dom/DomL), then counted ones (D/W/Mo), shorter period first.
+function tieRank(keyId: string, time: number, now: Date): number {
+  const { dateRule } = parseKey(keyId);
+  switch (familyOf(dateRule)) {
+    case "D":
+      return dayPhraseOf(dateRule, new Date(time), now).dist <= 1 ? 0 : 4;
+    case "Wd":
+      return 1;
+    case "Wn":
+      return 2;
+    case "Dom":
+    case "DomL":
+      return 3;
+    case "W":
+      return 5;
+    default: // Mo
+      return 6;
+  }
+}
+
+type Candidate = { key: string; time: number };
+
+function betterTie(a: Candidate, b: Candidate, now: Date): boolean {
+  const aTimed = isTimedKey(a.key);
+  const bTimed = isTimedKey(b.key);
+  if (aTimed !== bTimed) return aTimed;
+  const ra = tieRank(a.key, a.time, now);
+  const rb = tieRank(b.key, b.time, now);
+  if (ra !== rb) return ra < rb;
+  // Code-unit order, not localeCompare, to match Android's String.compareTo.
+  return a.key < b.key;
+}
+
+const DEFAULT_FLOOR = 0.05;
+
+// The platforms sum doubles in different orders, so an exact == could pick different winners.
+function sameScore(a: number, b: number): boolean {
+  return Math.abs(a - b) <= SCORE_EPS * Math.max(1, Math.abs(a), Math.abs(b));
+}
+
+/** How much a pick of `weight` discounts a time `distanceMinutes` away from it. */
+function nearbyDiscount(weight: number, distanceMinutes: number): number {
+  return weight * nearbyShare(distanceMinutes);
+}
+
+/** Whether `a` beats `b`: higher discounted score, then higher undiscounted score, then `tie`. */
+function outranks(
+  a: { net: number; score: number },
+  b: { net: number; score: number },
+  tie: () => boolean,
+): boolean {
+  if (!sameScore(a.net, b.net)) return a.net > b.net;
+  if (!sameScore(a.score, b.score)) return a.score > b.score;
+  return tie();
+}
+
+/** The day count of the one D-rule key among `keys`, or null unless there is exactly one. */
+function dayCountOf(keys: string[]): number | null {
+  const counts = keys
+    .map((key) => parseKey(key).dateRule)
+    .filter((rule) => familyOf(rule) === "D")
+    .map(numOf);
+  return counts.length === 1 ? counts[0] : null;
+}
+
+/** A set's keys as they read now: none if its clock keys disagree about the day (older builds' 7- and 14-day sets), no offsets off its clock time's day (older builds saved some across midnight). */
+function liveMembers(setId: string): string[] {
+  const keys = splitSetId(setId);
+  const timed = keys.filter(isTimedKey);
+  const days = dayCountOf(timed);
+  if (days === null) return timed;
+  const consistent = timed.every((key) => {
+    const rule = parseKey(key).dateRule;
+    switch (familyOf(rule)) {
+      case "W":
+        return numOf(rule) * 7 === days;
+      case "Wd":
+        return days <= 6;
+      case "Wn":
+        return days >= 7 && days <= 13;
+      default:
+        return true;
+    }
+  });
+  if (!consistent) return [];
+  const offsetDays = dayCountOf(keys.filter((key) => !isTimedKey(key)));
+  const offsetsFit =
+    offsetDays !== null && offsetDays - days >= 0 && offsetDays - days <= 1;
+  return offsetsFit ? keys : timed;
+}
+
+/** Rows in greedy selection order (each pick discounts keys near its time), so a row's index is its rank; the menu shows the first SHOWN_ROWS (see `rank`). */
+export function rankDeep(
+  partitions: DevicePartition[],
+  now: number,
+  n = DEEP_ROWS,
+  floor = DEFAULT_FLOOR,
+): Row[] {
+  const liveSets = new Map<string, number>();
+  const setMembers = new Map<string, string[]>();
+  const nowDate = new Date(now);
+  const resolved = new Map<string, number>();
+  for (const part of partitions) {
+    for (const [setId, entry] of Object.entries(part.sets)) {
+      const members = setMembers.get(setId) ?? liveMembers(setId);
+      if (members.length === 0) continue;
+      setMembers.set(setId, members);
+      const live = decay(entry.c, now - entry.t, classHForSet(members));
+      liveSets.set(setId, (liveSets.get(setId) ?? 0) + live);
+      for (const key of members) {
+        if (resolved.has(key)) continue;
+        const time = resolveKey(key, nowDate);
+        if (time !== null) resolved.set(key, time);
+      }
+    }
+  }
+
+  const available = new Set(liveSets.keys());
+  const discounts = new Map<string, number>();
+  const rows: Row[] = [];
+
+  while (rows.length < n) {
+    const agg = new Map<string, number>();
+    for (const setId of available) {
+      const live = liveSets.get(setId) ?? 0;
+      if (live <= 0) continue;
+      for (const key of setMembers.get(setId) ?? []) {
+        if (resolved.has(key)) agg.set(key, (agg.get(key) ?? 0) + live);
+      }
+    }
+
+    let best: (Candidate & { score: number; net: number }) | null = null;
+    for (const [key, score] of agg) {
+      if (score <= floor) continue;
+      const net = Math.max(0, score - (discounts.get(key) ?? 0));
+      const candidate = { key, score, net, time: resolved.get(key) ?? 0 };
+      const current = best;
+      if (
+        !current ||
+        outranks(candidate, current, () =>
+          betterTie(candidate, current, nowDate),
+        )
+      ) {
+        best = candidate;
+      }
+    }
+    if (!best) break;
+    const bestTime = best.time;
+    for (const [key, time] of resolved) {
+      const discount = nearbyDiscount(
+        best.score,
+        (time - bestTime) / MINUTE_MS,
+      );
+      discounts.set(key, (discounts.get(key) ?? 0) + discount);
+    }
+
+    const spent = new Set([best.key]);
+    for (const [key] of agg) {
+      if (resolved.get(key) === bestTime) spent.add(key);
+    }
+
+    rows.push({
+      time: bestTime,
+      text: labelParts(best.key, bestTime, nowDate).text,
+      icon: rowIcon(best.key, bestTime, nowDate),
+      keyId: best.key,
+      score: best.score,
+    });
+
+    for (const setId of Array.from(available)) {
+      const members = setMembers.get(setId) ?? [];
+      if (members.some((m) => spent.has(m))) available.delete(setId);
+    }
+  }
+
+  return rows;
+}
+
+/** The menu's rows: the first [n] of the greedy order, in time order. */
+export function shownRows(deep: Row[], n = SHOWN_ROWS): Row[] {
+  return deep.slice(0, n).sort((x, y) => x.time - y.time);
+}
+
+export function rank(
+  partitions: DevicePartition[],
+  now: number,
+  n = SHOWN_ROWS,
+  floor = DEFAULT_FLOOR,
+): Row[] {
+  return shownRows(rankDeep(partitions, now, n, floor), n);
+}
+
+/** The 1-based greedy rank of the deep row landing on `target`'s minute, or "none". */
+export function pickLogKey(deep: Row[], target: number): string {
+  const minute = Math.floor(target / MINUTE_MS);
+  const index = deep.findIndex(
+    (row) => Math.floor(row.time / MINUTE_MS) === minute,
+  );
+  return index >= 0 ? `${index + 1}` : "none";
+}
+
+export function lastRow(
+  partitions: DevicePartition[],
+  now: number,
+  rows: Row[],
+): LastRow | null {
+  let best: { target: number; at: number } | null = null;
+  for (const p of partitions) {
+    if (p.lastCustom && (!best || p.lastCustom.at > best.at))
+      best = p.lastCustom;
+  }
+  if (!best || best.target <= now) return null;
+  const target = best.target;
+  if (rows.some((r) => r.time === target)) return null;
+  return { time: target, text: `Last · ${lastDayText(target, new Date(now))}` };
+}
+
+/** The shortest phrase a ranked row would use for this day, else the date. */
+function lastDayText(target: number, now: Date): string {
+  const { dist } = dayPhraseOf("D1", new Date(target), now);
+  const rule = dist <= 1 ? "D1" : dist <= 14 ? "Wd1" : null;
+  return rule === null
+    ? formatters().date.format(target)
+    : labelParts(`${rule}@0000`, target, now).text;
+}
+
+export type QuickTime = {
+  // Minutes after local midnight.
+  clockMinutes: number;
+  weight: number;
+};
+
+/** Up to four learned clock times, picked greedily with the same nearby discount as rows, returned in clock order. */
+export function quickTimes(
+  partitions: DevicePartition[],
+  now: number,
+  floor = DEFAULT_FLOOR,
+): QuickTime[] {
+  const weights = new Map<number, number>();
+  for (const p of partitions) {
+    for (const [slot, entry] of Object.entries(p.tod)) {
+      const clock = slotClockMinutes(slot);
+      const live = decay(entry.c, now - entry.t, TOD_HALF_LIFE_DAYS);
+      weights.set(clock, (weights.get(clock) ?? 0) + live);
+    }
+  }
+  const sinceDayStart = (clock: number) => (clock - 300 + 1440) % 1440;
+  const discounts = new Map<number, number>();
+  const out: QuickTime[] = [];
+  while (out.length < QUICK_TIMES_MAX) {
+    let best: (QuickTime & { score: number; net: number }) | null = null;
+    for (const [clockMinutes, weight] of weights) {
+      if (weight <= floor) continue;
+      const net = Math.max(0, weight - (discounts.get(clockMinutes) ?? 0));
+      const candidate = { clockMinutes, weight, score: weight, net };
+      const current = best;
+      if (
+        !current ||
+        outranks(
+          candidate,
+          current,
+          () =>
+            sinceDayStart(clockMinutes) < sinceDayStart(current.clockMinutes),
+        )
+      ) {
+        best = candidate;
+      }
+    }
+    if (!best) break;
+    const { clockMinutes: picked, weight } = best;
+    out.push({ clockMinutes: picked, weight });
+    weights.delete(picked);
+    for (const [clockMinutes] of weights) {
+      const discount = nearbyDiscount(
+        weight,
+        clockDistance(clockMinutes, picked),
+      );
+      discounts.set(
+        clockMinutes,
+        (discounts.get(clockMinutes) ?? 0) + discount,
+      );
+    }
+  }
+  return out.sort((x, y) => x.clockMinutes - y.clockMinutes);
+}
+
+/** `clockMinutes` on the calendar date `dateYmd` ("YYYY-MM-DD"), exactly as typing that time would give. */
+export function quickTimeEpoch(
+  dateYmd: string,
+  clockMinutes: number,
+): number | null {
+  const match = dateYmd.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  const [, y, m, d] = match;
+  return new Date(
+    Number(y),
+    Number(m) - 1,
+    Number(d),
+    Math.floor(clockMinutes / 60),
+    clockMinutes % 60,
+  ).getTime();
+}
+
+const WEEKDAY_NAMES = (() => {
+  const fmt = new Intl.DateTimeFormat(LABEL_LOCALE, { weekday: "long" });
+  // 2023-01-02 was a Monday; index 0 = ISO dow 1 (Monday) .. index 6 = ISO dow 7 (Sunday).
+  return Array.from({ length: 7 }, (_, i) =>
+    fmt.format(new Date(2023, 0, 2 + i)),
+  );
+})();
+
+function weekdayName(isoDowNum: number): string {
+  return WEEKDAY_NAMES[isoDowNum - 1];
+}
+
+function ordinal(n: number): string {
+  const v = n % 100;
+  const suffixes = ["th", "st", "nd", "rd"];
+  const suffix = suffixes[(v - 20) % 10] ?? suffixes[v] ?? suffixes[0];
+  return `${n}${suffix}`;
+}
+
+type Formatters = {
+  zone: string;
+  time: Intl.DateTimeFormat;
+  date: Intl.DateTimeFormat;
+};
+let formatterCache: Formatters | null = null;
+
+// Rebuilt when the system time zone changes mid-session; a formatter pins its zone at construction.
+function formatters(): Formatters {
+  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  if (formatterCache?.zone !== zone) {
+    formatterCache = {
+      zone,
+      time: new Intl.DateTimeFormat(LABEL_LOCALE, {
+        hour: "2-digit",
+        minute: "2-digit",
+        hourCycle: "h23",
+      }),
+      date: new Intl.DateTimeFormat(LABEL_LOCALE, {
+        month: "short",
+        day: "numeric",
+      }),
+    };
+  }
+  return formatterCache;
+}
+
+export function formatClock(epoch: number): string {
+  return formatters().time.format(epoch);
+}
+
+export type DayPhrase =
+  | "today"
+  | "tomorrow"
+  | "inDays"
+  | "inWeeks"
+  | "this"
+  | "next"
+  | "inTwoWeeks"
+  | "calendar";
+
+/** "Today" is the calendar day but the target's day follows the 05:00 rule, so 09:00 seen at 04:50 is "this morning". */
+export function dayPhraseOf(
+  dateRule: string,
+  resolved: Date,
+  now: Date,
+): { phrase: DayPhrase; dist: number; weekday: number } {
+  const targetDay = snoozeDay(resolved);
+  const dist = Math.max(
+    0,
+    Math.round((targetDay.getTime() - dateOnly(now).getTime()) / DAY_MS),
+  );
+  const weekday = isoDow(targetDay);
+  const fam = familyOf(dateRule);
+  let phrase: DayPhrase;
+  if (dist === 1) phrase = "tomorrow";
+  else if (fam === "Dom" || fam === "DomL" || fam === "Mo") phrase = "calendar";
+  else if (dist === 0) phrase = "today";
+  else if (fam === "Wd" || fam === "Wn") {
+    if (dist <= 6) phrase = "this";
+    else if (dist <= 13) phrase = "next";
+    else phrase = "inTwoWeeks";
+  } else if (dist <= 6) phrase = "this";
+  else if (dist <= 13) phrase = "next";
+  else if (dist % 7 === 0 && dist <= 28) phrase = "inWeeks";
+  else phrase = "inDays";
+  return { phrase, dist, weekday };
+}
+
+function calendarLabelPart(dateRule: string): string {
+  if (dateRule === "DomL") return "End of month";
+  const num = numOf(dateRule);
+  if (familyOf(dateRule) === "Dom") return `The ${ordinal(num)}`;
+  return num === 1 ? "In a month" : `In ${num} months`;
+}
+
+function dateLabelPart(
+  dateRule: string,
+  resolved: Date,
+  now: Date,
+): { text: string; adjectival: boolean } {
+  const { phrase, dist, weekday } = dayPhraseOf(dateRule, resolved, now);
+  switch (phrase) {
+    case "today":
+      return { text: "Today", adjectival: false };
+    case "tomorrow":
+      return { text: "Tomorrow", adjectival: true };
+    case "inDays":
+      return { text: `In ${dist} days`, adjectival: false };
+    case "inWeeks":
+      return dist === 7
+        ? { text: "In a week", adjectival: false }
+        : { text: `In ${dist / 7} weeks`, adjectival: false };
+    case "this":
+      return { text: `This ${weekdayName(weekday)}`, adjectival: true };
+    case "next":
+      return { text: `Next ${weekdayName(weekday)}`, adjectival: true };
+    case "inTwoWeeks":
+      return { text: `${weekdayName(weekday)} in 2 weeks`, adjectival: false };
+    default:
+      return { text: calendarLabelPart(dateRule), adjectival: false };
+  }
+}
+
+const TODAY_BUCKET_TEXT: Record<Bucket, string> = {
+  morning: "This morning",
+  afternoon: "This afternoon",
+  evening: "This evening",
+  night: "Tonight",
+};
+
+export function labelParts(
+  keyId: string,
+  resolvedEpoch: number,
+  now: Date,
+): { text: string; time: string; parenthesized: boolean } {
+  const key = parseKey(keyId);
+  const time = formatClock(resolvedEpoch);
+  const resolved = new Date(resolvedEpoch);
+
+  if (key.kind === "offset") {
+    if (key.dateRule === "D0") {
+      const text =
+        key.hours <= LITTLE_WHILE_MAX_HOURS
+          ? "In a little while"
+          : "Much later";
+      return { text, time, parenthesized: true };
+    }
+    const { text } = dateLabelPart(key.dateRule, resolved, now);
+    return key.hours === 0
+      ? { text: `${text}, same time`, time, parenthesized: true }
+      : { text, time, parenthesized: false };
+  }
+
+  const region = bucketOf(minutesSince0500(resolved));
+  const { phrase } = dayPhraseOf(key.dateRule, resolved, now);
+  if (phrase === "today") {
+    return { text: TODAY_BUCKET_TEXT[region], time, parenthesized: false };
+  }
+  const { text, adjectival } = dateLabelPart(key.dateRule, resolved, now);
+  return {
+    text: adjectival ? `${text} ${region}` : text,
+    time,
+    parenthesized: false,
+  };
+}
+
+export function labelFor(
+  keyId: string,
+  resolvedEpoch: number,
+  now: Date,
+): string {
+  const { text, time, parenthesized } = labelParts(keyId, resolvedEpoch, now);
+  return parenthesized ? `${text} (${time})` : `${text}, ${time}`;
+}
+
+/** Mirrors Android's `rowIcon`. */
+export function rowIcon(
+  keyId: string,
+  resolvedEpoch: number,
+  now: Date,
+): RowIcon {
+  const key = parseKey(keyId);
+  if (key.kind === "offset") return "offset";
+  const resolved = new Date(resolvedEpoch);
+  const { dist } = dayPhraseOf(key.dateRule, resolved, now);
+  const fam = familyOf(key.dateRule);
+  if (dist === 0) {
+    const region = bucketOf(minutesSince0500(resolved));
+    return region === "morning" || region === "afternoon"
+      ? "todayDay"
+      : "todayNight";
+  } else if (dist === 1) return "tomorrow";
+  else if ((fam === "D" || fam === "W") && dist >= 14) return "days";
+  else if (fam === "Wd" || fam === "Wn" || fam === "D" || fam === "W")
+    return "weekday";
+  else return "monthly";
+}

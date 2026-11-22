@@ -1,0 +1,698 @@
+{
+  "_doc": {
+    "about": "How a device paces its Gmail calls (shared/src/gmail-pace.ts, Android :core gmail/GmailPace.kt). Run by shared/src/gmail-pace.spec.ts and Android :core GmailPaceFixturesTest.",
+    "usageLimit": "isUsageLimit(status, reason)",
+    "backoff": "backoffMs(strike, retryAfterSeconds, jitter) in milliseconds",
+    "retry": "retriesAfterLimit(isRead, attempt)",
+    "offline": "offlineAfter(offline, event): any answer, even an error status, clears the mark; no answer or the network going shows it; a timeout changes nothing",
+    "next": "nextCall(waiting, state, now): the id to start now, or null, and when to look again (wakeAt), or null",
+    "saving": "'saving' is a saved-copy read: it yields to every other call, runs at most MAX_SAVING (2) at once, starts SAVING_SPACING_MS (250) after the last one, and waits until savingHeldUntil, which a usage limit sets to SAVING_HOLD_MS (30000) after its pause ends",
+    "savingHold": "savingHeldUntil(pausedUntil): when saved-copy reads may go again after a usage limit"
+  },
+  "usageLimit": [
+    {
+      "status": 429,
+      "reason": null,
+      "limited": true
+    },
+    {
+      "status": 403,
+      "reason": "userRateLimitExceeded",
+      "limited": true
+    },
+    {
+      "status": 403,
+      "reason": "rateLimitExceeded",
+      "limited": true
+    },
+    {
+      "status": 403,
+      "reason": "RATE_LIMIT_EXCEEDED",
+      "limited": true
+    },
+    {
+      "status": 403,
+      "reason": "insufficientPermissions",
+      "limited": false
+    },
+    {
+      "status": 403,
+      "reason": null,
+      "limited": false
+    },
+    {
+      "status": 500,
+      "reason": "backendError",
+      "limited": false
+    },
+    {
+      "status": 404,
+      "reason": "notFound",
+      "limited": false
+    }
+  ],
+  "backoff": [
+    {
+      "name": "a Retry-After past 60 s is capped at 60 s",
+      "strike": 1,
+      "retryAfter": 3600,
+      "jitter": 0,
+      "ms": 60000
+    },
+    {
+      "name": "first, no jitter",
+      "strike": 1,
+      "retryAfter": null,
+      "jitter": 0,
+      "ms": 1000
+    },
+    {
+      "name": "second, no jitter",
+      "strike": 2,
+      "retryAfter": null,
+      "jitter": 0,
+      "ms": 2000
+    },
+    {
+      "name": "fifth, no jitter",
+      "strike": 5,
+      "retryAfter": null,
+      "jitter": 0,
+      "ms": 16000
+    },
+    {
+      "name": "capped",
+      "strike": 9,
+      "retryAfter": null,
+      "jitter": 0,
+      "ms": 32000
+    },
+    {
+      "name": "far past the cap",
+      "strike": 400,
+      "retryAfter": null,
+      "jitter": 0,
+      "ms": 32000
+    },
+    {
+      "name": "full jitter adds half",
+      "strike": 3,
+      "retryAfter": null,
+      "jitter": 1,
+      "ms": 6000
+    },
+    {
+      "name": "some jitter",
+      "strike": 1,
+      "retryAfter": null,
+      "jitter": 0.25,
+      "ms": 1125
+    },
+    {
+      "name": "Retry-After wins",
+      "strike": 1,
+      "retryAfter": 7,
+      "jitter": 0,
+      "ms": 7000
+    },
+    {
+      "name": "Retry-After with jitter",
+      "strike": 6,
+      "retryAfter": 2,
+      "jitter": 0.5,
+      "ms": 2500
+    },
+    {
+      "name": "Retry-After of zero",
+      "strike": 2,
+      "retryAfter": 0,
+      "jitter": 0.9,
+      "ms": 0
+    },
+    {
+      "name": "jitter out of range is clamped",
+      "strike": 1,
+      "retryAfter": null,
+      "jitter": 3,
+      "ms": 1500
+    }
+  ],
+  "retry": [
+    {
+      "isRead": true,
+      "attempt": 0,
+      "retry": true
+    },
+    {
+      "isRead": true,
+      "attempt": 3,
+      "retry": true
+    },
+    {
+      "isRead": true,
+      "attempt": 4,
+      "retry": false
+    },
+    {
+      "isRead": false,
+      "attempt": 0,
+      "retry": false
+    }
+  ],
+  "next": [
+    {
+      "name": "nothing waiting",
+      "waiting": [],
+      "state": {
+        "running": 0,
+        "runningSaving": 0,
+        "pausedUntil": 0,
+        "savingStartedAt": 0,
+        "savingHeldUntil": 0
+      },
+      "now": 1000,
+      "id": null,
+      "wakeAt": null
+    },
+    {
+      "name": "first come among equals",
+      "waiting": [
+        {
+          "id": "b",
+          "priority": "visible",
+          "order": 2
+        },
+        {
+          "id": "a",
+          "priority": "visible",
+          "order": 1
+        }
+      ],
+      "state": {
+        "running": 0,
+        "runningSaving": 0,
+        "pausedUntil": 0,
+        "savingStartedAt": 0,
+        "savingHeldUntil": 0
+      },
+      "now": 1000,
+      "id": "a",
+      "wakeAt": null
+    },
+    {
+      "name": "an action before what is on screen",
+      "waiting": [
+        {
+          "id": "show",
+          "priority": "visible",
+          "order": 1
+        },
+        {
+          "id": "done",
+          "priority": "action",
+          "order": 5
+        }
+      ],
+      "state": {
+        "running": 3,
+        "runningSaving": 0,
+        "pausedUntil": 0,
+        "savingStartedAt": 0,
+        "savingHeldUntil": 0
+      },
+      "now": 1000,
+      "id": "done",
+      "wakeAt": null
+    },
+    {
+      "name": "what is on screen before background",
+      "waiting": [
+        {
+          "id": "prefetch",
+          "priority": "background",
+          "order": 1
+        },
+        {
+          "id": "bundle",
+          "priority": "visible",
+          "order": 9
+        }
+      ],
+      "state": {
+        "running": 0,
+        "runningSaving": 0,
+        "pausedUntil": 0,
+        "savingStartedAt": 0,
+        "savingHeldUntil": 0
+      },
+      "now": 1000,
+      "id": "bundle",
+      "wakeAt": null
+    },
+    {
+      "name": "full",
+      "waiting": [
+        {
+          "id": "done",
+          "priority": "action",
+          "order": 1
+        }
+      ],
+      "state": {
+        "running": 4,
+        "runningSaving": 0,
+        "pausedUntil": 0,
+        "savingStartedAt": 0,
+        "savingHeldUntil": 0
+      },
+      "now": 1000,
+      "id": null,
+      "wakeAt": null
+    },
+    {
+      "name": "paused",
+      "waiting": [
+        {
+          "id": "done",
+          "priority": "action",
+          "order": 1
+        }
+      ],
+      "state": {
+        "running": 0,
+        "runningSaving": 0,
+        "pausedUntil": 1500,
+        "savingStartedAt": 0,
+        "savingHeldUntil": 0
+      },
+      "now": 1000,
+      "id": null,
+      "wakeAt": 1500
+    },
+    {
+      "name": "the pause just ended",
+      "waiting": [
+        {
+          "id": "done",
+          "priority": "action",
+          "order": 1
+        }
+      ],
+      "state": {
+        "running": 0,
+        "runningSaving": 0,
+        "pausedUntil": 1000,
+        "savingStartedAt": 0,
+        "savingHeldUntil": 0
+      },
+      "now": 1000,
+      "id": "done",
+      "wakeAt": null
+    },
+    {
+      "name": "an open goes before the saved copy's reads asked earlier",
+      "waiting": [
+        {
+          "id": "fill1",
+          "priority": "saving",
+          "order": 1
+        },
+        {
+          "id": "fill2",
+          "priority": "saving",
+          "order": 2
+        },
+        {
+          "id": "open",
+          "priority": "visible",
+          "order": 3
+        }
+      ],
+      "state": {
+        "running": 2,
+        "runningSaving": 2,
+        "pausedUntil": 0,
+        "savingStartedAt": 990,
+        "savingHeldUntil": 0
+      },
+      "now": 1000,
+      "id": "open",
+      "wakeAt": null
+    },
+    {
+      "name": "background goes before the saved copy",
+      "waiting": [
+        {
+          "id": "fill",
+          "priority": "saving",
+          "order": 1
+        },
+        {
+          "id": "refetch",
+          "priority": "background",
+          "order": 2
+        }
+      ],
+      "state": {
+        "running": 0,
+        "runningSaving": 0,
+        "pausedUntil": 0,
+        "savingStartedAt": 0,
+        "savingHeldUntil": 0
+      },
+      "now": 1000,
+      "id": "refetch",
+      "wakeAt": null
+    },
+    {
+      "name": "the saved copy waits while another call runs",
+      "waiting": [
+        {
+          "id": "fill",
+          "priority": "saving",
+          "order": 1
+        }
+      ],
+      "state": {
+        "running": 1,
+        "runningSaving": 0,
+        "pausedUntil": 0,
+        "savingStartedAt": 0,
+        "savingHeldUntil": 0
+      },
+      "now": 1000,
+      "id": null,
+      "wakeAt": null
+    },
+    {
+      "name": "the saved copy waits while an open runs beside its reads",
+      "waiting": [
+        {
+          "id": "fill",
+          "priority": "saving",
+          "order": 1
+        }
+      ],
+      "state": {
+        "running": 2,
+        "runningSaving": 1,
+        "pausedUntil": 0,
+        "savingStartedAt": 0,
+        "savingHeldUntil": 0
+      },
+      "now": 1000,
+      "id": null,
+      "wakeAt": null
+    },
+    {
+      "name": "at most two saved-copy reads at once",
+      "waiting": [
+        {
+          "id": "fill",
+          "priority": "saving",
+          "order": 1
+        }
+      ],
+      "state": {
+        "running": 2,
+        "runningSaving": 2,
+        "pausedUntil": 0,
+        "savingStartedAt": 0,
+        "savingHeldUntil": 0
+      },
+      "now": 1000,
+      "id": null,
+      "wakeAt": null
+    },
+    {
+      "name": "the saved copy starts once nothing else runs",
+      "waiting": [
+        {
+          "id": "fill",
+          "priority": "saving",
+          "order": 1
+        }
+      ],
+      "state": {
+        "running": 1,
+        "runningSaving": 1,
+        "pausedUntil": 0,
+        "savingStartedAt": 500,
+        "savingHeldUntil": 0
+      },
+      "now": 1000,
+      "id": "fill",
+      "wakeAt": null
+    },
+    {
+      "name": "saved-copy reads are spaced",
+      "waiting": [
+        {
+          "id": "fill",
+          "priority": "saving",
+          "order": 1
+        }
+      ],
+      "state": {
+        "running": 1,
+        "runningSaving": 1,
+        "pausedUntil": 0,
+        "savingStartedAt": 1000,
+        "savingHeldUntil": 0
+      },
+      "now": 1040,
+      "id": null,
+      "wakeAt": 1250
+    },
+    {
+      "name": "the spacing just ended",
+      "waiting": [
+        {
+          "id": "fill",
+          "priority": "saving",
+          "order": 1
+        }
+      ],
+      "state": {
+        "running": 1,
+        "runningSaving": 1,
+        "pausedUntil": 0,
+        "savingStartedAt": 1000,
+        "savingHeldUntil": 0
+      },
+      "now": 1250,
+      "id": "fill",
+      "wakeAt": null
+    },
+    {
+      "name": "a paused saved copy wakes when the pause ends",
+      "waiting": [
+        {
+          "id": "fill",
+          "priority": "saving",
+          "order": 1
+        }
+      ],
+      "state": {
+        "running": 0,
+        "runningSaving": 0,
+        "pausedUntil": 1500,
+        "savingStartedAt": 0,
+        "savingHeldUntil": 0
+      },
+      "now": 1000,
+      "id": null,
+      "wakeAt": 1500
+    },
+    {
+      "name": "full with nothing but the saved copy waiting",
+      "waiting": [
+        {
+          "id": "fill",
+          "priority": "saving",
+          "order": 1
+        }
+      ],
+      "state": {
+        "running": 4,
+        "runningSaving": 0,
+        "pausedUntil": 0,
+        "savingStartedAt": 0,
+        "savingHeldUntil": 0
+      },
+      "now": 1000,
+      "id": null,
+      "wakeAt": null
+    },
+    {
+      "name": "the saved copy stays held after a usage limit",
+      "waiting": [
+        {
+          "id": "fill",
+          "priority": "saving",
+          "order": 1
+        }
+      ],
+      "state": {
+        "running": 0,
+        "runningSaving": 0,
+        "pausedUntil": 900,
+        "savingStartedAt": 0,
+        "savingHeldUntil": 30900
+      },
+      "now": 1000,
+      "id": null,
+      "wakeAt": 30900
+    },
+    {
+      "name": "an open goes during the saved copy's hold",
+      "waiting": [
+        {
+          "id": "fill",
+          "priority": "saving",
+          "order": 1
+        },
+        {
+          "id": "open",
+          "priority": "visible",
+          "order": 2
+        }
+      ],
+      "state": {
+        "running": 0,
+        "runningSaving": 0,
+        "pausedUntil": 900,
+        "savingStartedAt": 0,
+        "savingHeldUntil": 30900
+      },
+      "now": 1000,
+      "id": "open",
+      "wakeAt": null
+    },
+    {
+      "name": "the hold just ended",
+      "waiting": [
+        {
+          "id": "fill",
+          "priority": "saving",
+          "order": 1
+        }
+      ],
+      "state": {
+        "running": 0,
+        "runningSaving": 0,
+        "pausedUntil": 900,
+        "savingStartedAt": 0,
+        "savingHeldUntil": 30900
+      },
+      "now": 30900,
+      "id": "fill",
+      "wakeAt": null
+    }
+  ],
+  "offline": [
+    {
+      "name": "an answer clears the mark",
+      "offline": true,
+      "event": {
+        "kind": "answered",
+        "status": 200
+      },
+      "expect": false
+    },
+    {
+      "name": "an error status is still an answer",
+      "offline": true,
+      "event": {
+        "kind": "answered",
+        "status": 404
+      },
+      "expect": false
+    },
+    {
+      "name": "a server error is still an answer",
+      "offline": true,
+      "event": {
+        "kind": "answered",
+        "status": 503
+      },
+      "expect": false
+    },
+    {
+      "name": "a usage limit is still an answer",
+      "offline": true,
+      "event": {
+        "kind": "answered",
+        "status": 429
+      },
+      "expect": false
+    },
+    {
+      "name": "an answer while online stays online",
+      "offline": false,
+      "event": {
+        "kind": "answered",
+        "status": 200
+      },
+      "expect": false
+    },
+    {
+      "name": "no answer shows the mark",
+      "offline": false,
+      "event": {
+        "kind": "unanswered"
+      },
+      "expect": true
+    },
+    {
+      "name": "no answer while offline stays offline",
+      "offline": true,
+      "event": {
+        "kind": "unanswered"
+      },
+      "expect": true
+    },
+    {
+      "name": "a timeout (the app's limit, or a socket timeout) while online stays online",
+      "offline": false,
+      "event": {
+        "kind": "timedOut"
+      },
+      "expect": false
+    },
+    {
+      "name": "a timeout while offline stays offline",
+      "offline": true,
+      "event": {
+        "kind": "timedOut"
+      },
+      "expect": true
+    },
+    {
+      "name": "the network coming back clears the mark",
+      "offline": true,
+      "event": {
+        "kind": "networkUp"
+      },
+      "expect": false
+    },
+    {
+      "name": "the network going shows the mark",
+      "offline": false,
+      "event": {
+        "kind": "networkDown"
+      },
+      "expect": true
+    }
+  ],
+  "savingHold": [
+    {
+      "pausedUntil": 1500,
+      "heldUntil": 31500
+    },
+    {
+      "pausedUntil": 0,
+      "heldUntil": 30000
+    }
+  ]
+}

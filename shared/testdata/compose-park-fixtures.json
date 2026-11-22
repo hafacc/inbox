@@ -1,0 +1,18 @@
+{
+  "title": [
+    { "name": "subject", "subject": "Re: Lunch Friday", "kind": "reply", "expect": "Re: Lunch Friday" },
+    { "name": "subject trimmed", "subject": "  Plans  ", "kind": "new", "expect": "Plans" },
+    { "name": "blank new message", "subject": "   ", "kind": "new", "expect": "New message" },
+    { "name": "blank reply", "subject": "", "kind": "reply", "expect": "Reply" },
+    { "name": "blank forward", "subject": "", "kind": "forward", "expect": "Forward" }
+  ],
+  "release": [
+    { "name": "not dragged", "dragged": 0, "velocity": 0, "expect": false },
+    { "name": "short and slow", "dragged": 40, "velocity": 200, "expect": false },
+    { "name": "far enough", "dragged": 96, "velocity": 0, "expect": true },
+    { "name": "far and moving up slowly", "dragged": 200, "velocity": -300, "expect": true },
+    { "name": "far but flung back up", "dragged": 200, "velocity": -800, "expect": false },
+    { "name": "short fling down", "dragged": 30, "velocity": 800, "expect": true },
+    { "name": "dragged up past the start", "dragged": -20, "velocity": 1200, "expect": false }
+  ]
+}

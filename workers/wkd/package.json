@@ -1,0 +1,18 @@
+{
+  "name": "@inbox/wkd",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit -p .",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@inbox/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "wrangler": "^4.162.0"
+  }
+}

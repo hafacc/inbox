@@ -1,0 +1,51 @@
+{
+  "_doc": "How a thread opens (shared/src/thread-open.ts, Android :core ThreadDetail.kt threadOpenState). `open`: threadOpenState(messages), messages oldest first as {id, unread}; `expect` gives the ids that start expanded, in thread order, and the id the view scrolls to (null for no messages).",
+  "open": [
+    {
+      "name": "no messages",
+      "messages": [],
+      "expect": { "expanded": [], "scrollTo": null }
+    },
+    {
+      "name": "one read message",
+      "messages": [{ "id": "m1", "unread": false }],
+      "expect": { "expanded": ["m1"], "scrollTo": "m1" }
+    },
+    {
+      "name": "all read: only the last, scrolled to",
+      "messages": [
+        { "id": "m1", "unread": false },
+        { "id": "m2", "unread": false },
+        { "id": "m3", "unread": false }
+      ],
+      "expect": { "expanded": ["m3"], "scrollTo": "m3" }
+    },
+    {
+      "name": "unread tail: from the first unread",
+      "messages": [
+        { "id": "m1", "unread": false },
+        { "id": "m2", "unread": true },
+        { "id": "m3", "unread": true }
+      ],
+      "expect": { "expanded": ["m2", "m3"], "scrollTo": "m2" }
+    },
+    {
+      "name": "unread in the middle, last read",
+      "messages": [
+        { "id": "m1", "unread": false },
+        { "id": "m2", "unread": true },
+        { "id": "m3", "unread": false },
+        { "id": "m4", "unread": false }
+      ],
+      "expect": { "expanded": ["m2", "m4"], "scrollTo": "m2" }
+    },
+    {
+      "name": "all unread",
+      "messages": [
+        { "id": "m1", "unread": true },
+        { "id": "m2", "unread": true }
+      ],
+      "expect": { "expanded": ["m1", "m2"], "scrollTo": "m1" }
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "extends": "$app/tsconfig",
+  "compilerOptions": {
+    "types": ["$app/types", "bun"],
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["src", "scripts/*.ts", "*.ts"],
+  // the service worker needs the WebWorker lib, not DOM: scripts/tsconfig.sw.json
+  "exclude": ["scripts/sw.ts"]
+}

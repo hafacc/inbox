@@ -1,0 +1,103 @@
+{
+  "_doc": {
+    "about": "Unwrapping click-tracking redirects every client must match: web (shared/src/links.ts) and Android :core.",
+    "unwrap": "unwrapLink(link): trim; then up to 5 times: parse as a URL (http/https only; hosts compared lower-case as URL parsing gives them) and, if a wrapper below matches, take its target; stop when there is none or the target (trimmed) isn't an absolute http(s) or mailto: URL. Query values are form-decoded ('+' is a space, then percent-decoding), the first non-empty of the names listed. Wrappers: (www.)google.com path /url → q, else url; *.safelinks.protection.outlook.com → url; urldefense.proofpoint.com /v2/url → u with '-' → '%' and '_' → '/', then percent-decoded; urldefense.com /v3/__URL__;… → URL, unless it holds '*'; l.facebook.com or lm.facebook.com /l.php → u; (www.|m.)youtube.com /redirect → q; slack-redir.net /link → url; (www.)linkedin.com /redir/redirect → url. Anything else is returned trimmed and unchanged."
+  },
+  "unwrap": [
+    {
+      "name": "Google redirect from Gmail",
+      "link": "https://www.google.com/url?hl=en&q=https://www.example.com/articles/42?ref%3Dnewsletter%26utm_source%3Dmail&source=gmail&ust=1793800000000000&usg=AOvVaw0abc",
+      "expect": "https://www.example.com/articles/42?ref=newsletter&utm_source=mail"
+    },
+    {
+      "name": "Google redirect with url=",
+      "link": "https://google.com/url?sa=t&url=https%3A%2F%2Fdocs.example.org%2Fguide%23install",
+      "expect": "https://docs.example.org/guide#install"
+    },
+    {
+      "name": "Outlook Safe Links",
+      "link": "https://nam12.safelinks.protection.outlook.com/?url=https%3A%2F%2Fcalendar.example.com%2Fevent%3Fid%3D9%26tz%3DAmerica%252FNew_York&data=05%7C02%7Cuser%40hafa.cc%7Cabc&sdata=xyz%3D&reserved=0",
+      "expect": "https://calendar.example.com/event?id=9&tz=America%2FNew_York"
+    },
+    {
+      "name": "Proofpoint v2",
+      "link": "https://urldefense.proofpoint.com/v2/url?u=https-3A__www.example.com_path_page-3Fa-3D1-26b-3D2&d=DwMFaQ&c=abc&r=def&m=ghi&s=jkl&e=",
+      "expect": "https://www.example.com/path/page?a=1&b=2"
+    },
+    {
+      "name": "Proofpoint v3",
+      "link": "https://urldefense.com/v3/__https://www.example.com/report.pdf__;!!AbCdEf!GhIjKl$",
+      "expect": "https://www.example.com/report.pdf"
+    },
+    {
+      "name": "Proofpoint v3 with replaced characters stays wrapped",
+      "link": "https://urldefense.com/v3/__https://www.example.com/a*b__;Kw!!AbCdEf$",
+      "expect": "https://urldefense.com/v3/__https://www.example.com/a*b__;Kw!!AbCdEf$"
+    },
+    {
+      "name": "Facebook",
+      "link": "https://l.facebook.com/l.php?u=https%3A%2F%2Fevents.example.com%2F123&h=AT0abc",
+      "expect": "https://events.example.com/123"
+    },
+    {
+      "name": "YouTube description link",
+      "link": "https://www.youtube.com/redirect?event=video_description&redir_token=QUFF&q=https%3A%2F%2Fshop.example%2Fgear&v=dQw4w9WgXcQ",
+      "expect": "https://shop.example/gear"
+    },
+    {
+      "name": "Slack",
+      "link": "https://slack-redir.net/link?url=http%3A%2F%2Fintranet.example%2Fwiki",
+      "expect": "http://intranet.example/wiki"
+    },
+    {
+      "name": "LinkedIn",
+      "link": "https://www.linkedin.com/redir/redirect?url=https%3A%2F%2Fblog.example.dev%2Fpost&urlhash=Ab12",
+      "expect": "https://blog.example.dev/post"
+    },
+    {
+      "name": "nested: Safe Links around a Google redirect",
+      "link": "https://eur01.safelinks.protection.outlook.com/?url=https%3A%2F%2Fwww.google.com%2Furl%3Fq%3Dhttps%253A%252F%252Fwww.example.com%252Fdeep%26sa%3DD&data=05%7C01",
+      "expect": "https://www.example.com/deep"
+    },
+    {
+      "name": "form decoding turns + into a space",
+      "link": "https://www.google.com/url?q=https://search.example/?q%3Da+b",
+      "expect": "https://search.example/?q=a b"
+    },
+    {
+      "name": "mailto targets are fine",
+      "link": "https://www.google.com/url?q=mailto:hello@example.com",
+      "expect": "mailto:hello@example.com"
+    },
+    {
+      "name": "javascript targets are not",
+      "link": "https://www.google.com/url?q=javascript:alert(1)",
+      "expect": "https://www.google.com/url?q=javascript:alert(1)"
+    },
+    {
+      "name": "relative targets are not",
+      "link": "https://www.google.com/url?q=/search",
+      "expect": "https://www.google.com/url?q=/search"
+    },
+    {
+      "name": "Mailchimp only holds ids",
+      "link": "https://example.us12.list-manage.com/track/click?u=0123456789abcdef&id=fedcba9876&e=a1b2c3d4e5",
+      "expect": "https://example.us12.list-manage.com/track/click?u=0123456789abcdef&id=fedcba9876&e=a1b2c3d4e5"
+    },
+    {
+      "name": "a look-alike host is not Google",
+      "link": "https://www.google.com.evil.example/url?q=https://x.example",
+      "expect": "https://www.google.com.evil.example/url?q=https://x.example"
+    },
+    {
+      "name": "a Google page that isn't the redirect",
+      "link": "https://www.google.com/search?q=https://x.example",
+      "expect": "https://www.google.com/search?q=https://x.example"
+    },
+    {
+      "name": "not a URL",
+      "link": "  not a link ",
+      "expect": "not a link"
+    }
+  ]
+}

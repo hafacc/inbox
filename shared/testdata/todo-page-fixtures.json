@@ -1,0 +1,107 @@
+{
+  "_doc": "How far a list of todos shows (shared/src/todos/pages.ts). Todos are newTodo(id, id, 0) with the fields given.",
+  "pageSize": 100,
+  "limits": [
+    {
+      "pages": 1,
+      "limit": 100
+    },
+    {
+      "pages": 2,
+      "limit": 200
+    },
+    {
+      "pages": 0,
+      "limit": 100
+    }
+  ],
+  "pages": [
+    {
+      "name": "a first page shows 100 and leaves the rest for show more",
+      "count": 250,
+      "pages": 1,
+      "shown": 100,
+      "hidden": 150
+    },
+    {
+      "name": "a second page shows 200",
+      "count": 250,
+      "pages": 2,
+      "shown": 200,
+      "hidden": 50
+    },
+    {
+      "name": "a page past the end shows them all",
+      "count": 250,
+      "pages": 3,
+      "shown": 250,
+      "hidden": 0
+    },
+    {
+      "name": "fewer than a page leaves nothing hidden",
+      "count": 7,
+      "pages": 1,
+      "shown": 7,
+      "hidden": 0
+    }
+  ],
+  "loaded": [
+    {
+      "name": "while older threads are to load, only todos no older than the oldest loaded thread",
+      "todos": [
+        {
+          "id": "new",
+          "state": "DONE",
+          "modifiedAt": 2000
+        },
+        {
+          "id": "old",
+          "state": "DONE",
+          "modifiedAt": 1000
+        }
+      ],
+      "oldestShown": 1500,
+      "more": true,
+      "expect": [
+        "new"
+      ]
+    },
+    {
+      "name": "all of them once the thread list is complete",
+      "todos": [
+        {
+          "id": "new",
+          "state": "DONE",
+          "modifiedAt": 2000
+        },
+        {
+          "id": "old",
+          "state": "DONE",
+          "modifiedAt": 1000
+        }
+      ],
+      "oldestShown": 1500,
+      "more": false,
+      "expect": [
+        "new",
+        "old"
+      ]
+    },
+    {
+      "name": "an open todo is dated by its place in Active",
+      "todos": [
+        {
+          "id": "open",
+          "state": "ACTIVE",
+          "modifiedAt": 1000,
+          "snoozeUntil": null
+        }
+      ],
+      "oldestShown": 500,
+      "more": true,
+      "expect": [
+        "open"
+      ]
+    }
+  ]
+}

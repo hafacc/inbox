@@ -1,0 +1,20 @@
+{
+  "initials": [
+    { "name": "first and last words", "person": { "name": "Maya Chen", "email": "maya@x.example.com" }, "expect": "MC", "single": "M" },
+    { "name": "one word", "person": { "name": "Mom", "email": "linda@x.example.com" }, "expect": "M", "single": "M" },
+    { "name": "hyphens and apostrophes split words", "person": { "name": "Mary-Kate O'Neil", "email": "m@x.example.com" }, "expect": "MN", "single": "M" },
+    { "name": "middle names are skipped", "person": { "name": "Ana María López Ruiz", "email": "a@x.example.com" }, "expect": "AR", "single": "A" },
+    { "name": "no name uses the address", "person": { "name": "", "email": "dependabot@example.com" }, "expect": "D", "single": "D" },
+    { "name": "a name of only symbols uses the address", "person": { "name": "-- ** --", "email": "ops@x.example.com" }, "expect": "O", "single": "O" },
+    { "name": "nothing at all", "person": { "name": " ", "email": "" }, "expect": "?", "single": "?" },
+    { "name": "lower-case letters are upper-cased", "person": { "name": "élodie durand", "email": "e@x.example.com" }, "expect": "ÉD", "single": "É" },
+    { "name": "a decomposed accent stays with its letter and doesn't split the word", "person": { "name": "Émile Zola", "email": "e@x.example.com" }, "expect": "ÉZ", "single": "É" },
+    { "name": "an astral letter stays whole", "person": { "name": "𝒜𝒷 Smith", "email": "a@x.example.com" }, "expect": "𝒜S", "single": "𝒜" },
+    { "name": "no-break and ideographic spaces split words", "person": { "name": "Maya Chen　Li", "email": "m@x.example.com" }, "expect": "ML", "single": "M" },
+    { "name": "a name in a script without case", "person": { "name": "陈美雅", "email": "c@x.example.com" }, "expect": "陈", "single": "陈" },
+    { "name": "digits count as letters", "person": { "name": "3M Support", "email": "s@x.example.com" }, "expect": "3S", "single": "3" },
+    { "name": "emoji are not letters", "person": { "name": "😀 Bot", "email": "b@x.example.com" }, "expect": "B", "single": "B" },
+    { "name": "an address starting with a symbol", "person": { "name": "", "email": "+alerts@x.example.com" }, "expect": "+", "single": "+" },
+    { "name": "ß upper-cases to SS", "person": { "name": "ßeta", "email": "b@x.example.com" }, "expect": "SS", "single": "SS" }
+  ]
+}

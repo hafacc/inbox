@@ -1,0 +1,480 @@
+{
+  "_doc": {
+    "about": "Gmail filter editor every client must match: web (shared/src/filters.ts) and Android :core. Filters are the Gmail API Filter resource (settings.filters); rows are { field, operator, value } in groups { match: all | any | not }.",
+    "rows": "Fields: from, to, subject, hasWords, doesNotHave (operator contains), size (operator larger | smaller; value a number with an optional unit: b/byte/bytes, k/kb = 1024, m/mb = 1048576, case-insensitive, rounded to whole bytes), hasAttachment (operator is, value ''). rowError: '' (after trim) gives 'Enter a value' except for hasAttachment; a size that doesn't parse gives 'Enter a size like 5MB'. formatSize: whole MB as '5MB', whole KB as '500KB', else bytes.",
+    "build": "conditionsToCriteria. Raw: { query: trimmed } (or {} when empty). Rows with a rowError are dropped. In 'all' groups the first row of each field fills criteria (values trimmed): from, to, subject; hasWords → query; doesNotHave → negatedQuery; size → size (bytes) and sizeComparison; hasAttachment → true. Later rows of the same field, and other groups, become search terms appended to query after the has-words text, space-separated: from/to/subject 'field:value' with the value in (…) when it has spaces and isn't one \"quoted\" string; hasWords the value the same way; doesNotHave '-word' or '-{a b}' when it has more than one token; size 'larger:5M' (whole MB) or bytes; hasAttachment 'has:attachment'. An 'any' group is '{t1 t2}' ({} left out for one row); a 'not' group negates each term (a leading '-' removed, else added). Keys come out in the order from, to, subject, query, negatedQuery, hasAttachment, excludeChats, size, sizeComparison.",
+    "parse": "criteriaToConditions. Raw text (criteriaToSearch) when size is set with sizeComparison 'unspecified', or query/negatedQuery has an open quote or group, or a {…} or negated term holds OR, a nested {…} or a negated term. A query with a top-level OR token is one hasWords row. Otherwise query tokens: 'from:/to:/subject:' (value unwrapped from (…)), 'larger:/smaller:/size:' with a number and optional k/m (size: means larger), 'has:attachment' → rows in the all group; '{…}' → an 'any' group of its tokens' rows (other tokens → hasWords, unwrapped from (…)); '-{…}' → a new 'not' group; '-term' → added to the last group if it is 'not' (and not from -{…}), else a new 'not' group; everything else joined with spaces as one hasWords row. All-group rows: the criteria fields (from, to, subject, negatedQuery as doesNotHave, size as formatSize, hasAttachment), then the query's rows, stably sorted by field order. Groups: the all group (if it has rows), then the others in query order. excludeChats is ignored.",
+    "search": "criteriaToSearch (the live preview): from/to/subject as build terms; query as is, in (…) when it has more than one token and a top-level OR; negatedQuery as doesNotHave terms; has:attachment; larger:/smaller: size (unspecified counts as larger).",
+    "actions": "actionFromGmail: add STARRED → star, IMPORTANT → important 'always', TRASH → trash, the first Label_* id → labelId, others → otherAddLabelIds; remove INBOX → archive, UNREAD → markRead, SPAM → neverSpam, IMPORTANT → important 'never', others → otherRemoveLabelIds; forward. actionToGmail: addLabelIds = labelId, STARRED, IMPORTANT, TRASH, others; removeLabelIds = INBOX, UNREAD, SPAM, IMPORTANT, others; empty lists and null forward left out. existing: labelChanges, the labels to add and remove when applying the filter to mail already there: add the label, STARRED, IMPORTANT (always), TRASH; remove INBOX, UNREAD, IMPORTANT (never); other labels, never-spam and forward aren't applied.",
+    "whole": "filterIsWhole(editor): it can be saved, and leaving the editor keeps a change, only when the criteria aren't empty and the action adds or removes a label or forwards."
+  },
+  "rowError": [
+    { "row": { "field": "from", "operator": "contains", "value": "  " }, "expect": "Enter a value" },
+    { "row": { "field": "hasAttachment", "operator": "is", "value": "" }, "expect": null },
+    { "row": { "field": "size", "operator": "larger", "value": "big" }, "expect": "Enter a size like 5MB" },
+    { "row": { "field": "size", "operator": "larger", "value": "2.5 mb" }, "expect": null }
+  ],
+  "size": [
+    { "value": "5MB", "bytes": 5242880 },
+    { "value": "5 mb", "bytes": 5242880 },
+    { "value": "500KB", "bytes": 512000 },
+    { "value": "2.5M", "bytes": 2621440 },
+    { "value": "1200", "bytes": 1200 },
+    { "value": "1200 bytes", "bytes": 1200 },
+    { "value": "big", "bytes": null }
+  ],
+  "build": [
+    {
+      "name": "one row per field, as Gmail's editor writes it",
+      "conditions": {
+        "kind": "rows",
+        "groups": [
+          {
+            "match": "all",
+            "rows": [
+              { "field": "from", "operator": "contains", "value": " newsletter@example.com " },
+              { "field": "subject", "operator": "contains", "value": "weekly" },
+              { "field": "hasWords", "operator": "contains", "value": "unsubscribe" },
+              { "field": "doesNotHave", "operator": "contains", "value": "receipt" },
+              { "field": "size", "operator": "larger", "value": "5MB" },
+              { "field": "hasAttachment", "operator": "is", "value": "" }
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "from": "newsletter@example.com",
+        "subject": "weekly",
+        "query": "unsubscribe",
+        "negatedQuery": "receipt",
+        "hasAttachment": true,
+        "size": 5242880,
+        "sizeComparison": "larger"
+      }
+    },
+    {
+      "name": "a second row of a field goes to query",
+      "conditions": {
+        "kind": "rows",
+        "groups": [
+          {
+            "match": "all",
+            "rows": [
+              { "field": "from", "operator": "contains", "value": "a@x.example OR b@y.example" },
+              { "field": "from", "operator": "contains", "value": "Maya Chen" }
+            ]
+          }
+        ]
+      },
+      "expect": { "from": "a@x.example OR b@y.example", "query": "from:(Maya Chen)" }
+    },
+    {
+      "name": "any group",
+      "conditions": {
+        "kind": "rows",
+        "groups": [
+          { "match": "all", "rows": [{ "field": "subject", "operator": "contains", "value": "invoice" }] },
+          {
+            "match": "any",
+            "rows": [
+              { "field": "from", "operator": "contains", "value": "billing@stripe.example" },
+              { "field": "from", "operator": "contains", "value": "receipts@shop.example" },
+              { "field": "hasWords", "operator": "contains", "value": "order confirmed" }
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "subject": "invoice",
+        "query": "{from:billing@stripe.example from:receipts@shop.example (order confirmed)}"
+      }
+    },
+    {
+      "name": "not group after has words",
+      "conditions": {
+        "kind": "rows",
+        "groups": [
+          {
+            "match": "all",
+            "rows": [
+              { "field": "to", "operator": "contains", "value": "user@hafa.cc" },
+              { "field": "hasWords", "operator": "contains", "value": "standup" }
+            ]
+          },
+          {
+            "match": "not",
+            "rows": [
+              { "field": "from", "operator": "contains", "value": "boss@work.example" },
+              { "field": "hasWords", "operator": "contains", "value": "urgent" },
+              { "field": "doesNotHave", "operator": "contains", "value": "notes" }
+            ]
+          }
+        ]
+      },
+      "expect": { "to": "user@hafa.cc", "query": "standup -from:boss@work.example -urgent notes" }
+    },
+    {
+      "name": "rows with errors are left out",
+      "conditions": {
+        "kind": "rows",
+        "groups": [
+          {
+            "match": "all",
+            "rows": [
+              { "field": "from", "operator": "contains", "value": "" },
+              { "field": "size", "operator": "larger", "value": "big" },
+              { "field": "hasAttachment", "operator": "is", "value": "" }
+            ]
+          }
+        ]
+      },
+      "expect": { "hasAttachment": true }
+    },
+    {
+      "name": "raw text",
+      "conditions": { "kind": "raw", "query": " list:dev.example.org OR deliveredto:user+dev@hafa.cc " },
+      "expect": { "query": "list:dev.example.org OR deliveredto:user+dev@hafa.cc" }
+    },
+    {
+      "name": "empty raw text",
+      "conditions": { "kind": "raw", "query": "  " },
+      "expect": {}
+    },
+    {
+      "name": "smaller than, in KB",
+      "conditions": {
+        "kind": "rows",
+        "groups": [{ "match": "all", "rows": [{ "field": "size", "operator": "smaller", "value": "500KB" }] }]
+      },
+      "expect": { "size": 512000, "sizeComparison": "smaller" }
+    },
+    {
+      "name": "a second doesn't-have and size",
+      "conditions": {
+        "kind": "rows",
+        "groups": [
+          {
+            "match": "all",
+            "rows": [
+              { "field": "doesNotHave", "operator": "contains", "value": "a" },
+              { "field": "doesNotHave", "operator": "contains", "value": "b c" },
+              { "field": "size", "operator": "larger", "value": "1MB" },
+              { "field": "size", "operator": "smaller", "value": "500KB" }
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "query": "-{b c} smaller:512000",
+        "negatedQuery": "a",
+        "size": 1048576,
+        "sizeComparison": "larger"
+      }
+    },
+    {
+      "name": "a one-row any group needs no braces",
+      "conditions": {
+        "kind": "rows",
+        "groups": [{ "match": "any", "rows": [{ "field": "subject", "operator": "contains", "value": "\"quarterly report\"" }] }]
+      },
+      "expect": { "query": "subject:\"quarterly report\"" }
+    }
+  ],
+  "parse": [
+    {
+      "name": "made in Gmail",
+      "criteria": {
+        "from": "newsletter@example.com",
+        "query": "unsubscribe",
+        "negatedQuery": "receipt",
+        "hasAttachment": true,
+        "excludeChats": true,
+        "size": 5242880,
+        "sizeComparison": "larger"
+      },
+      "expect": {
+        "kind": "rows",
+        "groups": [
+          {
+            "match": "all",
+            "rows": [
+              { "field": "from", "operator": "contains", "value": "newsletter@example.com" },
+              { "field": "hasWords", "operator": "contains", "value": "unsubscribe" },
+              { "field": "doesNotHave", "operator": "contains", "value": "receipt" },
+              { "field": "size", "operator": "larger", "value": "5MB" },
+              { "field": "hasAttachment", "operator": "is", "value": "" }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "query terms, any and not groups",
+      "criteria": {
+        "subject": "invoice",
+        "query": "{from:billing@stripe.example from:receipts@shop.example (order confirmed)} -from:boss@work.example -urgent larger:10M"
+      },
+      "expect": {
+        "kind": "rows",
+        "groups": [
+          {
+            "match": "all",
+            "rows": [
+              { "field": "subject", "operator": "contains", "value": "invoice" },
+              { "field": "size", "operator": "larger", "value": "10MB" }
+            ]
+          },
+          {
+            "match": "any",
+            "rows": [
+              { "field": "from", "operator": "contains", "value": "billing@stripe.example" },
+              { "field": "from", "operator": "contains", "value": "receipts@shop.example" },
+              { "field": "hasWords", "operator": "contains", "value": "order confirmed" }
+            ]
+          },
+          {
+            "match": "not",
+            "rows": [
+              { "field": "from", "operator": "contains", "value": "boss@work.example" },
+              { "field": "hasWords", "operator": "contains", "value": "urgent" }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "a top-level OR stays one has-words row",
+      "criteria": { "query": "list:dev.example.org OR deliveredto:user+dev@hafa.cc" },
+      "expect": {
+        "kind": "rows",
+        "groups": [
+          {
+            "match": "all",
+            "rows": [
+              { "field": "hasWords", "operator": "contains", "value": "list:dev.example.org OR deliveredto:user+dev@hafa.cc" }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "an open group falls back to raw text",
+      "criteria": { "from": "x@y.example", "query": "subject:(oops" },
+      "expect": { "kind": "raw", "query": "from:x@y.example subject:(oops" }
+    },
+    {
+      "name": "nested braces fall back to raw text",
+      "criteria": { "query": "{a {b c}}" },
+      "expect": { "kind": "raw", "query": "{a {b c}}" }
+    },
+    {
+      "name": "unspecified size comparison falls back to raw text",
+      "criteria": { "size": 1000, "sizeComparison": "unspecified" },
+      "expect": { "kind": "raw", "query": "larger:1000" }
+    },
+    {
+      "name": "operators and plain words",
+      "criteria": { "query": "from:(Maya Chen) budget review has:attachment" },
+      "expect": {
+        "kind": "rows",
+        "groups": [
+          {
+            "match": "all",
+            "rows": [
+              { "field": "from", "operator": "contains", "value": "Maya Chen" },
+              { "field": "hasWords", "operator": "contains", "value": "budget review" },
+              { "field": "hasAttachment", "operator": "is", "value": "" }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "negated braces",
+      "criteria": { "query": "-{spam scam}" },
+      "expect": {
+        "kind": "rows",
+        "groups": [
+          {
+            "match": "not",
+            "rows": [
+              { "field": "hasWords", "operator": "contains", "value": "spam" },
+              { "field": "hasWords", "operator": "contains", "value": "scam" }
+            ]
+          }
+        ]
+      }
+    },
+    { "name": "empty", "criteria": {}, "expect": { "kind": "rows", "groups": [] } },
+    {
+      "name": "smaller than, quoted subject, lone minus",
+      "criteria": { "subject": "\"quarterly report\"", "query": "a - b", "size": 2048, "sizeComparison": "smaller" },
+      "expect": {
+        "kind": "rows",
+        "groups": [
+          {
+            "match": "all",
+            "rows": [
+              { "field": "subject", "operator": "contains", "value": "\"quarterly report\"" },
+              { "field": "hasWords", "operator": "contains", "value": "a - b" },
+              { "field": "size", "operator": "smaller", "value": "2KB" }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "unknown operators are has words",
+      "criteria": { "query": "list:dev.example.org category:updates" },
+      "expect": {
+        "kind": "rows",
+        "groups": [
+          {
+            "match": "all",
+            "rows": [{ "field": "hasWords", "operator": "contains", "value": "list:dev.example.org category:updates" }]
+          }
+        ]
+      }
+    }
+  ],
+  "search": [
+    {
+      "criteria": {
+        "from": "a@x.example OR b@y.example",
+        "subject": "lunch",
+        "query": "x OR y",
+        "negatedQuery": "foo bar",
+        "hasAttachment": true,
+        "size": 5242880,
+        "sizeComparison": "larger"
+      },
+      "expect": "from:(a@x.example OR b@y.example) subject:lunch (x OR y) -{foo bar} has:attachment larger:5M"
+    },
+    { "criteria": { "size": 1500, "sizeComparison": "smaller" }, "expect": "smaller:1500" },
+    { "criteria": { "to": "user@hafa.cc", "negatedQuery": "receipt" }, "expect": "to:user@hafa.cc -receipt" }
+  ],
+  "actions": [
+    {
+      "name": "label, star, important, archive, mark read",
+      "gmail": { "addLabelIds": ["Label_12", "STARRED", "IMPORTANT"], "removeLabelIds": ["INBOX", "UNREAD"] },
+      "actions": {
+        "labelId": "Label_12",
+        "archive": true,
+        "markRead": true,
+        "star": true,
+        "neverSpam": false,
+        "important": "always",
+        "trash": false,
+        "forward": null,
+        "otherAddLabelIds": [],
+        "otherRemoveLabelIds": []
+      },
+      "toGmail": { "addLabelIds": ["Label_12", "STARRED", "IMPORTANT"], "removeLabelIds": ["INBOX", "UNREAD"] },
+      "existing": { "add": ["Label_12", "STARRED", "IMPORTANT"], "remove": ["INBOX", "UNREAD"] }
+    },
+    {
+      "name": "never spam, never important, forward",
+      "gmail": { "removeLabelIds": ["SPAM", "IMPORTANT"], "forward": "user@hafa.cc" },
+      "actions": {
+        "labelId": null,
+        "archive": false,
+        "markRead": false,
+        "star": false,
+        "neverSpam": true,
+        "important": "never",
+        "trash": false,
+        "forward": "user@hafa.cc",
+        "otherAddLabelIds": [],
+        "otherRemoveLabelIds": []
+      },
+      "toGmail": { "removeLabelIds": ["SPAM", "IMPORTANT"], "forward": "user@hafa.cc" },
+      "existing": { "add": [], "remove": ["IMPORTANT"] }
+    },
+    {
+      "name": "delete",
+      "gmail": { "addLabelIds": ["TRASH"] },
+      "actions": {
+        "labelId": null,
+        "archive": false,
+        "markRead": false,
+        "star": false,
+        "neverSpam": false,
+        "important": null,
+        "trash": true,
+        "forward": null,
+        "otherAddLabelIds": [],
+        "otherRemoveLabelIds": []
+      },
+      "toGmail": { "addLabelIds": ["TRASH"] },
+      "existing": { "add": ["TRASH"], "remove": [] }
+    },
+    {
+      "name": "categories and a second label are kept",
+      "gmail": { "addLabelIds": ["CATEGORY_UPDATES", "Label_3", "Label_4"], "removeLabelIds": ["CATEGORY_PROMOTIONS"] },
+      "actions": {
+        "labelId": "Label_3",
+        "archive": false,
+        "markRead": false,
+        "star": false,
+        "neverSpam": false,
+        "important": null,
+        "trash": false,
+        "forward": null,
+        "otherAddLabelIds": ["CATEGORY_UPDATES", "Label_4"],
+        "otherRemoveLabelIds": ["CATEGORY_PROMOTIONS"]
+      },
+      "toGmail": { "addLabelIds": ["Label_3", "CATEGORY_UPDATES", "Label_4"], "removeLabelIds": ["CATEGORY_PROMOTIONS"] },
+      "existing": { "add": ["Label_3"], "remove": [] }
+    },
+    {
+      "name": "nothing",
+      "gmail": {},
+      "actions": {
+        "labelId": null,
+        "archive": false,
+        "markRead": false,
+        "star": false,
+        "neverSpam": false,
+        "important": null,
+        "trash": false,
+        "forward": null,
+        "otherAddLabelIds": [],
+        "otherRemoveLabelIds": []
+      },
+      "toGmail": {},
+      "existing": { "add": [], "remove": [] }
+    }
+  ],
+  "whole": [
+    {
+      "name": "matches and archives",
+      "conditions": { "kind": "rows", "groups": [{ "match": "all", "rows": [{ "field": "from", "operator": "contains", "value": "news@example.com" }] }] },
+      "actions": { "labelId": null, "archive": true, "markRead": false, "star": false, "neverSpam": false, "important": null, "trash": false, "forward": null, "otherAddLabelIds": [], "otherRemoveLabelIds": [] },
+      "expect": true
+    },
+    {
+      "name": "matches and forwards",
+      "conditions": { "kind": "rows", "groups": [{ "match": "all", "rows": [{ "field": "from", "operator": "contains", "value": "news@example.com" }] }] },
+      "actions": { "labelId": null, "archive": false, "markRead": false, "star": false, "neverSpam": false, "important": null, "trash": false, "forward": "user@hafa.cc", "otherAddLabelIds": [], "otherRemoveLabelIds": [] },
+      "expect": true
+    },
+    {
+      "name": "matches but does nothing",
+      "conditions": { "kind": "rows", "groups": [{ "match": "all", "rows": [{ "field": "from", "operator": "contains", "value": "news@example.com" }] }] },
+      "actions": { "labelId": null, "archive": false, "markRead": false, "star": false, "neverSpam": false, "important": null, "trash": false, "forward": null, "otherAddLabelIds": [], "otherRemoveLabelIds": [] },
+      "expect": false
+    },
+    {
+      "name": "does something but matches nothing",
+      "conditions": { "kind": "rows", "groups": [{ "match": "all", "rows": [{ "field": "from", "operator": "contains", "value": " " }] }] },
+      "actions": { "labelId": null, "archive": false, "markRead": false, "star": true, "neverSpam": false, "important": null, "trash": false, "forward": null, "otherAddLabelIds": [], "otherRemoveLabelIds": [] },
+      "expect": false
+    },
+    {
+      "name": "blank raw text",
+      "conditions": { "kind": "raw", "query": "  " },
+      "actions": { "labelId": "Label_1", "archive": false, "markRead": false, "star": false, "neverSpam": false, "important": null, "trash": false, "forward": null, "otherAddLabelIds": [], "otherRemoveLabelIds": [] },
+      "expect": false
+    }
+  ]
+}

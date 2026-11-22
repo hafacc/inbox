@@ -1,0 +1,137 @@
+{
+  "_doc": {
+    "about": "What the Todos view lists and in what order: active todos of their own and the todos on emails whose email is in the inbox and not snoozed, under latr's headings (shared/src/todos/todos-view.ts, Android :core todo/TodosView.kt). Run by shared/src/todos/todos-view.spec.ts and Android :core TodosViewFixturesTest, in America/New_York.",
+    "todos": "Each todo is newTodo(id, id, 0) with the fields given.",
+    "emails": "Each email's todo is newEmailTodo(threadId, threadId, 0); inbox, snoozed, pinned and sortDate are the email's own.",
+    "expect": "todosView(todos, emails, now), each heading's rows as todo:<id> or email:<threadId>.",
+    "limit": "When given, limitTodosView(that, limit) is `limited`; `count` is todosViewCount of the whole.",
+    "held": "An email with `held` (date, pinned) is open: it is listed at that place whatever its own state.",
+    "places": "todosViewPlace(email): the place to hold as it opens."
+  },
+  "zone": "America/New_York",
+  "now": 1795194000000,
+  "cases": [
+    {
+      "name": "an active email's todo sits among the todos by its email's date",
+      "todos": [
+        { "id": "older", "modifiedAt": 1795107600000 },
+        { "id": "newer", "modifiedAt": 1795194000000 }
+      ],
+      "emails": [
+        { "threadId": "t1", "inbox": true, "snoozed": false, "pinned": false, "sortDate": 1795186800000 }
+      ],
+      "expect": [
+        { "label": "Today", "rows": ["todo:newer", "email:t1"] },
+        { "label": "Yesterday", "rows": ["todo:older"] }
+      ],
+      "count": 3
+    },
+    {
+      "name": "an email that is done or snoozed lists no todo, as a done or snoozed todo doesn't",
+      "todos": [
+        { "id": "done", "state": "DONE", "modifiedAt": 1795186800000 },
+        { "id": "snoozed", "snoozeUntil": "2026-11-21T09:00:00", "modifiedAt": 1795186800000 }
+      ],
+      "emails": [
+        { "threadId": "archived", "inbox": false, "snoozed": false, "pinned": false, "sortDate": 1795186800000 },
+        { "threadId": "later", "inbox": true, "snoozed": true, "pinned": false, "sortDate": 1795186800000 }
+      ],
+      "expect": [],
+      "count": 0
+    },
+    {
+      "name": "a pinned email's todo is under Pinned with the pinned todos, newest first",
+      "todos": [
+        { "id": "pinned", "pinned": true, "modifiedAt": 1794934800000 },
+        { "id": "plain", "modifiedAt": 1792602000000 }
+      ],
+      "emails": [
+        { "threadId": "starred", "inbox": true, "snoozed": false, "pinned": true, "sortDate": 1795107600000 },
+        { "threadId": "old", "inbox": true, "snoozed": false, "pinned": false, "sortDate": 1794934800000 }
+      ],
+      "expect": [
+        { "label": "Pinned", "rows": ["email:starred", "todo:pinned"] },
+        { "label": "This week", "rows": ["email:old"] },
+        { "label": "Earlier", "rows": ["todo:plain"] }
+      ],
+      "count": 4
+    },
+    {
+      "name": "a woken todo is dated by its wake time, a woken email by its own date",
+      "todos": [
+        { "id": "woke", "snoozeUntil": "2026-11-20T09:00:00", "modifiedAt": 1792602000000 }
+      ],
+      "emails": [
+        { "threadId": "woken", "inbox": true, "snoozed": false, "pinned": false, "sortDate": 1795186800000 }
+      ],
+      "expect": [
+        { "label": "Today", "rows": ["email:woken", "todo:woke"] }
+      ],
+      "count": 2
+    },
+    {
+      "name": "the limit counts email todos with the rest",
+      "todos": [
+        { "id": "a", "modifiedAt": 1795194000000 },
+        { "id": "b", "modifiedAt": 1795107600000 }
+      ],
+      "emails": [
+        { "threadId": "t1", "inbox": true, "snoozed": false, "pinned": false, "sortDate": 1795186800000 }
+      ],
+      "expect": [
+        { "label": "Today", "rows": ["todo:a", "email:t1"] },
+        { "label": "Yesterday", "rows": ["todo:b"] }
+      ],
+      "limit": 2,
+      "limited": [
+        { "label": "Today", "rows": ["todo:a", "email:t1"] }
+      ],
+      "count": 3
+    },
+    {
+      "name": "an open email stays where it sat when it opened, though it was pinned and new mail came",
+      "todos": [
+        { "id": "today", "modifiedAt": 1795190400000 },
+        { "id": "yesterday", "modifiedAt": 1795107600000 }
+      ],
+      "emails": [
+        { "threadId": "open", "inbox": true, "snoozed": false, "pinned": true, "sortDate": 1795194000000, "held": { "date": 1795104000000, "pinned": false } }
+      ],
+      "expect": [
+        { "label": "Today", "rows": ["todo:today"] },
+        { "label": "Yesterday", "rows": ["todo:yesterday", "email:open"] }
+      ],
+      "count": 3
+    },
+    {
+      "name": "an open email stays listed though it was archived or snoozed",
+      "todos": [],
+      "emails": [
+        { "threadId": "archived", "inbox": false, "snoozed": false, "pinned": false, "sortDate": 1795186800000, "held": { "date": 1795186800000, "pinned": false } },
+        { "threadId": "snoozed", "inbox": true, "snoozed": true, "pinned": false, "sortDate": 1795183200000, "held": { "date": 1795183200000, "pinned": true } }
+      ],
+      "expect": [
+        { "label": "Pinned", "rows": ["email:snoozed"] },
+        { "label": "Today", "rows": ["email:archived"] }
+      ],
+      "count": 2
+    }
+  ],
+  "places": [
+    {
+      "name": "a listed email holds its date and pinning",
+      "email": { "threadId": "t1", "inbox": true, "snoozed": false, "pinned": true, "sortDate": 1795186800000 },
+      "expect": { "date": 1795186800000, "pinned": true }
+    },
+    {
+      "name": "an email already held keeps its held place",
+      "email": { "threadId": "t1", "inbox": false, "snoozed": false, "pinned": true, "sortDate": 1795194000000, "held": { "date": 1795104000000, "pinned": false } },
+      "expect": { "date": 1795104000000, "pinned": false }
+    },
+    {
+      "name": "an email that isn't listed holds nothing",
+      "email": { "threadId": "t1", "inbox": true, "snoozed": true, "pinned": false, "sortDate": 1795186800000 },
+      "expect": null
+    }
+  ]
+}

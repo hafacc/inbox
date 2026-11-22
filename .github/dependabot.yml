@@ -1,0 +1,32 @@
+version: 2
+updates:
+  # one bun.lock at the root covers every workspace
+  - package-ecosystem: bun
+    directory: /
+    schedule:
+      interval: monthly
+    # a new version waits a week, so a bad release is usually pulled before it is offered
+    cooldown:
+      default-days: 7
+    groups:
+      svelte:
+        patterns:
+          - svelte
+          - svelte-check
+          - "@sveltejs/*"
+      firebase:
+        patterns:
+          - firebase
+          - firebase-admin
+          - firebase-functions
+          - "@firebase/*"
+      tailwindcss:
+        patterns:
+          - tailwindcss
+          - "@tailwindcss/*"
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7

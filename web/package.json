@@ -1,0 +1,48 @@
+{
+  "name": "@inbox/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "dev:live": "vite dev --mode live",
+    "export": "vite build && bun scripts/build-sw.ts",
+    "preview": "vite preview",
+    "typecheck": "svelte-kit sync && bun ../scripts/typecheck.ts svelte-check --fail-on-warnings --output machine && bun ../scripts/typecheck.ts tsc -p scripts/tsconfig.sw.json",
+    "lint": "bun run typecheck && biome check --error-on-warnings && eslint",
+    "test": "bun test && bun run export"
+  },
+  "dependencies": {
+    "@codemirror/autocomplete": "^6.20.4",
+    "@codemirror/commands": "^6.11.1",
+    "@codemirror/state": "^6.7.6",
+    "@codemirror/view": "^6.43.15",
+    "@fontsource-variable/geist": "^5.3.0",
+    "@fontsource-variable/geist-mono": "^5.3.0",
+    "@inbox/shared": "workspace:*",
+    "@lucide/svelte": "^1.73.0",
+    "@tiptap/core": "^3.34.0",
+    "@tiptap/extension-bold": "^3.34.0",
+    "@tiptap/extension-italic": "^3.34.0",
+    "@tiptap/extensions": "^3.34.0",
+    "@tiptap/pm": "^3.34.0",
+    "@tiptap/starter-kit": "^3.34.0",
+    "css-tree": "^3.2.1",
+    "dompurify": "^3.4.18",
+    "firebase": "^13.3.0",
+    "marked": "^18.2.0"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-static": "^4.0.1",
+    "@sveltejs/kit": "^3.2.0",
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "@tailwindcss/vite": "^4.3.5",
+    "@types/css-tree": "^3.2.0",
+    "@types/jsdom": "^30.0.0",
+    "jsdom": "^31.0.1",
+    "svelte": "^5.57.3",
+    "svelte-check": "^4.7.8",
+    "tailwindcss": "^4.3.5",
+    "vite": "^8.3.8"
+  }
+}

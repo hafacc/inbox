@@ -1,0 +1,841 @@
+{
+  "_doc": {
+    "about": "Schedule-send suggestions on the snooze engine (see snooze-fixtures.json for keys, partitions and the America/New_York zone). Run by shared/src/send-suggest.spec.ts and Android :core.",
+    "rows": "sendRows(partitions, now): learned rows (rankDeep, at most 4) then the defaults D0@0800, D0@1300, Wd1@0800 in that order, skipping a default that does not resolve or lands within 30 minutes of a row already taken, until there are 4; sorted by time. text is the snooze label without its time (English weekday names).",
+    "shift": "shiftMinutes(unit, maxMinutes): unit in [0,1) to whole minutes, never 0: index = floor(unit * 2*maxMinutes) clamped to 0..2*maxMinutes-1; index 0..maxMinutes-1 -> -maxMinutes..-1, maxMinutes..2*maxMinutes-1 -> +1..+maxMinutes.",
+    "random": "seededRandom(seed) is mulberry32 over unsigned 32-bit state: state += 0x6D2B79F5; t = imul(state ^ (state >>> 15), state | 1); t ^= t + imul(t ^ (t >>> 7), t | 61); out = ((t ^ (t >>> 14)) >>> 0) / 2^32. `first` are its first five outputs.",
+    "vary": "varySendTimes(times, now, seededRandom(seed), maxMinutes): one draw per time in order; sendAt = chosenAt + shift minutes, but if that is not more than 60 s after now the shift's absolute value is used.",
+    "setting": "varySetting(settings): enabled unless settings.varySendTimes is exactly false; maxMinutes = settings.varySendMaxMinutes rounded half up (Math.round) and clamped to 1..30 when it is a finite number, else 10. A null settings object reads as all defaults.",
+    "outboxShown": "outboxShownAt(docs, nowMs): null when every doc is sent (or none); else the earliest per unsent doc of: nowMs if failed, blocked or retrying, or if sendAt - nowMs > 10000 (scheduled past undo send); otherwise max(nowMs, sendAt + 20000)."
+  },
+  "rows": [
+    {
+      "name": "no history on a Tuesday morning: this afternoon, tomorrow morning, Monday morning",
+      "now": "2026-09-22T10:00:00",
+      "partitions": [],
+      "expect": [
+        {
+          "keyId": "D0@1300",
+          "timeLocal": "2026-09-22T13:00:00",
+          "text": "This afternoon",
+          "icon": "todayDay",
+          "learned": false
+        },
+        {
+          "keyId": "D0@0800",
+          "timeLocal": "2026-09-23T08:00:00",
+          "text": "Tomorrow morning",
+          "icon": "tomorrow",
+          "learned": false
+        },
+        {
+          "keyId": "Wd1@0800",
+          "timeLocal": "2026-09-28T08:00:00",
+          "text": "This Monday morning",
+          "icon": "weekday",
+          "learned": false
+        }
+      ]
+    },
+    {
+      "name": "no history on a Sunday evening: Monday morning is tomorrow morning, shown once",
+      "now": "2026-09-27T20:00:00",
+      "partitions": [],
+      "expect": [
+        {
+          "keyId": "D0@0800",
+          "timeLocal": "2026-09-28T08:00:00",
+          "text": "Tomorrow morning",
+          "icon": "tomorrow",
+          "learned": false
+        },
+        {
+          "keyId": "D0@1300",
+          "timeLocal": "2026-09-28T13:00:00",
+          "text": "Tomorrow afternoon",
+          "icon": "tomorrow",
+          "learned": false
+        }
+      ]
+    },
+    {
+      "name": "no history early on a Monday: this morning and this afternoon",
+      "now": "2026-09-28T06:00:00",
+      "partitions": [],
+      "expect": [
+        {
+          "keyId": "D0@0800",
+          "timeLocal": "2026-09-28T08:00:00",
+          "text": "This morning",
+          "icon": "todayDay",
+          "learned": false
+        },
+        {
+          "keyId": "D0@1300",
+          "timeLocal": "2026-09-28T13:00:00",
+          "text": "This afternoon",
+          "icon": "todayDay",
+          "learned": false
+        }
+      ]
+    },
+    {
+      "name": "no history at 12:59:30: 13:00 is under a minute away, so tomorrow afternoon",
+      "now": "2026-09-22T12:59:30",
+      "partitions": [],
+      "expect": [
+        {
+          "keyId": "D0@0800",
+          "timeLocal": "2026-09-23T08:00:00",
+          "text": "Tomorrow morning",
+          "icon": "tomorrow",
+          "learned": false
+        },
+        {
+          "keyId": "D0@1300",
+          "timeLocal": "2026-09-23T13:00:00",
+          "text": "Tomorrow afternoon",
+          "icon": "tomorrow",
+          "learned": false
+        },
+        {
+          "keyId": "Wd1@0800",
+          "timeLocal": "2026-09-28T08:00:00",
+          "text": "This Monday morning",
+          "icon": "weekday",
+          "learned": false
+        }
+      ]
+    },
+    {
+      "name": "a learned 08:15 replaces the 08:00 default within 30 minutes",
+      "now": "2026-09-22T10:00:00",
+      "partitions": [
+        {
+          "v": 2,
+          "sets": {
+            "D0@0815__Wd3@0815": {
+              "c": 3,
+              "t": 1789909200000
+            }
+          },
+          "tod": {},
+          "lastCustom": null
+        }
+      ],
+      "expect": [
+        {
+          "keyId": "D0@1300",
+          "timeLocal": "2026-09-22T13:00:00",
+          "text": "This afternoon",
+          "icon": "todayDay",
+          "learned": false
+        },
+        {
+          "keyId": "D0@0815",
+          "timeLocal": "2026-09-23T08:15:00",
+          "text": "Tomorrow morning",
+          "icon": "tomorrow",
+          "learned": true
+        },
+        {
+          "keyId": "Wd1@0800",
+          "timeLocal": "2026-09-28T08:00:00",
+          "text": "This Monday morning",
+          "icon": "weekday",
+          "learned": false
+        }
+      ]
+    },
+    {
+      "name": "a learned 07:00 sits beside the 08:00 default, an hour apart",
+      "now": "2026-09-22T10:00:00",
+      "partitions": [
+        {
+          "v": 2,
+          "sets": {
+            "D0@0700__Wd3@0700": {
+              "c": 3,
+              "t": 1789909200000
+            }
+          },
+          "tod": {},
+          "lastCustom": null
+        }
+      ],
+      "expect": [
+        {
+          "keyId": "D0@1300",
+          "timeLocal": "2026-09-22T13:00:00",
+          "text": "This afternoon",
+          "icon": "todayDay",
+          "learned": false
+        },
+        {
+          "keyId": "D0@0700",
+          "timeLocal": "2026-09-23T07:00:00",
+          "text": "Tomorrow morning",
+          "icon": "tomorrow",
+          "learned": true
+        },
+        {
+          "keyId": "D0@0800",
+          "timeLocal": "2026-09-23T08:00:00",
+          "text": "Tomorrow morning",
+          "icon": "tomorrow",
+          "learned": false
+        },
+        {
+          "keyId": "Wd1@0800",
+          "timeLocal": "2026-09-28T08:00:00",
+          "text": "This Monday morning",
+          "icon": "weekday",
+          "learned": false
+        }
+      ]
+    },
+    {
+      "name": "four learned times leave no room for defaults",
+      "now": "2026-09-22T10:00:00",
+      "partitions": [
+        {
+          "v": 2,
+          "sets": {
+            "D0@0700": {
+              "c": 5,
+              "t": 1789909200000
+            },
+            "D0@1600": {
+              "c": 4,
+              "t": 1789909200000
+            },
+            "D1@1900": {
+              "c": 3,
+              "t": 1789909200000
+            },
+            "Wd5@1000": {
+              "c": 2,
+              "t": 1789909200000
+            }
+          },
+          "tod": {},
+          "lastCustom": null
+        }
+      ],
+      "expect": [
+        {
+          "keyId": "D0@1600",
+          "timeLocal": "2026-09-22T16:00:00",
+          "text": "This afternoon",
+          "icon": "todayDay",
+          "learned": true
+        },
+        {
+          "keyId": "D0@0700",
+          "timeLocal": "2026-09-23T07:00:00",
+          "text": "Tomorrow morning",
+          "icon": "tomorrow",
+          "learned": true
+        },
+        {
+          "keyId": "D1@1900",
+          "timeLocal": "2026-09-23T19:00:00",
+          "text": "Tomorrow evening",
+          "icon": "tomorrow",
+          "learned": true
+        },
+        {
+          "keyId": "Wd5@1000",
+          "timeLocal": "2026-09-25T10:00:00",
+          "text": "This Friday morning",
+          "icon": "weekday",
+          "learned": true
+        }
+      ]
+    }
+  ],
+  "shift": [
+    {
+      "unit": 0,
+      "maxMinutes": 5,
+      "minutes": -5
+    },
+    {
+      "unit": 0.05,
+      "maxMinutes": 5,
+      "minutes": -5
+    },
+    {
+      "unit": 0.1,
+      "maxMinutes": 5,
+      "minutes": -4
+    },
+    {
+      "unit": 0.25,
+      "maxMinutes": 5,
+      "minutes": -3
+    },
+    {
+      "unit": 0.4999,
+      "maxMinutes": 5,
+      "minutes": -1
+    },
+    {
+      "unit": 0.5,
+      "maxMinutes": 5,
+      "minutes": 1
+    },
+    {
+      "unit": 0.55,
+      "maxMinutes": 5,
+      "minutes": 1
+    },
+    {
+      "unit": 0.75,
+      "maxMinutes": 5,
+      "minutes": 3
+    },
+    {
+      "unit": 0.9,
+      "maxMinutes": 5,
+      "minutes": 5
+    },
+    {
+      "unit": 0.9999,
+      "maxMinutes": 5,
+      "minutes": 5
+    },
+    {
+      "unit": 0,
+      "maxMinutes": 10,
+      "minutes": -10
+    },
+    {
+      "unit": 0.04999,
+      "maxMinutes": 10,
+      "minutes": -10
+    },
+    {
+      "unit": 0.05,
+      "maxMinutes": 10,
+      "minutes": -9
+    },
+    {
+      "unit": 0.45,
+      "maxMinutes": 10,
+      "minutes": -1
+    },
+    {
+      "unit": 0.4999,
+      "maxMinutes": 10,
+      "minutes": -1
+    },
+    {
+      "unit": 0.5,
+      "maxMinutes": 10,
+      "minutes": 1
+    },
+    {
+      "unit": 0.55,
+      "maxMinutes": 10,
+      "minutes": 2
+    },
+    {
+      "unit": 0.95,
+      "maxMinutes": 10,
+      "minutes": 10
+    },
+    {
+      "unit": 0.9999,
+      "maxMinutes": 10,
+      "minutes": 10
+    },
+    {
+      "unit": 0,
+      "maxMinutes": 1,
+      "minutes": -1
+    },
+    {
+      "unit": 0.04999,
+      "maxMinutes": 1,
+      "minutes": -1
+    },
+    {
+      "unit": 0.05,
+      "maxMinutes": 1,
+      "minutes": -1
+    },
+    {
+      "unit": 0.45,
+      "maxMinutes": 1,
+      "minutes": -1
+    },
+    {
+      "unit": 0.4999,
+      "maxMinutes": 1,
+      "minutes": -1
+    },
+    {
+      "unit": 0.5,
+      "maxMinutes": 1,
+      "minutes": 1
+    },
+    {
+      "unit": 0.55,
+      "maxMinutes": 1,
+      "minutes": 1
+    },
+    {
+      "unit": 0.95,
+      "maxMinutes": 1,
+      "minutes": 1
+    },
+    {
+      "unit": 0.9999,
+      "maxMinutes": 1,
+      "minutes": 1
+    },
+    {
+      "unit": 0,
+      "maxMinutes": 30,
+      "minutes": -30
+    },
+    {
+      "unit": 0.04999,
+      "maxMinutes": 30,
+      "minutes": -28
+    },
+    {
+      "unit": 0.05,
+      "maxMinutes": 30,
+      "minutes": -27
+    },
+    {
+      "unit": 0.45,
+      "maxMinutes": 30,
+      "minutes": -3
+    },
+    {
+      "unit": 0.4999,
+      "maxMinutes": 30,
+      "minutes": -1
+    },
+    {
+      "unit": 0.5,
+      "maxMinutes": 30,
+      "minutes": 1
+    },
+    {
+      "unit": 0.55,
+      "maxMinutes": 30,
+      "minutes": 4
+    },
+    {
+      "unit": 0.95,
+      "maxMinutes": 30,
+      "minutes": 28
+    },
+    {
+      "unit": 0.9999,
+      "maxMinutes": 30,
+      "minutes": 30
+    }
+  ],
+  "random": [
+    {
+      "seed": 1,
+      "first": [
+        0.6270739405881613,
+        0.002735721180215478,
+        0.5274470399599522,
+        0.9810509674716741,
+        0.9683778982143849
+      ]
+    },
+    {
+      "seed": 42,
+      "first": [
+        0.6011037519201636,
+        0.44829055899754167,
+        0.8524657934904099,
+        0.6697340414393693,
+        0.17481389874592423
+      ]
+    },
+    {
+      "seed": 20260922,
+      "first": [
+        0.8459326368756592,
+        0.5598439984023571,
+        0.8847476821392775,
+        0.38665548618882895,
+        0.6299266058485955
+      ]
+    },
+    {
+      "seed": 4294967295,
+      "first": [
+        0.8964226141106337,
+        0.189478256739676,
+        0.7156526781618595,
+        0.9440599093213677,
+        0.8452364315744489
+      ]
+    }
+  ],
+  "vary": [
+    {
+      "name": "each suggestion gets its own draw, in order",
+      "now": "2026-09-22T10:00:00",
+      "seed": 42,
+      "timesLocal": [
+        "2026-09-22T13:00:00",
+        "2026-09-23T08:00:00",
+        "2026-09-28T08:00:00"
+      ],
+      "expect": [
+        {
+          "chosenAtLocal": "2026-09-22T13:00:00",
+          "sendAtLocal": "2026-09-22T13:02:00"
+        },
+        {
+          "chosenAtLocal": "2026-09-23T08:00:00",
+          "sendAtLocal": "2026-09-23T07:59:00"
+        },
+        {
+          "chosenAtLocal": "2026-09-28T08:00:00",
+          "sendAtLocal": "2026-09-28T08:04:00"
+        }
+      ],
+      "maxMinutes": 5
+    },
+    {
+      "name": "a backward shift that would leave under a minute flips forward",
+      "now": "2026-09-22T12:58:00",
+      "seed": 7,
+      "timesLocal": [
+        "2026-09-22T13:00:00"
+      ],
+      "expect": [
+        {
+          "chosenAtLocal": "2026-09-22T13:00:00",
+          "sendAtLocal": "2026-09-22T13:05:00"
+        }
+      ],
+      "maxMinutes": 5
+    },
+    {
+      "name": "default ten-minute maximum",
+      "now": "2026-09-22T10:00:00",
+      "seed": 42,
+      "maxMinutes": 10,
+      "timesLocal": [
+        "2026-09-22T13:00:00",
+        "2026-09-23T08:00:00",
+        "2026-09-28T08:00:00"
+      ],
+      "expect": [
+        {
+          "chosenAtLocal": "2026-09-22T13:00:00",
+          "sendAtLocal": "2026-09-22T13:03:00"
+        },
+        {
+          "chosenAtLocal": "2026-09-23T08:00:00",
+          "sendAtLocal": "2026-09-23T07:58:00"
+        },
+        {
+          "chosenAtLocal": "2026-09-28T08:00:00",
+          "sendAtLocal": "2026-09-28T08:08:00"
+        }
+      ]
+    },
+    {
+      "name": "thirty-minute maximum",
+      "now": "2026-09-22T10:00:00",
+      "seed": 20260922,
+      "maxMinutes": 30,
+      "timesLocal": [
+        "2026-09-22T13:00:00",
+        "2026-09-23T08:00:00",
+        "2026-09-28T08:00:00",
+        "2026-09-28T13:00:00"
+      ],
+      "expect": [
+        {
+          "chosenAtLocal": "2026-09-22T13:00:00",
+          "sendAtLocal": "2026-09-22T13:21:00"
+        },
+        {
+          "chosenAtLocal": "2026-09-23T08:00:00",
+          "sendAtLocal": "2026-09-23T08:04:00"
+        },
+        {
+          "chosenAtLocal": "2026-09-28T08:00:00",
+          "sendAtLocal": "2026-09-28T08:24:00"
+        },
+        {
+          "chosenAtLocal": "2026-09-28T13:00:00",
+          "sendAtLocal": "2026-09-28T12:53:00"
+        }
+      ]
+    },
+    {
+      "name": "one-minute maximum is always one minute either way",
+      "now": "2026-09-22T10:00:00",
+      "seed": 1,
+      "maxMinutes": 1,
+      "timesLocal": [
+        "2026-09-22T13:00:00",
+        "2026-09-23T08:00:00",
+        "2026-09-28T08:00:00"
+      ],
+      "expect": [
+        {
+          "chosenAtLocal": "2026-09-22T13:00:00",
+          "sendAtLocal": "2026-09-22T13:01:00"
+        },
+        {
+          "chosenAtLocal": "2026-09-23T08:00:00",
+          "sendAtLocal": "2026-09-23T07:59:00"
+        },
+        {
+          "chosenAtLocal": "2026-09-28T08:00:00",
+          "sendAtLocal": "2026-09-28T08:01:00"
+        }
+      ]
+    },
+    {
+      "name": "ten-minute maximum near now flips backward shifts forward",
+      "now": "2026-09-22T12:55:00",
+      "seed": 1,
+      "maxMinutes": 10,
+      "timesLocal": [
+        "2026-09-22T13:00:00",
+        "2026-09-22T13:00:00"
+      ],
+      "expect": [
+        {
+          "chosenAtLocal": "2026-09-22T13:00:00",
+          "sendAtLocal": "2026-09-22T13:03:00"
+        },
+        {
+          "chosenAtLocal": "2026-09-22T13:00:00",
+          "sendAtLocal": "2026-09-22T13:10:00"
+        }
+      ]
+    }
+  ],
+  "setting": [
+    {
+      "settings": null,
+      "expect": {
+        "enabled": true,
+        "maxMinutes": 10
+      }
+    },
+    {
+      "settings": {},
+      "expect": {
+        "enabled": true,
+        "maxMinutes": 10
+      }
+    },
+    {
+      "settings": {
+        "varySendTimes": false
+      },
+      "expect": {
+        "enabled": false,
+        "maxMinutes": 10
+      }
+    },
+    {
+      "settings": {
+        "varySendTimes": true
+      },
+      "expect": {
+        "enabled": true,
+        "maxMinutes": 10
+      }
+    },
+    {
+      "settings": {
+        "varySendTimes": "no"
+      },
+      "expect": {
+        "enabled": true,
+        "maxMinutes": 10
+      }
+    },
+    {
+      "settings": {
+        "varySendMaxMinutes": 20
+      },
+      "expect": {
+        "enabled": true,
+        "maxMinutes": 20
+      }
+    },
+    {
+      "settings": {
+        "varySendMaxMinutes": 0
+      },
+      "expect": {
+        "enabled": true,
+        "maxMinutes": 1
+      }
+    },
+    {
+      "settings": {
+        "varySendMaxMinutes": 45
+      },
+      "expect": {
+        "enabled": true,
+        "maxMinutes": 30
+      }
+    },
+    {
+      "settings": {
+        "varySendMaxMinutes": 7.5
+      },
+      "expect": {
+        "enabled": true,
+        "maxMinutes": 8
+      }
+    },
+    {
+      "settings": {
+        "varySendMaxMinutes": "15"
+      },
+      "expect": {
+        "enabled": true,
+        "maxMinutes": 10
+      }
+    },
+    {
+      "settings": {
+        "varySendTimes": false,
+        "varySendMaxMinutes": 3
+      },
+      "expect": {
+        "enabled": false,
+        "maxMinutes": 3
+      }
+    }
+  ],
+  "outboxShown": [
+    {
+      "name": "empty",
+      "nowMs": 1800000000000,
+      "docs": [],
+      "expect": null
+    },
+    {
+      "name": "only sent",
+      "nowMs": 1800000000000,
+      "docs": [
+        {
+          "status": "sent",
+          "sendAt": 1799999940000
+        }
+      ],
+      "expect": null
+    },
+    {
+      "name": "fresh send waits out undo and grace",
+      "nowMs": 1800000000000,
+      "docs": [
+        {
+          "status": "waiting",
+          "sendAt": 1800000010000
+        }
+      ],
+      "expect": 1800000030000
+    },
+    {
+      "name": "sending just past its time",
+      "nowMs": 1800000000000,
+      "docs": [
+        {
+          "status": "sending",
+          "sendAt": 1799999998000
+        }
+      ],
+      "expect": 1800000018000
+    },
+    {
+      "name": "sending past grace",
+      "nowMs": 1800000000000,
+      "docs": [
+        {
+          "status": "sending",
+          "sendAt": 1799999980000
+        }
+      ],
+      "expect": 1800000000000
+    },
+    {
+      "name": "scheduled",
+      "nowMs": 1800000000000,
+      "docs": [
+        {
+          "status": "waiting",
+          "sendAt": 1800000010001
+        }
+      ],
+      "expect": 1800000000000
+    },
+    {
+      "name": "failed",
+      "nowMs": 1800000000000,
+      "docs": [
+        {
+          "status": "failed",
+          "sendAt": 1800000008000
+        }
+      ],
+      "expect": 1800000000000
+    },
+    {
+      "name": "blocked",
+      "nowMs": 1800000000000,
+      "docs": [
+        {
+          "status": "blocked",
+          "sendAt": 1800000008000
+        }
+      ],
+      "expect": 1800000000000
+    },
+    {
+      "name": "retrying",
+      "nowMs": 1800000000000,
+      "docs": [
+        {
+          "status": "retrying",
+          "sendAt": 1800000008000
+        }
+      ],
+      "expect": 1800000000000
+    },
+    {
+      "name": "earliest wins",
+      "nowMs": 1800000000000,
+      "docs": [
+        {
+          "status": "waiting",
+          "sendAt": 1800000009000
+        },
+        {
+          "status": "sending",
+          "sendAt": 1799999999000
+        },
+        {
+          "status": "sent",
+          "sendAt": 1799999900000
+        }
+      ],
+      "expect": 1800000019000
+    }
+  ]
+}

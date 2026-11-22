@@ -1,0 +1,343 @@
+{
+  "_doc": "Drafts offline (shared/src/offline-drafts.ts, Android :core OfflineDrafts.kt). `saved` are the saved copy's records as {threadId: {messageId: [labels]}}; its draft messages are those with DRAFT. `listing` cases: draftsListingWanted(saved, known) is `wanted`; afterDraftsListing(listed, saved) is `after` (unmatched: saved draft messages the listing didn't name, sorted). `sent` cases: sentDrafts(previous, docs, known, saved), sorted by messageId. Drafts are {draftId, messageId, threadId}; docs {draftId, status, threadId?}; sending {draftId, messageId, threadId} (any may be null); local {localId, threadId, messageId, state} with state draft, deleted or sending. `threads` cases: offlineDraftThreads({saved, refs, docs, sending, sent, local}) (absent lists: empty), sorted, is `expect`; localOnlyDrafts(input), the local ids of this device's drafts in no Gmail thread yet, sorted, is `expectLocal`. `open` cases: offlineDraftOf(input, target) is `expect` (null: none). `editable` cases: offlineEditable(parts).",
+  "listing": [
+    {
+      "name": "a saved draft with no draft id wants a listing",
+      "saved": { "t1": { "m1": ["DRAFT"], "m0": ["INBOX"] } },
+      "known": { "refs": [], "unmatched": [] },
+      "listed": [{ "draftId": "r1", "messageId": "m1", "threadId": "t1" }],
+      "wanted": true,
+      "after": {
+        "refs": [{ "draftId": "r1", "messageId": "m1", "threadId": "t1" }],
+        "unmatched": []
+      }
+    },
+    {
+      "name": "every saved draft named: no listing",
+      "saved": { "t1": { "m1": ["DRAFT"] }, "t2": { "m2": ["INBOX"] } },
+      "known": {
+        "refs": [{ "draftId": "r1", "messageId": "m1", "threadId": "t1" }],
+        "unmatched": []
+      },
+      "listed": [{ "draftId": "r1", "messageId": "m1", "threadId": "t1" }],
+      "wanted": false,
+      "after": {
+        "refs": [{ "draftId": "r1", "messageId": "m1", "threadId": "t1" }],
+        "unmatched": []
+      }
+    },
+    {
+      "name": "an edited draft (new message id) wants a listing",
+      "saved": { "t1": { "m1b": ["DRAFT"] } },
+      "known": {
+        "refs": [{ "draftId": "r1", "messageId": "m1", "threadId": "t1" }],
+        "unmatched": []
+      },
+      "listed": [{ "draftId": "r1", "messageId": "m1b", "threadId": "t1" }],
+      "wanted": true,
+      "after": {
+        "refs": [{ "draftId": "r1", "messageId": "m1b", "threadId": "t1" }],
+        "unmatched": []
+      }
+    },
+    {
+      "name": "a saved draft the last listing missed isn't listed again for alone",
+      "saved": { "t1": { "m1": ["DRAFT"], "m2": ["DRAFT"] } },
+      "known": {
+        "refs": [{ "draftId": "r1", "messageId": "m1", "threadId": "t1" }],
+        "unmatched": ["m2"]
+      },
+      "listed": [{ "draftId": "r1", "messageId": "m1", "threadId": "t1" }],
+      "wanted": false,
+      "after": {
+        "refs": [{ "draftId": "r1", "messageId": "m1", "threadId": "t1" }],
+        "unmatched": ["m2"]
+      }
+    }
+  ],
+  "sent": [
+    {
+      "name": "a sent doc's draft is kept while the saved copy still has it",
+      "previous": [],
+      "docs": [{ "draftId": "r1", "status": "sent" }],
+      "known": [{ "draftId": "r1", "messageId": "m1", "threadId": "t1" }],
+      "saved": { "t1": { "m1": ["DRAFT"] } },
+      "expect": [{ "draftId": "r1", "messageId": "m1", "threadId": "t1" }]
+    },
+    {
+      "name": "a doc not sent yet records nothing",
+      "previous": [],
+      "docs": [{ "draftId": "r1", "status": "waiting" }],
+      "known": [{ "draftId": "r1", "messageId": "m1", "threadId": "t1" }],
+      "saved": { "t1": { "m1": ["DRAFT"] } },
+      "expect": []
+    },
+    {
+      "name": "the record outlives its doc until the saved copy catches up",
+      "previous": [{ "draftId": "r1", "messageId": "m1", "threadId": "t1" }],
+      "docs": [],
+      "known": [],
+      "saved": { "t1": { "m1": ["DRAFT"] } },
+      "expect": [{ "draftId": "r1", "messageId": "m1", "threadId": "t1" }]
+    },
+    {
+      "name": "dropped once the saved copy no longer has it as a draft",
+      "previous": [{ "draftId": "r1", "messageId": "m1", "threadId": "t1" }],
+      "docs": [{ "draftId": "r1", "status": "sent" }],
+      "known": [{ "draftId": "r1", "messageId": "m1", "threadId": "t1" }],
+      "saved": { "t1": { "m1": ["SENT"] } },
+      "expect": []
+    },
+    {
+      "name": "a sent doc whose message nothing names records nothing",
+      "previous": [],
+      "docs": [{ "draftId": "r9", "status": "sent" }],
+      "known": [{ "draftId": "r1", "messageId": "m1", "threadId": "t1" }],
+      "saved": { "t1": { "m1": ["DRAFT"] } },
+      "expect": []
+    }
+  ],
+  "threads": [
+    {
+      "name": "every saved draft's thread",
+      "saved": {
+        "t1": { "m1": ["DRAFT"] },
+        "t2": { "m2": ["INBOX"], "m3": ["DRAFT"] },
+        "t3": { "m4": ["INBOX"] }
+      },
+      "expect": ["t1", "t2"],
+      "expectLocal": []
+    },
+    {
+      "name": "a sent draft never lingers once its doc is gone",
+      "saved": { "t1": { "m1": ["DRAFT"] }, "t2": { "m2": ["DRAFT"] } },
+      "refs": [
+        { "draftId": "r1", "messageId": "m1", "threadId": "t1" },
+        { "draftId": "r2", "messageId": "m2", "threadId": "t2" }
+      ],
+      "sent": [{ "draftId": "r1", "messageId": "m1", "threadId": "t1" }],
+      "expect": ["t2"],
+      "expectLocal": []
+    },
+    {
+      "name": "a scheduled send stays in the Outbox only",
+      "saved": { "t1": { "m1": ["DRAFT"] }, "t2": { "m2": ["DRAFT"] } },
+      "refs": [
+        { "draftId": "r1", "messageId": "m1", "threadId": "t1" },
+        { "draftId": "r2", "messageId": "m2", "threadId": "t2" }
+      ],
+      "docs": [{ "draftId": "r2", "status": "waiting" }],
+      "expect": ["t1"],
+      "expectLocal": []
+    },
+    {
+      "name": "a send held here leaves by its message",
+      "saved": { "t1": { "m1": ["DRAFT"] } },
+      "sending": [{ "draftId": "r1", "messageId": "m1", "threadId": "t1" }],
+      "expect": [],
+      "expectLocal": []
+    },
+    {
+      "name": "a draft thrown away here leaves; one sent here too",
+      "saved": {
+        "t1": { "m1": ["DRAFT"] },
+        "t2": { "m2": ["DRAFT"] },
+        "t3": { "m3": ["DRAFT"] }
+      },
+      "local": [
+        {
+          "localId": "l1",
+          "threadId": "t1",
+          "messageId": "m1",
+          "state": "deleted"
+        },
+        {
+          "localId": "l2",
+          "threadId": "t2",
+          "messageId": "m2",
+          "state": "sending"
+        }
+      ],
+      "expect": ["t3"],
+      "expectLocal": []
+    },
+    {
+      "name": "a reply written here offline puts its thread in Drafts; a new message, its own row",
+      "saved": { "t1": { "m0": ["INBOX"] } },
+      "local": [
+        {
+          "localId": "l3",
+          "threadId": "t1",
+          "messageId": null,
+          "state": "draft"
+        },
+        {
+          "localId": "l4",
+          "threadId": null,
+          "messageId": null,
+          "state": "draft"
+        }
+      ],
+      "expect": ["t1"],
+      "expectLocal": ["l4"]
+    },
+    {
+      "name": "a thread keeps its other draft when one is sent",
+      "saved": { "t1": { "m1": ["DRAFT"], "m2": ["DRAFT"] } },
+      "sent": [{ "draftId": "r1", "messageId": "m1", "threadId": "t1" }],
+      "expect": ["t1"],
+      "expectLocal": []
+    },
+    {
+      "name": "a new message not in Gmail yet shows by its local id until it is thrown away, sent or saved there",
+      "saved": { "t1": { "m1": ["DRAFT"] } },
+      "refs": [{ "draftId": "r1", "messageId": "m1", "threadId": "t1" }],
+      "sent": [],
+      "local": [
+        {
+          "localId": "n1",
+          "threadId": null,
+          "messageId": null,
+          "state": "draft"
+        },
+        {
+          "localId": "n2",
+          "threadId": null,
+          "messageId": null,
+          "state": "deleted"
+        },
+        {
+          "localId": "n3",
+          "threadId": null,
+          "messageId": null,
+          "state": "sending"
+        },
+        {
+          "localId": "n4",
+          "threadId": "t9",
+          "messageId": "m9",
+          "state": "draft"
+        },
+        {
+          "localId": "n5",
+          "threadId": null,
+          "messageId": "m1",
+          "state": "draft"
+        },
+        {
+          "localId": "n6",
+          "threadId": null,
+          "messageId": "m7",
+          "state": "draft"
+        }
+      ],
+      "expect": ["t1", "t9"],
+      "expectLocal": ["n1", "n6"]
+    },
+    {
+      "name": "a new message the Outbox holds or that went has no row",
+      "saved": {},
+      "sending": [{ "draftId": "r5", "messageId": "m5", "threadId": null }],
+      "sent": [],
+      "local": [
+        {
+          "localId": "n1",
+          "threadId": null,
+          "messageId": "m5",
+          "state": "draft"
+        },
+        {
+          "localId": "n2",
+          "threadId": null,
+          "messageId": null,
+          "state": "draft"
+        }
+      ],
+      "expect": [],
+      "expectLocal": ["n2"]
+    }
+  ],
+  "open": [
+    {
+      "name": "a thread's newest listed draft",
+      "saved": { "t1": { "m1": ["DRAFT"], "m2": ["DRAFT"] } },
+      "refs": [
+        { "draftId": "r2", "messageId": "m2", "threadId": "t1" },
+        { "draftId": "r1", "messageId": "m1", "threadId": "t1" }
+      ],
+      "target": { "threadIds": ["t1"] },
+      "expect": { "draftId": "r2", "messageId": "m2", "threadId": "t1" }
+    },
+    {
+      "name": "a draft by its message",
+      "saved": { "t1": { "m1": ["DRAFT"], "m2": ["DRAFT"] } },
+      "refs": [
+        { "draftId": "r2", "messageId": "m2", "threadId": "t1" },
+        { "draftId": "r1", "messageId": "m1", "threadId": "t1" }
+      ],
+      "target": { "messageId": "m1" },
+      "expect": { "draftId": "r1", "messageId": "m1", "threadId": "t1" }
+    },
+    {
+      "name": "an old listing's message no longer saved as a draft opens nothing",
+      "saved": { "t1": { "m1b": ["DRAFT"] } },
+      "refs": [{ "draftId": "r1", "messageId": "m1", "threadId": "t1" }],
+      "target": { "threadIds": ["t1"] },
+      "expect": null
+    },
+    {
+      "name": "a sent or scheduled draft isn't opened",
+      "saved": { "t1": { "m1": ["DRAFT"] }, "t2": { "m2": ["DRAFT"] } },
+      "refs": [
+        { "draftId": "r1", "messageId": "m1", "threadId": "t1" },
+        { "draftId": "r2", "messageId": "m2", "threadId": "t2" }
+      ],
+      "docs": [{ "draftId": "r2", "status": "waiting" }],
+      "sent": [{ "draftId": "r1", "messageId": "m1", "threadId": "t1" }],
+      "target": { "threadIds": ["t1", "t2"] },
+      "expect": null
+    },
+    {
+      "name": "a joined row opens the draft in any of its threads, with the saved thread",
+      "saved": { "t2": { "m2": ["DRAFT"] } },
+      "refs": [{ "draftId": "r2", "messageId": "m2", "threadId": "t9" }],
+      "target": { "threadIds": ["t1", "t2"] },
+      "expect": { "draftId": "r2", "messageId": "m2", "threadId": "t2" }
+    }
+  ],
+  "editable": [
+    {
+      "name": "plain text and headers",
+      "parts": { "encrypted": false, "headersKnown": true, "files": [] },
+      "expect": true
+    },
+    {
+      "name": "encrypted needs its raw",
+      "parts": { "encrypted": true, "headersKnown": true, "files": [] },
+      "expect": false
+    },
+    {
+      "name": "an attachment the saved copy doesn't hold",
+      "parts": {
+        "encrypted": false,
+        "headersKnown": true,
+        "files": [{ "held": true }, { "held": false }]
+      },
+      "expect": false
+    },
+    {
+      "name": "files whose bytes came with the message",
+      "parts": {
+        "encrypted": false,
+        "headersKnown": true,
+        "files": [{ "held": true }]
+      },
+      "expect": true
+    },
+    {
+      "name": "a saved copy missing headers (Bcc) would lose them",
+      "parts": { "encrypted": false, "headersKnown": false, "files": [] },
+      "expect": false
+    }
+  ]
+}

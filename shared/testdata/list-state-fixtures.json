@@ -1,0 +1,5086 @@
+{
+  "cases": [
+    {
+      "name": "j and k walk the rows that take focus, in visual order",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "pinned",
+                "title": "Pinned",
+                "doneAll": false,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "p1"
+                  }
+                ]
+              },
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "todo",
+                    "id": "t1"
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "b"
+                  }
+                ]
+              },
+              {
+                "key": "earlier",
+                "title": "Earlier",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "c"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {
+            "rows": [
+              "section:pinned",
+              "p1",
+              "section:today",
+              "a",
+              "todo:t1",
+              "b",
+              "section:earlier",
+              "c"
+            ],
+            "focus": null
+          }
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "focus": "p1",
+            "revealed": true
+          }
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "focus": "a"
+          }
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "focus": "todo:t1"
+          }
+        },
+        {
+          "event": {
+            "type": "previous"
+          },
+          "expect": {
+            "focus": "a"
+          }
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "focus": "todo:t1"
+          }
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "focus": "b"
+          }
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "focus": "c"
+          }
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "focus": "c",
+            "revealed": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "k with nothing focused starts from the bottom",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "pinned",
+                "title": "Pinned",
+                "doneAll": false,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "p1"
+                  }
+                ]
+              },
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "todo",
+                    "id": "t1"
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "b"
+                  }
+                ]
+              },
+              {
+                "key": "earlier",
+                "title": "Earlier",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "c"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "previous"
+          },
+          "expect": {
+            "focus": "c"
+          }
+        },
+        {
+          "event": {
+            "type": "previous"
+          },
+          "expect": {
+            "focus": "b"
+          }
+        }
+      ]
+    },
+    {
+      "name": "removing the focused row moves focus to the next row, else the previous",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "pinned",
+                "title": "Pinned",
+                "doneAll": false,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "p1"
+                  }
+                ]
+              },
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "todo",
+                    "id": "t1"
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "b"
+                  }
+                ]
+              },
+              {
+                "key": "earlier",
+                "title": "Earlier",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "c"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "focus",
+            "key": "b",
+            "by": "pointer"
+          },
+          "expect": {
+            "focus": "b",
+            "revealed": false
+          }
+        },
+        {
+          "event": {
+            "type": "act",
+            "removes": [
+              "b"
+            ],
+            "from": "row",
+            "undoable": true,
+            "clearSelection": false
+          },
+          "expect": {
+            "focus": "c",
+            "rows": [
+              "section:pinned",
+              "p1",
+              "section:today",
+              "a",
+              "todo:t1",
+              "section:earlier",
+              "c"
+            ],
+            "removing": [
+              "b"
+            ]
+          }
+        },
+        {
+          "event": {
+            "type": "act",
+            "removes": [
+              "c"
+            ],
+            "from": "row",
+            "undoable": true,
+            "clearSelection": false
+          },
+          "expect": {
+            "focus": "todo:t1",
+            "rows": [
+              "section:pinned",
+              "p1",
+              "section:today",
+              "a",
+              "todo:t1"
+            ],
+            "removing": [
+              "b",
+              "c"
+            ]
+          }
+        },
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "pinned",
+                "title": "Pinned",
+                "doneAll": false,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "p1"
+                  }
+                ]
+              },
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "todo",
+                    "id": "t1"
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "b"
+                  }
+                ]
+              },
+              {
+                "key": "earlier",
+                "title": "Earlier",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "c"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {
+            "focus": "todo:t1",
+            "rows": [
+              "section:pinned",
+              "p1",
+              "section:today",
+              "a",
+              "todo:t1"
+            ],
+            "removing": [
+              "b",
+              "c"
+            ]
+          }
+        },
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "pinned",
+                "title": "Pinned",
+                "doneAll": false,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "p1"
+                  }
+                ]
+              },
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "todo",
+                    "id": "t1"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {
+            "focus": "todo:t1",
+            "removing": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "a refetch never moves focus, though its row moves",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "pinned",
+                "title": "Pinned",
+                "doneAll": false,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "p1"
+                  }
+                ]
+              },
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "todo",
+                    "id": "t1"
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "b"
+                  }
+                ]
+              },
+              {
+                "key": "earlier",
+                "title": "Earlier",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "c"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "focus": "a"
+          }
+        },
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "pinned",
+                "title": "Pinned",
+                "doneAll": false,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "p1"
+                  }
+                ]
+              },
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "n"
+                  },
+                  {
+                    "kind": "todo",
+                    "id": "t1"
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "b"
+                  }
+                ]
+              },
+              {
+                "key": "earlier",
+                "title": "Earlier",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "c"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {
+            "focus": "a",
+            "revealed": false,
+            "rows": [
+              "section:pinned",
+              "p1",
+              "section:today",
+              "n",
+              "todo:t1",
+              "b",
+              "section:earlier",
+              "a",
+              "c"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "a refetch that drops the focused row moves focus to the next row",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "pinned",
+                "title": "Pinned",
+                "doneAll": false,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "p1"
+                  }
+                ]
+              },
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "todo",
+                    "id": "t1"
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "b"
+                  }
+                ]
+              },
+              {
+                "key": "earlier",
+                "title": "Earlier",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "c"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "focus",
+            "key": "todo:t1",
+            "by": "pointer"
+          },
+          "expect": {
+            "focus": "todo:t1"
+          }
+        },
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "pinned",
+                "title": "Pinned",
+                "doneAll": false,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "p1"
+                  }
+                ]
+              },
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "b"
+                  }
+                ]
+              },
+              {
+                "key": "earlier",
+                "title": "Earlier",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "c"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {
+            "focus": "b"
+          }
+        },
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "pinned",
+                "title": "Pinned",
+                "doneAll": false,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "p1"
+                  }
+                ]
+              },
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {
+            "focus": "a"
+          }
+        },
+        {
+          "event": {
+            "type": "layout",
+            "sections": []
+          },
+          "expect": {
+            "focus": null,
+            "rows": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "j opens the next thread; acting on the open one returns to the list where its row was; undo brings it back",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "b"
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "c"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "tap",
+            "key": "a"
+          },
+          "expect": {
+            "open": "a",
+            "focus": "a"
+          }
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "open": "b",
+            "focus": "b"
+          }
+        },
+        {
+          "event": {
+            "type": "act",
+            "removes": [
+              "b"
+            ],
+            "from": "thread",
+            "undoable": true,
+            "clearSelection": false
+          },
+          "expect": {
+            "open": null,
+            "focus": "c",
+            "rows": [
+              "section:today",
+              "a",
+              "c"
+            ]
+          }
+        },
+        {
+          "event": {
+            "type": "undo"
+          },
+          "expect": {
+            "open": null,
+            "focus": "b",
+            "rows": [
+              "section:today",
+              "a",
+              "b",
+              "c"
+            ],
+            "removing": [],
+            "revealed": true,
+            "undo": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "j to a todo closes the open thread",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "pinned",
+                "title": "Pinned",
+                "doneAll": false,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "p1"
+                  }
+                ]
+              },
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "todo",
+                    "id": "t1"
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "b"
+                  }
+                ]
+              },
+              {
+                "key": "earlier",
+                "title": "Earlier",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "c"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "tap",
+            "key": "a"
+          },
+          "expect": {
+            "open": "a"
+          }
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "open": null,
+            "focus": "todo:t1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "a bundle opens, the keyboard pages it in, and focus follows to the first new row",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "threads": [
+                      {
+                        "id": "x1"
+                      },
+                      {
+                        "id": "x2"
+                      }
+                    ],
+                    "more": true,
+                    "loading": false
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "z"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {
+            "rows": [
+              "section:today",
+              "a",
+              "bundle:L",
+              "z"
+            ]
+          }
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "focus": "a"
+          }
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "focus": "bundle:L"
+          }
+        },
+        {
+          "event": {
+            "type": "enter"
+          },
+          "expect": {
+            "bundle": "L",
+            "focus": "bundle:L",
+            "rows": [
+              "section:today",
+              "a",
+              "bundle:L",
+              "x1",
+              "x2",
+              "more:L",
+              "z"
+            ]
+          }
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "focus": "x1"
+          }
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "focus": "x2"
+          }
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "focus": "bundle:L",
+            "awaiting": "x2",
+            "effect": {
+              "kind": "loadMore",
+              "labelId": "L"
+            },
+            "revealed": true
+          }
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "focus": "bundle:L",
+            "awaiting": "x2",
+            "effect": {
+              "kind": "loadMore",
+              "labelId": "L"
+            }
+          }
+        },
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "threads": [
+                      {
+                        "id": "x1"
+                      },
+                      {
+                        "id": "x2"
+                      }
+                    ],
+                    "more": true,
+                    "loading": true
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "z"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {
+            "focus": "bundle:L",
+            "awaiting": "x2"
+          }
+        },
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "threads": [
+                      {
+                        "id": "x1"
+                      },
+                      {
+                        "id": "x2"
+                      },
+                      {
+                        "id": "x3"
+                      },
+                      {
+                        "id": "x4"
+                      }
+                    ],
+                    "more": false,
+                    "loading": false
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "z"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {
+            "focus": "x3",
+            "awaiting": null,
+            "revealed": true,
+            "rows": [
+              "section:today",
+              "a",
+              "bundle:L",
+              "x1",
+              "x2",
+              "x3",
+              "x4",
+              "z"
+            ]
+          }
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "focus": "x4"
+          }
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "focus": "z",
+            "bundle": null,
+            "rows": [
+              "section:today",
+              "a",
+              "bundle:L",
+              "z"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "a page that brings nothing new gives focus back to the row it left",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "threads": [
+                      {
+                        "id": "x1"
+                      },
+                      {
+                        "id": "x2"
+                      }
+                    ],
+                    "more": true,
+                    "loading": false
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "z"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "tap",
+            "key": "bundle:L"
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "focus": "x1"
+          }
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "focus": "x2"
+          }
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "focus": "bundle:L",
+            "awaiting": "x2"
+          }
+        },
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "threads": [
+                      {
+                        "id": "x1"
+                      },
+                      {
+                        "id": "x2"
+                      }
+                    ],
+                    "more": false,
+                    "loading": false
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "z"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {
+            "focus": "x2",
+            "awaiting": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "an open bundle shows five until j asks past them",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "threads": [
+                      {
+                        "id": "y1"
+                      },
+                      {
+                        "id": "y2"
+                      },
+                      {
+                        "id": "y3"
+                      },
+                      {
+                        "id": "y4"
+                      },
+                      {
+                        "id": "y5"
+                      },
+                      {
+                        "id": "y6"
+                      },
+                      {
+                        "id": "y7"
+                      }
+                    ],
+                    "more": false,
+                    "loading": false
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "z"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "tap",
+            "key": "bundle:L"
+          },
+          "expect": {
+            "bundle": "L",
+            "showAll": false,
+            "rows": [
+              "section:today",
+              "bundle:L",
+              "y1",
+              "y2",
+              "y3",
+              "y4",
+              "y5",
+              "more:L",
+              "z"
+            ]
+          }
+        },
+        {
+          "event": {
+            "type": "focus",
+            "key": "y5",
+            "by": "pointer"
+          },
+          "expect": {
+            "focus": "y5"
+          }
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "focus": "y6",
+            "showAll": true,
+            "rows": [
+              "section:today",
+              "bundle:L",
+              "y1",
+              "y2",
+              "y3",
+              "y4",
+              "y5",
+              "y6",
+              "y7",
+              "z"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "a thread swiped to past an open bundle's first five keeps them all shown once it closes",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "threads": [
+                      {
+                        "id": "y1"
+                      },
+                      {
+                        "id": "y2"
+                      },
+                      {
+                        "id": "y3"
+                      },
+                      {
+                        "id": "y4"
+                      },
+                      {
+                        "id": "y5"
+                      },
+                      {
+                        "id": "y6"
+                      },
+                      {
+                        "id": "y7"
+                      }
+                    ],
+                    "more": false,
+                    "loading": false
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "z"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "tap",
+            "key": "bundle:L"
+          },
+          "expect": {
+            "bundle": "L",
+            "showAll": false
+          }
+        },
+        {
+          "event": {
+            "type": "openThread",
+            "id": "y3"
+          },
+          "expect": {
+            "open": "y3"
+          }
+        },
+        {
+          "event": {
+            "type": "openThread",
+            "id": "y6"
+          },
+          "expect": {
+            "open": "y6",
+            "showAll": true
+          }
+        },
+        {
+          "event": {
+            "type": "closeThread"
+          },
+          "expect": {
+            "open": null,
+            "focus": "y6",
+            "bundle": "L",
+            "showAll": true,
+            "rows": [
+              "section:today",
+              "bundle:L",
+              "y1",
+              "y2",
+              "y3",
+              "y4",
+              "y5",
+              "y6",
+              "y7",
+              "z"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Show more shows every loaded thread of the open bundle",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "threads": [
+                      {
+                        "id": "y1"
+                      },
+                      {
+                        "id": "y2"
+                      },
+                      {
+                        "id": "y3"
+                      },
+                      {
+                        "id": "y4"
+                      },
+                      {
+                        "id": "y5"
+                      },
+                      {
+                        "id": "y6"
+                      },
+                      {
+                        "id": "y7"
+                      }
+                    ],
+                    "more": false,
+                    "loading": false
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "z"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "tap",
+            "key": "bundle:L"
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "showAll"
+          },
+          "expect": {
+            "showAll": true,
+            "rows": [
+              "section:today",
+              "bundle:L",
+              "y1",
+              "y2",
+              "y3",
+              "y4",
+              "y5",
+              "y6",
+              "y7",
+              "z"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "focus leaving an open bundle closes it, by keys or a pointer",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "threads": [
+                      {
+                        "id": "x1"
+                      },
+                      {
+                        "id": "x2"
+                      }
+                    ],
+                    "more": false,
+                    "loading": false
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "z"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "focus": "bundle:L"
+          }
+        },
+        {
+          "event": {
+            "type": "enter"
+          },
+          "expect": {
+            "bundle": "L"
+          }
+        },
+        {
+          "event": {
+            "type": "previous"
+          },
+          "expect": {
+            "focus": "a",
+            "bundle": null,
+            "rows": [
+              "section:today",
+              "a",
+              "bundle:L",
+              "z"
+            ]
+          }
+        },
+        {
+          "event": {
+            "type": "tap",
+            "key": "bundle:L"
+          },
+          "expect": {
+            "bundle": "L",
+            "focus": "bundle:L"
+          }
+        },
+        {
+          "event": {
+            "type": "focus",
+            "key": "z",
+            "by": "pointer"
+          },
+          "expect": {
+            "focus": "z",
+            "bundle": null,
+            "rows": [
+              "section:today",
+              "a",
+              "bundle:L",
+              "z"
+            ]
+          }
+        },
+        {
+          "event": {
+            "type": "tap",
+            "key": "bundle:L"
+          },
+          "expect": {
+            "bundle": "L",
+            "focus": "bundle:L"
+          }
+        },
+        {
+          "event": {
+            "type": "focus",
+            "key": "x1",
+            "by": "keyboard"
+          },
+          "expect": {
+            "focus": "x1",
+            "bundle": "L",
+            "revealed": false
+          }
+        },
+        {
+          "event": {
+            "type": "focus",
+            "key": "a",
+            "by": "keyboard"
+          },
+          "expect": {
+            "focus": "a",
+            "bundle": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "a refetch dropping the open bundle's last shown thread, while Gmail has more, waits on its header for the next page",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "threads": [
+                      {
+                        "id": "x1"
+                      },
+                      {
+                        "id": "x2"
+                      },
+                      {
+                        "id": "x3"
+                      },
+                      {
+                        "id": "x4"
+                      }
+                    ],
+                    "more": true,
+                    "loading": false
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "z"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "tap",
+            "key": "bundle:L"
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "focus",
+            "key": "x4",
+            "by": "pointer"
+          },
+          "expect": {
+            "focus": "x4"
+          }
+        },
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "threads": [
+                      {
+                        "id": "x1"
+                      },
+                      {
+                        "id": "x2"
+                      },
+                      {
+                        "id": "x4"
+                      }
+                    ],
+                    "more": true,
+                    "loading": false
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "z"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {
+            "focus": "x4",
+            "rows": [
+              "section:today",
+              "bundle:L",
+              "x1",
+              "x2",
+              "x4",
+              "more:L",
+              "z"
+            ]
+          }
+        },
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "threads": [
+                      {
+                        "id": "x1"
+                      },
+                      {
+                        "id": "x2"
+                      }
+                    ],
+                    "more": true,
+                    "loading": false
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "z"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {
+            "focus": "bundle:L",
+            "bundle": "L",
+            "awaiting": "x4",
+            "effect": {
+              "kind": "loadMore",
+              "labelId": "L"
+            },
+            "rows": [
+              "section:today",
+              "bundle:L",
+              "x1",
+              "x2",
+              "more:L",
+              "z"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "an empty open bundle closes once Gmail has no more",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "threads": [
+                      {
+                        "id": "x1"
+                      },
+                      {
+                        "id": "x2"
+                      }
+                    ],
+                    "more": false,
+                    "loading": false
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "z"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "tap",
+            "key": "bundle:L"
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "focus": "x1"
+          }
+        },
+        {
+          "event": {
+            "type": "act",
+            "removes": [
+              "x1"
+            ],
+            "from": "row",
+            "undoable": true,
+            "clearSelection": false
+          },
+          "expect": {
+            "focus": "x2",
+            "bundle": "L"
+          }
+        },
+        {
+          "event": {
+            "type": "act",
+            "removes": [
+              "x2"
+            ],
+            "from": "row",
+            "undoable": true,
+            "clearSelection": false
+          },
+          "expect": {
+            "focus": "z",
+            "bundle": null,
+            "rows": [
+              "section:today",
+              "a",
+              "z"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Done on an open bundle's last shown threads, while Gmail has more, waits on its header and moves to the first new row",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "threads": [
+                      {
+                        "id": "x1"
+                      },
+                      {
+                        "id": "x2"
+                      }
+                    ],
+                    "more": true,
+                    "loading": false
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "z"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "tap",
+            "key": "bundle:L"
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "focus": "x1"
+          }
+        },
+        {
+          "event": {
+            "type": "act",
+            "removes": [
+              "x1",
+              "x2"
+            ],
+            "from": "row",
+            "undoable": true,
+            "clearSelection": false
+          },
+          "expect": {
+            "focus": "bundle:L",
+            "bundle": "L",
+            "awaiting": "x1",
+            "effect": {
+              "kind": "loadMore",
+              "labelId": "L"
+            },
+            "rows": [
+              "section:today",
+              "a",
+              "bundle:L",
+              "more:L",
+              "z"
+            ]
+          }
+        },
+        {
+          "event": {
+            "type": "focus",
+            "key": "bundle:L",
+            "by": "pointer"
+          },
+          "expect": {
+            "focus": "bundle:L",
+            "bundle": "L"
+          }
+        },
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "threads": [
+                      {
+                        "id": "x5"
+                      }
+                    ],
+                    "more": false,
+                    "loading": false
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "z"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {
+            "focus": "x5",
+            "bundle": "L",
+            "awaiting": null,
+            "rows": [
+              "section:today",
+              "a",
+              "bundle:L",
+              "x5",
+              "z"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "undo after acting on a selection restores the rows and focus",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "b"
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "c"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "pick",
+            "key": "a",
+            "range": false
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "pick",
+            "key": "b",
+            "range": false
+          },
+          "expect": {
+            "selection": [
+              "a",
+              "b"
+            ]
+          }
+        },
+        {
+          "event": {
+            "type": "focus",
+            "key": "c",
+            "by": "pointer"
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "command",
+            "action": "done"
+          },
+          "expect": {
+            "effect": {
+              "kind": "act",
+              "action": "done",
+              "target": {
+                "from": "selection",
+                "threads": [
+                  "a",
+                  "b"
+                ],
+                "todos": [],
+                "bundle": null
+              }
+            }
+          }
+        },
+        {
+          "event": {
+            "type": "act",
+            "removes": [
+              "a",
+              "b"
+            ],
+            "from": "selection",
+            "undoable": true,
+            "clearSelection": true
+          },
+          "expect": {
+            "selection": [],
+            "focus": "c",
+            "rows": [
+              "section:today",
+              "c"
+            ]
+          }
+        },
+        {
+          "event": {
+            "type": "undo"
+          },
+          "expect": {
+            "focus": "c",
+            "rows": [
+              "section:today",
+              "a",
+              "b",
+              "c"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "a failed write brings its rows back without moving focus",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "b"
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "c"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "focus",
+            "key": "a",
+            "by": "pointer"
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "act",
+            "removes": [
+              "a"
+            ],
+            "from": "row",
+            "undoable": true,
+            "clearSelection": false
+          },
+          "expect": {
+            "focus": "b"
+          }
+        },
+        {
+          "event": {
+            "type": "restore",
+            "keys": [
+              "a"
+            ]
+          },
+          "expect": {
+            "focus": "b",
+            "rows": [
+              "section:today",
+              "a",
+              "b",
+              "c"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "selection only holds rows that exist",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "b"
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "c"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "pick",
+            "key": "a",
+            "range": false
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "pick",
+            "key": "c",
+            "range": false
+          },
+          "expect": {
+            "selection": [
+              "a",
+              "c"
+            ]
+          }
+        },
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "b"
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "c"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {
+            "selection": [
+              "c"
+            ]
+          }
+        },
+        {
+          "event": {
+            "type": "pick",
+            "key": "b",
+            "range": true
+          },
+          "expect": {
+            "selection": [
+              "c",
+              "b"
+            ]
+          }
+        },
+        {
+          "event": {
+            "type": "pickAll"
+          },
+          "expect": {
+            "selection": []
+          }
+        },
+        {
+          "event": {
+            "type": "pickAll"
+          },
+          "expect": {
+            "selection": [
+              "b",
+              "c"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "a thread shows once, in one place",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "pinned",
+                "title": "Pinned",
+                "doneAll": false,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  }
+                ]
+              },
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "b"
+                  },
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "threads": [
+                      {
+                        "id": "a"
+                      },
+                      {
+                        "id": "x1"
+                      },
+                      {
+                        "id": "x2"
+                      }
+                    ],
+                    "more": false,
+                    "loading": false
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {
+            "rows": [
+              "section:pinned",
+              "a",
+              "section:today",
+              "b",
+              "bundle:L"
+            ]
+          }
+        },
+        {
+          "event": {
+            "type": "tap",
+            "key": "bundle:L"
+          },
+          "expect": {
+            "rows": [
+              "section:pinned",
+              "a",
+              "section:today",
+              "b",
+              "bundle:L",
+              "x1",
+              "x2"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "a thread opened from outside the list waits for its row",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "openThread",
+            "id": "n"
+          },
+          "expect": {
+            "open": "n",
+            "pendingFocus": "n",
+            "focus": null
+          }
+        },
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "n"
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {
+            "open": "n",
+            "focus": "n",
+            "pendingFocus": null,
+            "revealed": true
+          }
+        },
+        {
+          "event": {
+            "type": "back"
+          },
+          "expect": {
+            "open": null,
+            "focus": "n"
+          }
+        }
+      ]
+    },
+    {
+      "name": "a thread opened from a notification opens the bundle it is in",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "threads": [
+                      {
+                        "id": "y1"
+                      },
+                      {
+                        "id": "y2"
+                      },
+                      {
+                        "id": "y3"
+                      },
+                      {
+                        "id": "y4"
+                      },
+                      {
+                        "id": "y5"
+                      },
+                      {
+                        "id": "y6"
+                      },
+                      {
+                        "id": "y7"
+                      }
+                    ],
+                    "more": false,
+                    "loading": false
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "z"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "openThread",
+            "id": "y7"
+          },
+          "expect": {
+            "open": "y7",
+            "focus": "y7",
+            "bundle": "L",
+            "showAll": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "Escape steps back one level at a time",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "threads": [
+                      {
+                        "id": "x1"
+                      },
+                      {
+                        "id": "x2"
+                      }
+                    ],
+                    "more": false,
+                    "loading": false
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "z"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "tap",
+            "key": "bundle:L"
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "focus": "x1"
+          }
+        },
+        {
+          "event": {
+            "type": "enter"
+          },
+          "expect": {
+            "open": "x1"
+          }
+        },
+        {
+          "event": {
+            "type": "pick",
+            "key": "x2",
+            "range": false
+          },
+          "expect": {
+            "selection": [
+              "x2"
+            ]
+          }
+        },
+        {
+          "event": {
+            "type": "back"
+          },
+          "expect": {
+            "open": null,
+            "focus": "x1",
+            "selection": [
+              "x2"
+            ]
+          }
+        },
+        {
+          "event": {
+            "type": "back"
+          },
+          "expect": {
+            "selection": [],
+            "bundle": "L"
+          }
+        },
+        {
+          "event": {
+            "type": "back"
+          },
+          "expect": {
+            "bundle": null,
+            "focus": "bundle:L"
+          }
+        },
+        {
+          "event": {
+            "type": "back"
+          },
+          "expect": {
+            "focus": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "an action key acts on the open thread, else the selection, else the focused row",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "b"
+                  },
+                  {
+                    "kind": "todo",
+                    "id": "t1"
+                  },
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "threads": [
+                      {
+                        "id": "x1"
+                      },
+                      {
+                        "id": "x2"
+                      }
+                    ],
+                    "more": false,
+                    "loading": false
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "command",
+            "action": "done"
+          },
+          "expect": {
+            "effect": {
+              "kind": "act",
+              "action": "done",
+              "target": {
+                "from": "row",
+                "threads": [
+                  "a"
+                ],
+                "todos": [],
+                "bundle": null
+              }
+            }
+          }
+        },
+        {
+          "event": {
+            "type": "focus",
+            "key": "bundle:L",
+            "by": "pointer"
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "command",
+            "action": "pin"
+          },
+          "expect": {
+            "effect": {
+              "kind": "act",
+              "action": "pin",
+              "target": {
+                "from": "row",
+                "threads": [
+                  "x1",
+                  "x2"
+                ],
+                "todos": [],
+                "bundle": "L"
+              }
+            }
+          }
+        },
+        {
+          "event": {
+            "type": "focus",
+            "key": "todo:t1",
+            "by": "pointer"
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "command",
+            "action": "snooze"
+          },
+          "expect": {
+            "effect": {
+              "kind": "act",
+              "action": "snooze",
+              "target": {
+                "from": "row",
+                "threads": [],
+                "todos": [
+                  "t1"
+                ],
+                "bundle": null
+              }
+            }
+          }
+        },
+        {
+          "event": {
+            "type": "enter"
+          },
+          "expect": {
+            "effect": {
+              "kind": "edit",
+              "todoId": "t1"
+            }
+          }
+        },
+        {
+          "event": {
+            "type": "pick",
+            "key": "b",
+            "range": false
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "pick",
+            "key": "todo:t1",
+            "range": false
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "command",
+            "action": "done"
+          },
+          "expect": {
+            "effect": {
+              "kind": "act",
+              "action": "done",
+              "target": {
+                "from": "selection",
+                "threads": [
+                  "b"
+                ],
+                "todos": [
+                  "t1"
+                ],
+                "bundle": null
+              }
+            }
+          }
+        },
+        {
+          "event": {
+            "type": "tap",
+            "key": "a"
+          },
+          "expect": {
+            "open": "a"
+          }
+        },
+        {
+          "event": {
+            "type": "command",
+            "action": "done"
+          },
+          "expect": {
+            "effect": {
+              "kind": "act",
+              "action": "done",
+              "target": {
+                "from": "thread",
+                "threads": [
+                  "a"
+                ],
+                "todos": [],
+                "bundle": null
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "the scroll anchor moves to the next row when its row goes",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "b"
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "c"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "anchor",
+            "key": "b",
+            "offset": 12
+          },
+          "expect": {
+            "anchor": {
+              "key": "b",
+              "offset": 12
+            }
+          }
+        },
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "c"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {
+            "anchor": {
+              "key": "c",
+              "offset": 12
+            }
+          }
+        },
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {
+            "anchor": {
+              "key": "a",
+              "offset": 12
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "another view drops focus, the open thread and bundle, selection and removals",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "threads": [
+                      {
+                        "id": "x1"
+                      },
+                      {
+                        "id": "x2"
+                      }
+                    ],
+                    "more": false,
+                    "loading": false
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "z"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "tap",
+            "key": "bundle:L"
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "pick",
+            "key": "x1",
+            "range": false
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "act",
+            "removes": [
+              "z"
+            ],
+            "from": "row",
+            "undoable": true,
+            "clearSelection": false
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "reset"
+          },
+          "expect": {
+            "focus": null,
+            "open": null,
+            "bundle": null,
+            "selection": [],
+            "removing": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "new mail at the top of a loading bundle doesn't take focus from the page",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "threads": [
+                      {
+                        "id": "x1"
+                      },
+                      {
+                        "id": "x2"
+                      }
+                    ],
+                    "more": true,
+                    "loading": false
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "z"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "tap",
+            "key": "bundle:L"
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "focus": "x1"
+          }
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "focus": "x2"
+          }
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "focus": "bundle:L",
+            "awaiting": "x2"
+          }
+        },
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "threads": [
+                      {
+                        "id": "x0"
+                      },
+                      {
+                        "id": "x1"
+                      },
+                      {
+                        "id": "x2"
+                      }
+                    ],
+                    "more": true,
+                    "loading": true
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "z"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {
+            "focus": "bundle:L",
+            "awaiting": "x2"
+          }
+        },
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "threads": [
+                      {
+                        "id": "x0"
+                      },
+                      {
+                        "id": "x1"
+                      },
+                      {
+                        "id": "x2"
+                      },
+                      {
+                        "id": "x3"
+                      }
+                    ],
+                    "more": false,
+                    "loading": false
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "z"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {
+            "focus": "x3",
+            "awaiting": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "a page that brings nothing to show while Gmail has more gives focus back and j asks again",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "threads": [
+                      {
+                        "id": "x1"
+                      },
+                      {
+                        "id": "x2"
+                      }
+                    ],
+                    "more": true,
+                    "loading": false
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "z"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "tap",
+            "key": "bundle:L"
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "focus": "x1"
+          }
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "focus": "x2"
+          }
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "focus": "bundle:L",
+            "awaiting": "x2"
+          }
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "focus": "bundle:L",
+            "awaiting": "x2",
+            "effect": {
+              "kind": "loadMore",
+              "labelId": "L"
+            }
+          }
+        },
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "threads": [
+                      {
+                        "id": "x1"
+                      },
+                      {
+                        "id": "x2"
+                      }
+                    ],
+                    "more": true,
+                    "loading": true
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "z"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {
+            "focus": "bundle:L",
+            "awaiting": "x2"
+          }
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "focus": "bundle:L",
+            "effect": null
+          }
+        },
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "threads": [
+                      {
+                        "id": "x1"
+                      },
+                      {
+                        "id": "x2"
+                      }
+                    ],
+                    "more": true,
+                    "loading": false
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "z"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {
+            "focus": "x2",
+            "awaiting": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "undoing Done on a closed bundle brings focus back to its header",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "threads": [
+                      {
+                        "id": "x1"
+                      },
+                      {
+                        "id": "x2"
+                      }
+                    ],
+                    "more": false,
+                    "loading": false
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "z"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "focus",
+            "key": "bundle:L",
+            "by": "pointer"
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "act",
+            "removes": [
+              "bundle:L"
+            ],
+            "from": "row",
+            "undoable": true,
+            "clearSelection": false
+          },
+          "expect": {
+            "focus": "z",
+            "rows": [
+              "section:today",
+              "a",
+              "z"
+            ]
+          }
+        },
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "z"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {
+            "focus": "z"
+          }
+        },
+        {
+          "event": {
+            "type": "undo"
+          },
+          "expect": {
+            "pendingFocus": "x1",
+            "focus": "z"
+          }
+        },
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "threads": [
+                      {
+                        "id": "x1"
+                      },
+                      {
+                        "id": "x2"
+                      }
+                    ],
+                    "more": false,
+                    "loading": false
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "z"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {
+            "focus": "bundle:L",
+            "pendingFocus": null,
+            "bundle": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "a row waited for that comes back inside a closed bundle is focused at the bundle",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "x1"
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "z"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "focus",
+            "key": "x1",
+            "by": "pointer"
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "act",
+            "removes": [
+              "x1"
+            ],
+            "from": "row",
+            "undoable": true,
+            "clearSelection": false
+          },
+          "expect": {
+            "focus": "z"
+          }
+        },
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "z"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "undo"
+          },
+          "expect": {
+            "pendingFocus": "x1"
+          }
+        },
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "threads": [
+                      {
+                        "id": "x1"
+                      },
+                      {
+                        "id": "x2"
+                      }
+                    ],
+                    "more": false,
+                    "loading": false
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "z"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {
+            "focus": "bundle:L",
+            "pendingFocus": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "a tap outside an open bundle closes it rather than acting",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "threads": [
+                      {
+                        "id": "x1"
+                      },
+                      {
+                        "id": "x2"
+                      }
+                    ],
+                    "more": false,
+                    "loading": false
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "z"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "tap",
+            "key": "bundle:L"
+          },
+          "expect": {
+            "bundle": "L"
+          }
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "focus": "x1"
+          }
+        },
+        {
+          "event": {
+            "type": "tap",
+            "key": "z"
+          },
+          "expect": {
+            "bundle": null,
+            "open": null,
+            "focus": "bundle:L",
+            "rows": [
+              "section:today",
+              "a",
+              "bundle:L",
+              "z"
+            ]
+          }
+        },
+        {
+          "event": {
+            "type": "tap",
+            "key": "z"
+          },
+          "expect": {
+            "open": "z",
+            "focus": "z"
+          }
+        }
+      ]
+    },
+    {
+      "name": "j on an empty open bundle whose page is on its way waits without asking again",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "threads": [],
+                    "more": true,
+                    "loading": true
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "z"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {
+            "rows": [
+              "section:today",
+              "a",
+              "z"
+            ]
+          }
+        },
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "threads": [
+                      {
+                        "id": "x1"
+                      }
+                    ],
+                    "more": true,
+                    "loading": false
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "z"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "tap",
+            "key": "bundle:L"
+          },
+          "expect": {
+            "bundle": "L"
+          }
+        },
+        {
+          "event": {
+            "type": "act",
+            "removes": [
+              "x1"
+            ],
+            "from": "row",
+            "undoable": false,
+            "clearSelection": false
+          },
+          "expect": {
+            "bundle": "L",
+            "rows": [
+              "section:today",
+              "a",
+              "bundle:L",
+              "more:L",
+              "z"
+            ]
+          }
+        },
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "threads": [],
+                    "more": true,
+                    "loading": true
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "z"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {
+            "focus": "bundle:L"
+          }
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "focus": "bundle:L",
+            "awaiting": "bundle:L",
+            "effect": null
+          }
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "focus": "bundle:L",
+            "awaiting": "bundle:L",
+            "effect": null
+          }
+        },
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "threads": [
+                      {
+                        "id": "x5"
+                      }
+                    ],
+                    "more": false,
+                    "loading": false
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "z"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {
+            "focus": "x5",
+            "awaiting": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "Escape and a click away close only the top layer: the menu, then the open thread, then the open bundle",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "threads": [
+                      {
+                        "id": "x1"
+                      },
+                      {
+                        "id": "x2"
+                      }
+                    ],
+                    "more": false,
+                    "loading": false
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "z"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "tap",
+            "key": "bundle:L"
+          },
+          "expect": {
+            "bundle": "L"
+          }
+        },
+        {
+          "event": {
+            "type": "tap",
+            "key": "x1"
+          },
+          "expect": {
+            "bundle": "L",
+            "open": "x1",
+            "focus": "x1"
+          }
+        },
+        {
+          "event": {
+            "type": "openMenu",
+            "id": "labels"
+          },
+          "expect": {
+            "menu": "labels",
+            "open": "x1",
+            "bundle": "L"
+          }
+        },
+        {
+          "event": {
+            "type": "dismiss"
+          },
+          "expect": {
+            "menu": null,
+            "open": "x1",
+            "bundle": "L"
+          }
+        },
+        {
+          "event": {
+            "type": "openMenu",
+            "id": "labels"
+          },
+          "expect": {
+            "menu": "labels"
+          }
+        },
+        {
+          "event": {
+            "type": "tap",
+            "key": "z"
+          },
+          "expect": {
+            "menu": null,
+            "open": "x1",
+            "bundle": "L",
+            "focus": "x1"
+          }
+        },
+        {
+          "event": {
+            "type": "openMenu",
+            "id": "labels"
+          },
+          "expect": {
+            "menu": "labels"
+          }
+        },
+        {
+          "event": {
+            "type": "back"
+          },
+          "expect": {
+            "menu": null,
+            "open": "x1",
+            "bundle": "L"
+          }
+        },
+        {
+          "event": {
+            "type": "dismiss"
+          },
+          "expect": {
+            "open": null,
+            "bundle": "L",
+            "focus": "x1"
+          }
+        },
+        {
+          "event": {
+            "type": "dismiss"
+          },
+          "expect": {
+            "open": null,
+            "bundle": null,
+            "focus": "bundle:L",
+            "rows": [
+              "section:today",
+              "a",
+              "bundle:L",
+              "z"
+            ]
+          }
+        },
+        {
+          "event": {
+            "type": "dismiss"
+          },
+          "expect": {
+            "focus": "bundle:L",
+            "bundle": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "with a thread open in a bundle, a tap outside the bundle closes the thread, then a second one the bundle",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "threads": [
+                      {
+                        "id": "x1"
+                      },
+                      {
+                        "id": "x2"
+                      }
+                    ],
+                    "more": false,
+                    "loading": false
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "z"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "tap",
+            "key": "bundle:L"
+          },
+          "expect": {
+            "bundle": "L"
+          }
+        },
+        {
+          "event": {
+            "type": "tap",
+            "key": "x1"
+          },
+          "expect": {
+            "open": "x1",
+            "bundle": "L"
+          }
+        },
+        {
+          "event": {
+            "type": "tap",
+            "key": "x2"
+          },
+          "expect": {
+            "open": "x2",
+            "focus": "x2",
+            "bundle": "L"
+          }
+        },
+        {
+          "event": {
+            "type": "tap",
+            "key": "z"
+          },
+          "expect": {
+            "open": null,
+            "focus": "x2",
+            "bundle": "L"
+          }
+        },
+        {
+          "event": {
+            "type": "tap",
+            "key": "z"
+          },
+          "expect": {
+            "open": null,
+            "focus": "bundle:L",
+            "bundle": null
+          }
+        },
+        {
+          "event": {
+            "type": "tap",
+            "key": "z"
+          },
+          "expect": {
+            "open": "z",
+            "focus": "z"
+          }
+        }
+      ]
+    },
+    {
+      "name": "a menu closing names itself, so a late close of another menu changes nothing",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "openMenu",
+            "id": "labels"
+          },
+          "expect": {
+            "menu": "labels"
+          }
+        },
+        {
+          "event": {
+            "type": "openMenu",
+            "id": "snooze"
+          },
+          "expect": {
+            "menu": "snooze"
+          }
+        },
+        {
+          "event": {
+            "type": "closeMenu",
+            "id": "labels"
+          },
+          "expect": {
+            "menu": "snooze"
+          }
+        },
+        {
+          "event": {
+            "type": "closeMenu",
+            "id": "snooze"
+          },
+          "expect": {
+            "menu": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "Done on an open bundle's last thread when Gmail has no more stays in the bundle on the thread before it; Done on its only thread moves focus past it and closes the bundle; undo reopens nothing but focuses the thread at its header",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "threads": [
+                      {
+                        "id": "x1"
+                      },
+                      {
+                        "id": "x2"
+                      }
+                    ],
+                    "more": false,
+                    "loading": false
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "z"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "tap",
+            "key": "bundle:L"
+          },
+          "expect": {
+            "bundle": "L"
+          }
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "focus": "x1"
+          }
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "focus": "x2"
+          }
+        },
+        {
+          "event": {
+            "type": "act",
+            "removes": [
+              "x2"
+            ],
+            "from": "row",
+            "undoable": true,
+            "clearSelection": false
+          },
+          "expect": {
+            "focus": "x1",
+            "bundle": "L",
+            "rows": [
+              "section:today",
+              "a",
+              "bundle:L",
+              "x1",
+              "z"
+            ]
+          }
+        },
+        {
+          "event": {
+            "type": "act",
+            "removes": [
+              "x1"
+            ],
+            "from": "row",
+            "undoable": true,
+            "clearSelection": false
+          },
+          "expect": {
+            "focus": "z",
+            "bundle": null,
+            "rows": [
+              "section:today",
+              "a",
+              "z"
+            ]
+          }
+        },
+        {
+          "event": {
+            "type": "undo"
+          },
+          "expect": {
+            "focus": "bundle:L",
+            "bundle": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "Done on the open thread at the end of an open bundle stays in the bundle on the thread before it",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "threads": [
+                      {
+                        "id": "x1"
+                      },
+                      {
+                        "id": "x2"
+                      },
+                      {
+                        "id": "x3"
+                      }
+                    ],
+                    "more": false,
+                    "loading": false
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "z"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "tap",
+            "key": "bundle:L"
+          },
+          "expect": {
+            "bundle": "L"
+          }
+        },
+        {
+          "event": {
+            "type": "tap",
+            "key": "x3"
+          },
+          "expect": {
+            "open": "x3",
+            "focus": "x3"
+          }
+        },
+        {
+          "event": {
+            "type": "act",
+            "removes": [
+              "x3"
+            ],
+            "from": "thread",
+            "undoable": true,
+            "clearSelection": false
+          },
+          "expect": {
+            "open": null,
+            "focus": "x2",
+            "bundle": "L"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Done on an open bundle's fifth shown thread moves focus to the sixth, which shows in its place",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "threads": [
+                      {
+                        "id": "x1"
+                      },
+                      {
+                        "id": "x2"
+                      },
+                      {
+                        "id": "x3"
+                      },
+                      {
+                        "id": "x4"
+                      },
+                      {
+                        "id": "x5"
+                      },
+                      {
+                        "id": "x6"
+                      }
+                    ],
+                    "more": false,
+                    "loading": false
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "z"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "tap",
+            "key": "bundle:L"
+          },
+          "expect": {
+            "bundle": "L",
+            "rows": [
+              "section:today",
+              "a",
+              "bundle:L",
+              "x1",
+              "x2",
+              "x3",
+              "x4",
+              "x5",
+              "more:L",
+              "z"
+            ]
+          }
+        },
+        {
+          "event": {
+            "type": "focus",
+            "key": "x5",
+            "by": "pointer"
+          },
+          "expect": {
+            "focus": "x5"
+          }
+        },
+        {
+          "event": {
+            "type": "act",
+            "removes": [
+              "x5"
+            ],
+            "from": "row",
+            "undoable": true,
+            "clearSelection": false
+          },
+          "expect": {
+            "focus": "x6",
+            "bundle": "L",
+            "rows": [
+              "section:today",
+              "a",
+              "bundle:L",
+              "x1",
+              "x2",
+              "x3",
+              "x4",
+              "x6",
+              "z"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Done on the shown threads of an open bundle at the end of the list, while Gmail has more, waits on its header for the next page",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "threads": [
+                      {
+                        "id": "x1"
+                      }
+                    ],
+                    "more": true,
+                    "loading": false
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {}
+        },
+        {
+          "event": {
+            "type": "tap",
+            "key": "bundle:L"
+          },
+          "expect": {
+            "bundle": "L"
+          }
+        },
+        {
+          "event": {
+            "type": "next"
+          },
+          "expect": {
+            "focus": "x1"
+          }
+        },
+        {
+          "event": {
+            "type": "act",
+            "removes": [
+              "x1"
+            ],
+            "from": "row",
+            "undoable": true,
+            "clearSelection": false
+          },
+          "expect": {
+            "focus": "bundle:L",
+            "bundle": "L",
+            "awaiting": "x1",
+            "effect": {
+              "kind": "loadMore",
+              "labelId": "L"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "a new todo takes focus and scrolls into view, at once when listed or once a layout lists it",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "todo",
+                    "id": "t1"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {
+            "focus": null
+          }
+        },
+        {
+          "event": {
+            "type": "focus",
+            "key": "a",
+            "by": "pointer"
+          },
+          "expect": {
+            "focus": "a"
+          }
+        },
+        {
+          "event": {
+            "type": "reveal",
+            "key": "todo:t2"
+          },
+          "expect": {
+            "focus": "a",
+            "pendingFocus": "todo:t2",
+            "revealed": false
+          }
+        },
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "todo",
+                    "id": "t2"
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "todo",
+                    "id": "t1"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {
+            "focus": "todo:t2",
+            "pendingFocus": null,
+            "revealed": true
+          }
+        },
+        {
+          "event": {
+            "type": "reveal",
+            "key": "todo:t1"
+          },
+          "expect": {
+            "focus": "todo:t1",
+            "revealed": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "the threads either side of the open one: across sections, past todos and bundles, and inside an open bundle only its own",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "pinned",
+                "title": "Pinned",
+                "doneAll": false,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "p1"
+                  }
+                ]
+              },
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "todo",
+                    "id": "t1"
+                  },
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "threads": [
+                      {
+                        "id": "y1"
+                      },
+                      {
+                        "id": "y2"
+                      },
+                      {
+                        "id": "y3"
+                      }
+                    ],
+                    "more": false,
+                    "loading": false
+                  },
+                  {
+                    "kind": "thread",
+                    "id": "b"
+                  }
+                ]
+              },
+              {
+                "key": "earlier",
+                "title": "Earlier",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "c"
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {
+            "neighbors": {
+              "previous": null,
+              "next": null
+            }
+          }
+        },
+        {
+          "event": {
+            "type": "openThread",
+            "id": "p1"
+          },
+          "expect": {
+            "open": "p1",
+            "neighbors": {
+              "previous": null,
+              "next": "a"
+            }
+          }
+        },
+        {
+          "event": {
+            "type": "openThread",
+            "id": "a"
+          },
+          "expect": {
+            "open": "a",
+            "neighbors": {
+              "previous": "p1",
+              "next": "b"
+            }
+          }
+        },
+        {
+          "event": {
+            "type": "openThread",
+            "id": "c"
+          },
+          "expect": {
+            "open": "c",
+            "neighbors": {
+              "previous": "b",
+              "next": null
+            }
+          }
+        },
+        {
+          "event": {
+            "type": "openThread",
+            "id": "y1"
+          },
+          "expect": {
+            "open": "y1",
+            "bundle": "L",
+            "neighbors": {
+              "previous": null,
+              "next": "y2"
+            }
+          }
+        },
+        {
+          "event": {
+            "type": "openThread",
+            "id": "y2"
+          },
+          "expect": {
+            "open": "y2",
+            "focus": "y2",
+            "neighbors": {
+              "previous": "y1",
+              "next": "y3"
+            }
+          }
+        },
+        {
+          "event": {
+            "type": "openThread",
+            "id": "y3"
+          },
+          "expect": {
+            "open": "y3",
+            "neighbors": {
+              "previous": "y2",
+              "next": null
+            }
+          }
+        },
+        {
+          "event": {
+            "type": "openThread",
+            "id": "gone"
+          },
+          "expect": {
+            "open": "gone",
+            "neighbors": {
+              "previous": null,
+              "next": null
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "the thread open in a bundle reaches every loaded thread past the five shown, and says how many follow it",
+      "steps": [
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "threads": [
+                      {
+                        "id": "y0"
+                      },
+                      {
+                        "id": "y1"
+                      },
+                      {
+                        "id": "y2"
+                      },
+                      {
+                        "id": "y3"
+                      },
+                      {
+                        "id": "y4"
+                      },
+                      {
+                        "id": "y5"
+                      },
+                      {
+                        "id": "y6"
+                      },
+                      {
+                        "id": "y7"
+                      }
+                    ],
+                    "more": true,
+                    "loading": false
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {
+            "tail": null
+          }
+        },
+        {
+          "event": {
+            "type": "openThread",
+            "id": "a"
+          },
+          "expect": {
+            "tail": null
+          }
+        },
+        {
+          "event": {
+            "type": "openThread",
+            "id": "y4"
+          },
+          "expect": {
+            "bundle": "L",
+            "showAll": true,
+            "neighbors": {
+              "previous": "y3",
+              "next": "y5"
+            },
+            "tail": {
+              "labelId": "L",
+              "after": 3
+            }
+          }
+        },
+        {
+          "event": {
+            "type": "openThread",
+            "id": "y7"
+          },
+          "expect": {
+            "neighbors": {
+              "previous": "y6",
+              "next": null
+            },
+            "tail": {
+              "labelId": "L",
+              "after": 0
+            }
+          }
+        },
+        {
+          "event": {
+            "type": "layout",
+            "sections": [
+              {
+                "key": "today",
+                "title": "Today",
+                "doneAll": true,
+                "entries": [
+                  {
+                    "kind": "thread",
+                    "id": "a"
+                  },
+                  {
+                    "kind": "bundle",
+                    "labelId": "L",
+                    "threads": [
+                      {
+                        "id": "y0"
+                      },
+                      {
+                        "id": "y1"
+                      },
+                      {
+                        "id": "y2"
+                      },
+                      {
+                        "id": "y3"
+                      },
+                      {
+                        "id": "y4"
+                      },
+                      {
+                        "id": "y5"
+                      },
+                      {
+                        "id": "y6"
+                      },
+                      {
+                        "id": "y7"
+                      },
+                      {
+                        "id": "y8"
+                      },
+                      {
+                        "id": "y9"
+                      }
+                    ],
+                    "more": true,
+                    "loading": false
+                  }
+                ]
+              }
+            ]
+          },
+          "expect": {
+            "open": "y7",
+            "neighbors": {
+              "previous": "y6",
+              "next": "y8"
+            },
+            "tail": {
+              "labelId": "L",
+              "after": 2
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "_doc": "addressTrouble(setup, now): when the app points out a @hafa.cc address that isn't set up. Times are milliseconds; web and Android both run these. addressNoticeState(setup, now) is `notice`: \"error\" when addressTrouble isn't null, else \"working\" while status is pending or verifying, else null.",
+  "cases": [
+    {"name": "no setup", "setup": null, "now": 0, "expect": null, "notice": null},
+    {"name": "active", "setup": {"status": "active", "errorCode": null, "updatedAt": 0}, "now": 99999999, "expect": null, "notice": null},
+    {"name": "pending, just started", "setup": {"status": "pending", "errorCode": null, "updatedAt": 1000000}, "now": 1600000, "expect": null, "notice": "working"},
+    {"name": "pending, exactly half an hour", "setup": {"status": "pending", "errorCode": null, "updatedAt": 0}, "now": 1800000, "expect": null, "notice": "working"},
+    {"name": "pending, over half an hour", "setup": {"status": "pending", "errorCode": null, "updatedAt": 0}, "now": 1800001, "expect": "stalled", "notice": "error"},
+    {"name": "verifying, stalled", "setup": {"status": "verifying", "errorCode": null, "updatedAt": 0}, "now": 5000000, "expect": "stalled", "notice": "error"},
+    {"name": "verifying, no time", "setup": {"status": "verifying", "errorCode": null, "updatedAt": null}, "now": 5000000, "expect": null, "notice": "working"},
+    {"name": "confirm by hand", "setup": {"status": "verifying", "errorCode": "confirm-by-hand", "updatedAt": 0}, "now": 1000, "expect": "error", "notice": "error"},
+    {"name": "not configured", "setup": {"status": "pending", "errorCode": "not-configured", "updatedAt": 0}, "now": 1000, "expect": "error", "notice": "error"},
+    {"name": "cloudflare retrying", "setup": {"status": "pending", "errorCode": "cloudflare", "updatedAt": 0}, "now": 1000, "expect": null, "notice": "working"},
+    {"name": "cloudflare, stalled", "setup": {"status": "pending", "errorCode": "cloudflare", "updatedAt": 0}, "now": 2000000, "expect": "stalled", "notice": "error"},
+    {"name": "releasing, slow", "setup": {"status": "releasing", "errorCode": null, "updatedAt": 0}, "now": 9000000, "expect": null, "notice": null}
+  ]
+}

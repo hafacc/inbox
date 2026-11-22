@@ -1,0 +1,184 @@
+{
+  "_doc": {
+    "about": "Typing not yet saved, undo, and the end of an edit, over the todos Firestore holds. Run by shared/src/todos/typing.spec.ts and Android :core TodoTypingFixturesTest.",
+    "todos": "Every todo here, in and out, is `base` with the listed fields replaced. Times are epoch milliseconds; snoozeUntil is local YYYY-MM-DDTHH:mm:ss read in `zone`.",
+    "typing": "withTyping(stored, typing, now): `stored` as Firestore last gave it, `typing` the unsaved text by id; `out` the todos shown and saved. Only the text edit is laid over a newer stored copy.",
+    "undo": "undoneTodo(before, current, now): `before` the todo before the action, `current` the live one now (null once deleted); `out` what the undo writes.",
+    "ended": "todoEditEnded(todo, startText, now): `todo` as editing it ends (its typing laid over), `startText` its text when editing began (null for a todo new in this edit); `out` what the end writes. Only changed text stamps modifiedAt, once, as editing ends."
+  },
+  "zone": "America/New_York",
+  "base": {
+    "id": "a",
+    "text": "Buy milk",
+    "state": "ACTIVE",
+    "createdAt": 1794400000000,
+    "modifiedAt": 1794400000000,
+    "snoozeUntil": null,
+    "pinned": false,
+    "position": null,
+    "deleted": false,
+    "repeat": null,
+    "repeatSpawned": false,
+    "occurrence": null
+  },
+  "typing": [
+    {
+      "name": "no typing leaves the stored todos",
+      "stored": [{}, { "id": "b", "text": "Call mom" }],
+      "typing": {},
+      "now": 1794492000000,
+      "out": [{}, { "id": "b", "text": "Call mom" }]
+    },
+    {
+      "name": "typing shows on its own todo only",
+      "stored": [{}, { "id": "b", "text": "Call mom" }],
+      "typing": { "b": "Call dad" },
+      "now": 1794492000000,
+      "out": [{}, { "id": "b", "text": "Call dad" }]
+    },
+    {
+      "name": "done on another device stays done, with the typed text",
+      "stored": [{ "state": "DONE", "modifiedAt": 1794490000000 }],
+      "typing": { "a": "Buy oat milk" },
+      "now": 1794492000000,
+      "out": [
+        { "state": "DONE", "modifiedAt": 1794490000000, "text": "Buy oat milk" }
+      ]
+    },
+    {
+      "name": "pinned and snoozed on another device keeps both",
+      "stored": [
+        {
+          "pinned": true,
+          "snoozeUntil": "2026-11-12T12:00:00",
+          "modifiedAt": 1794490000000
+        }
+      ],
+      "typing": { "a": "Buy oat milk" },
+      "now": 1794492000000,
+      "out": [
+        {
+          "pinned": true,
+          "snoozeUntil": "2026-11-12T12:00:00",
+          "modifiedAt": 1794490000000,
+          "text": "Buy oat milk"
+        }
+      ]
+    },
+    {
+      "name": "a todo that woke from a snooze keeps where it sits",
+      "stored": [
+        { "snoozeUntil": "2026-11-12T08:00:00", "modifiedAt": 1794405600000 }
+      ],
+      "typing": { "a": "Buy oat milk" },
+      "now": 1794492000000,
+      "out": [{ "text": "Buy oat milk", "modifiedAt": 1794488400000 }]
+    },
+    {
+      "name": "deleted on another device stays gone",
+      "stored": [{ "id": "b", "text": "Call mom" }],
+      "typing": { "a": "Buy oat milk" },
+      "now": 1794492000000,
+      "out": [{ "id": "b", "text": "Call mom" }]
+    }
+  ],
+  "undo": [
+    {
+      "name": "nothing typed since: as it was",
+      "before": {},
+      "current": { "state": "DONE", "modifiedAt": 1794490000000 },
+      "now": 1794492000000,
+      "out": {}
+    },
+    {
+      "name": "typed since: as it was, with the new text",
+      "before": { "pinned": true },
+      "current": {
+        "state": "DONE",
+        "modifiedAt": 1794490000000,
+        "text": "Buy oat milk"
+      },
+      "now": 1794492000000,
+      "out": { "pinned": true, "text": "Buy oat milk" }
+    },
+    {
+      "name": "deleted: comes back as it was",
+      "before": {},
+      "current": null,
+      "now": 1794492000000,
+      "out": {}
+    },
+    {
+      "name": "typed since into a todo that woke from a snooze: keeps where it sat",
+      "before": {
+        "snoozeUntil": "2026-11-12T08:00:00",
+        "modifiedAt": 1794405600000
+      },
+      "current": {
+        "state": "DONE",
+        "modifiedAt": 1794490000000,
+        "text": "Buy oat milk"
+      },
+      "now": 1794492000000,
+      "out": { "text": "Buy oat milk", "modifiedAt": 1794488400000 }
+    }
+  ],
+  "ended": [
+    {
+      "name": "text as it was keeps its place",
+      "todo": {},
+      "startText": "Buy milk",
+      "now": 1794492000000,
+      "out": {}
+    },
+    {
+      "name": "changed text stamps the end time",
+      "todo": { "text": "Buy oat milk" },
+      "startText": "Buy milk",
+      "now": 1794492000000,
+      "out": { "text": "Buy oat milk", "modifiedAt": 1794492000000 }
+    },
+    {
+      "name": "a todo new in this edit keeps its time",
+      "todo": { "text": "Buy oat milk" },
+      "startText": null,
+      "now": 1794492000000,
+      "out": { "text": "Buy oat milk" }
+    },
+    {
+      "name": "a moved todo leaves its place",
+      "todo": { "text": "Buy oat milk", "position": "1794450000000i0f8fad5bz" },
+      "startText": "Buy milk",
+      "now": 1794492000000,
+      "out": { "text": "Buy oat milk", "modifiedAt": 1794492000000 }
+    },
+    {
+      "name": "pinned stays pinned",
+      "todo": { "text": "Buy oat milk", "pinned": true },
+      "startText": "Buy milk",
+      "now": 1794492000000,
+      "out": { "text": "Buy oat milk", "pinned": true, "modifiedAt": 1794492000000 }
+    },
+    {
+      "name": "done stays done",
+      "todo": { "text": "Buy oat milk", "state": "DONE", "modifiedAt": 1794490000000 },
+      "startText": "Buy milk",
+      "now": 1794492000000,
+      "out": { "text": "Buy oat milk", "state": "DONE", "modifiedAt": 1794492000000 }
+    },
+    {
+      "name": "snoozed stays snoozed",
+      "todo": { "text": "Buy oat milk", "snoozeUntil": "2026-11-12T12:00:00" },
+      "startText": "Buy milk",
+      "now": 1794492000000,
+      "out": { "text": "Buy oat milk", "snoozeUntil": "2026-11-12T12:00:00", "modifiedAt": 1794492000000 }
+    },
+    {
+      "name": "woken from a snooze leaves the snooze",
+      "todo": { "text": "Buy oat milk", "snoozeUntil": "2026-11-12T08:00:00" },
+      "startText": "Buy milk",
+      "now": 1794492000000,
+      "out": { "text": "Buy oat milk", "modifiedAt": 1794492000000 }
+    }
+  ]
+}

@@ -1,0 +1,1244 @@
+{
+  "_doc": {
+    "about": "Dark mode's turning of mail colors, run by web (web/src/lib/dark-mail.spec.ts, shared/src/dark-mail.spec.ts) and Android :core (DarkMailFixturesTest). Colors are [red, green, blue] or [red, green, blue, alpha]; expected colors are CSS as cssColor writes them (#rrggbb, or rgba(…) when not opaque), compared allowing 1 per channel for float differences.",
+    "emails": "darkenMessageHtml(html, { palette, colorSchemes, plain }). `unchanged`: the output is the input, exactly. Otherwise each `expect` entry names an element; the last `color` / `background-color` in its output style attribute must be the given color. Every color in the output's <style> sheets is collected: `sheetColors` must all be among them, `sheetAbsent` none. `inline`: the colors in that declaration of the element's output style, in order."
+  },
+  "palette": {
+    "page": [
+      32,
+      30,
+      27
+    ],
+    "text": [
+      238,
+      234,
+      226
+    ],
+    "link": [
+      163,
+      216,
+      188
+    ]
+  },
+  "parsing": [
+    {
+      "kind": "hex",
+      "input": "fff",
+      "expect": "#ffffff"
+    },
+    {
+      "kind": "hex",
+      "input": "FFFFFF",
+      "expect": "#ffffff"
+    },
+    {
+      "kind": "hex",
+      "input": "1a73e8",
+      "expect": "#1a73e8"
+    },
+    {
+      "kind": "hex",
+      "input": "fff8",
+      "expect": "rgba(255, 255, 255, 0.533)"
+    },
+    {
+      "kind": "hex",
+      "input": "11223380",
+      "expect": "rgba(17, 34, 51, 0.502)"
+    },
+    {
+      "kind": "hex",
+      "input": "ggg",
+      "expect": null
+    },
+    {
+      "kind": "hex",
+      "input": "12345",
+      "expect": null
+    },
+    {
+      "kind": "named",
+      "input": "White",
+      "expect": "#ffffff"
+    },
+    {
+      "kind": "named",
+      "input": "rebeccapurple",
+      "expect": "#663399"
+    },
+    {
+      "kind": "named",
+      "input": "transparent",
+      "expect": "rgba(0, 0, 0, 0)"
+    },
+    {
+      "kind": "named",
+      "input": "solid",
+      "expect": null
+    },
+    {
+      "kind": "named",
+      "input": "_doc",
+      "expect": null
+    },
+    {
+      "kind": "function",
+      "input": "rgb",
+      "args": [
+        {
+          "value": 255,
+          "unit": ""
+        },
+        {
+          "value": 0,
+          "unit": ""
+        },
+        {
+          "value": 0,
+          "unit": ""
+        }
+      ],
+      "expect": "#ff0000"
+    },
+    {
+      "kind": "function",
+      "input": "rgba",
+      "args": [
+        {
+          "value": 0,
+          "unit": ""
+        },
+        {
+          "value": 0,
+          "unit": ""
+        },
+        {
+          "value": 0,
+          "unit": ""
+        },
+        {
+          "value": 0.54,
+          "unit": ""
+        }
+      ],
+      "expect": "rgba(0, 0, 0, 0.54)"
+    },
+    {
+      "kind": "function",
+      "input": "rgb",
+      "args": [
+        {
+          "value": 100,
+          "unit": "%"
+        },
+        {
+          "value": 50,
+          "unit": "%"
+        },
+        {
+          "value": 0,
+          "unit": "%"
+        }
+      ],
+      "expect": "#ff7f00"
+    },
+    {
+      "kind": "function",
+      "input": "rgb",
+      "args": [
+        {
+          "value": 10,
+          "unit": ""
+        },
+        {
+          "value": 20,
+          "unit": ""
+        },
+        {
+          "value": 30,
+          "unit": ""
+        },
+        {
+          "value": 50,
+          "unit": "%"
+        }
+      ],
+      "expect": "rgba(10, 20, 30, 0.5)"
+    },
+    {
+      "kind": "function",
+      "input": "hsl",
+      "args": [
+        {
+          "value": 120,
+          "unit": "deg"
+        },
+        {
+          "value": 100,
+          "unit": "%"
+        },
+        {
+          "value": 25,
+          "unit": "%"
+        }
+      ],
+      "expect": "#008000"
+    },
+    {
+      "kind": "function",
+      "input": "hsla",
+      "args": [
+        {
+          "value": 210,
+          "unit": ""
+        },
+        {
+          "value": 60,
+          "unit": "%"
+        },
+        {
+          "value": 30,
+          "unit": "%"
+        },
+        {
+          "value": 0.5,
+          "unit": ""
+        }
+      ],
+      "expect": "rgba(31, 77, 122, 0.5)"
+    },
+    {
+      "kind": "function",
+      "input": "hsl",
+      "args": [
+        {
+          "value": 0.5,
+          "unit": "turn"
+        },
+        {
+          "value": 100,
+          "unit": "%"
+        },
+        {
+          "value": 50,
+          "unit": "%"
+        }
+      ],
+      "expect": "#00ffff"
+    },
+    {
+      "kind": "function",
+      "input": "hsl",
+      "args": [
+        {
+          "value": 30,
+          "unit": ""
+        },
+        {
+          "value": 50,
+          "unit": ""
+        },
+        {
+          "value": 50,
+          "unit": "%"
+        }
+      ],
+      "expect": null
+    },
+    {
+      "kind": "function",
+      "input": "rgb",
+      "args": [
+        {
+          "value": 1,
+          "unit": ""
+        },
+        {
+          "value": 2,
+          "unit": ""
+        }
+      ],
+      "expect": null
+    },
+    {
+      "kind": "function",
+      "input": "lab",
+      "args": [
+        {
+          "value": 50,
+          "unit": "%"
+        },
+        {
+          "value": 20,
+          "unit": ""
+        },
+        {
+          "value": 30,
+          "unit": ""
+        }
+      ],
+      "expect": null
+    },
+    {
+      "kind": "attribute",
+      "input": "#fff",
+      "expect": "#ffffff"
+    },
+    {
+      "kind": "attribute",
+      "input": "ffffff",
+      "expect": "#ffffff"
+    },
+    {
+      "kind": "attribute",
+      "input": " White ",
+      "expect": "#ffffff"
+    },
+    {
+      "kind": "attribute",
+      "input": "fff",
+      "expect": null
+    },
+    {
+      "kind": "attribute",
+      "input": "",
+      "expect": null
+    },
+    {
+      "kind": "attribute",
+      "input": "transparent",
+      "expect": null
+    },
+    {
+      "kind": "attribute",
+      "input": "#12345",
+      "expect": null
+    },
+    {
+      "kind": "attribute",
+      "input": "#1A73E8",
+      "expect": "#1a73e8"
+    }
+  ],
+  "turned": [
+    {
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "role": "background",
+      "expect": "#1e1e1e"
+    },
+    {
+      "color": [
+        242,
+        242,
+        242
+      ],
+      "role": "background",
+      "expect": "#252525"
+    },
+    {
+      "color": [
+        255,
+        244,
+        214
+      ],
+      "role": "background",
+      "expect": "#26241e"
+    },
+    {
+      "color": [
+        43,
+        170,
+        223
+      ],
+      "role": "background",
+      "expect": "#146181"
+    },
+    {
+      "color": [
+        255,
+        255,
+        0
+      ],
+      "role": "background",
+      "expect": "#262600"
+    },
+    {
+      "color": [
+        0,
+        0,
+        0
+      ],
+      "role": "background",
+      "expect": "#000000"
+    },
+    {
+      "color": [
+        11,
+        61,
+        46
+      ],
+      "role": "background",
+      "expect": "#0b3d2e"
+    },
+    {
+      "color": [
+        255,
+        255,
+        255,
+        0.5
+      ],
+      "role": "background",
+      "expect": "rgba(30, 30, 30, 0.5)"
+    },
+    {
+      "color": [
+        0,
+        0,
+        0
+      ],
+      "role": "text",
+      "expect": "#eaeaea"
+    },
+    {
+      "color": [
+        68,
+        68,
+        68
+      ],
+      "role": "text",
+      "expect": "#989898"
+    },
+    {
+      "color": [
+        204,
+        0,
+        0
+      ],
+      "role": "text",
+      "expect": "#e0291e"
+    },
+    {
+      "color": [
+        26,
+        13,
+        171
+      ],
+      "role": "text",
+      "expect": "#7999ff"
+    },
+    {
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "role": "text",
+      "expect": "#ffffff"
+    },
+    {
+      "color": [
+        0,
+        0,
+        0,
+        0.54
+      ],
+      "role": "text",
+      "expect": "rgba(234, 234, 234, 0.54)"
+    }
+  ],
+  "readable": [
+    {
+      "text": [
+        204,
+        204,
+        0
+      ],
+      "background": [
+        35,
+        35,
+        17
+      ],
+      "expect": "#cccc00"
+    },
+    {
+      "text": [
+        136,
+        136,
+        136
+      ],
+      "background": [
+        30,
+        30,
+        30
+      ],
+      "expect": "#888888"
+    },
+    {
+      "text": [
+        80,
+        80,
+        200
+      ],
+      "background": [
+        30,
+        30,
+        30
+      ],
+      "expect": "#7178f3"
+    },
+    {
+      "text": [
+        255,
+        255,
+        255
+      ],
+      "background": [
+        136,
+        136,
+        136
+      ],
+      "expect": "#222121"
+    },
+    {
+      "text": [
+        200,
+        200,
+        200
+      ],
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "expect": "#777676"
+    },
+    {
+      "text": [
+        238,
+        234,
+        226
+      ],
+      "background": [
+        32,
+        30,
+        27
+      ],
+      "expect": "#eeeae2"
+    },
+    {
+      "text": [
+        255,
+        0,
+        0
+      ],
+      "background": [
+        255,
+        120,
+        120
+      ],
+      "expect": "#790000"
+    }
+  ],
+  "roles": [
+    {
+      "property": "color",
+      "role": "text"
+    },
+    {
+      "property": "COLOR",
+      "role": "text"
+    },
+    {
+      "property": "background",
+      "role": "background"
+    },
+    {
+      "property": "background-color",
+      "role": "background"
+    },
+    {
+      "property": "background-image",
+      "role": "background"
+    },
+    {
+      "property": "border",
+      "role": "background"
+    },
+    {
+      "property": "border-top-color",
+      "role": "background"
+    },
+    {
+      "property": "outline",
+      "role": "background"
+    },
+    {
+      "property": "box-shadow",
+      "role": "background"
+    },
+    {
+      "property": "text-shadow",
+      "role": "background"
+    },
+    {
+      "property": "text-decoration-color",
+      "role": "text"
+    },
+    {
+      "property": "-webkit-text-fill-color",
+      "role": "text"
+    },
+    {
+      "property": "column-rule-color",
+      "role": "background"
+    },
+    {
+      "property": "font-family",
+      "role": null
+    },
+    {
+      "property": "width",
+      "role": null
+    },
+    {
+      "property": "fill",
+      "role": null
+    }
+  ],
+  "media": [
+    {
+      "query": "screen",
+      "applies": true
+    },
+    {
+      "query": "all",
+      "applies": true
+    },
+    {
+      "query": "only screen and (max-width:600px)",
+      "applies": true
+    },
+    {
+      "query": "only screen and (max-width: 480px)",
+      "applies": true
+    },
+    {
+      "query": "print",
+      "applies": false
+    },
+    {
+      "query": "screen and (prefers-color-scheme: dark)",
+      "applies": false
+    },
+    {
+      "query": "(prefers-color-scheme:light)",
+      "applies": false
+    },
+    {
+      "query": "not all and (monochrome)",
+      "applies": false
+    },
+    {
+      "query": "speech",
+      "applies": false
+    }
+  ],
+  "ownDark": [
+    {
+      "media": [],
+      "colorSchemes": [],
+      "own": false
+    },
+    {
+      "media": [
+        "(prefers-color-scheme: dark)"
+      ],
+      "colorSchemes": [],
+      "own": true
+    },
+    {
+      "media": [
+        "only screen and (PREFERS-COLOR-SCHEME:DARK)"
+      ],
+      "colorSchemes": [],
+      "own": true
+    },
+    {
+      "media": [
+        "only screen and (max-width: 600px)"
+      ],
+      "colorSchemes": [],
+      "own": false
+    },
+    {
+      "media": [
+        "(prefers-color-scheme: light)"
+      ],
+      "colorSchemes": [],
+      "own": false
+    },
+    {
+      "media": [],
+      "colorSchemes": [
+        "light dark"
+      ],
+      "own": true
+    },
+    {
+      "media": [],
+      "colorSchemes": [
+        "light, dark"
+      ],
+      "own": true
+    },
+    {
+      "media": [],
+      "colorSchemes": [
+        "only light"
+      ],
+      "own": false
+    },
+    {
+      "media": [],
+      "colorSchemes": [
+        "normal"
+      ],
+      "own": false
+    },
+    {
+      "media": [],
+      "colorSchemes": [
+        "darkness"
+      ],
+      "own": false
+    }
+  ],
+  "darkMail": [
+    {
+      "samples": [],
+      "dark": false
+    },
+    {
+      "samples": [
+        {
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "weight": 100
+        }
+      ],
+      "dark": false
+    },
+    {
+      "samples": [
+        {
+          "background": [
+            17,
+            17,
+            17
+          ],
+          "weight": 300
+        },
+        {
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "weight": 20
+        }
+      ],
+      "dark": true
+    },
+    {
+      "samples": [
+        {
+          "background": [
+            0,
+            0,
+            0
+          ],
+          "weight": 50
+        },
+        {
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "weight": 50
+        }
+      ],
+      "dark": false
+    },
+    {
+      "samples": [
+        {
+          "background": [
+            100,
+            100,
+            100
+          ],
+          "weight": 10
+        }
+      ],
+      "dark": true
+    },
+    {
+      "samples": [
+        {
+          "background": [
+            128,
+            128,
+            128
+          ],
+          "weight": 10
+        }
+      ],
+      "dark": false
+    },
+    {
+      "samples": [
+        {
+          "background": [
+            0,
+            51,
+            102
+          ],
+          "weight": 40
+        },
+        {
+          "background": [
+            255,
+            244,
+            214
+          ],
+          "weight": 30
+        }
+      ],
+      "dark": true
+    }
+  ],
+  "lengths": [
+    {
+      "text": "Hello",
+      "length": 5
+    },
+    {
+      "text": "  Hi there \n",
+      "length": 7
+    },
+    {
+      "text": "  ",
+      "length": 0
+    },
+    {
+      "text": "a\tb c",
+      "length": 3
+    },
+    {
+      "text": "é ü",
+      "length": 2
+    }
+  ],
+  "emails": [
+    {
+      "name": "retail newsletter: nested tables, bgcolor, a style block and a dark button",
+      "html": "<style type=\"text/css\">\nhtml, body { margin:0 !important; background-color:#f2f2f2 !important; }\ntable, td { border-collapse:collapse; }\n.headline { font-size:28px; color:#111111; font-weight:bold; }\n.copy { color:#444444; font-size:15px; }\n.btn a { background:#1b1b1b; color:#ffffff !important; padding:14px 28px; display:inline-block; }\n.footer td { color:#8a8a8a; font-size:12px; }\n@media only screen and (max-width:600px) { .container { width:100% !important; } .copy { color:#555555 !important; } }\n</style>\n<div id=\"outer\" style=\"background-color:#f2f2f2;\">\n<table role=\"presentation\" width=\"100%\" bgcolor=\"#f2f2f2\"><tr><td align=\"center\" style=\"padding:20px 0;\">\n<table role=\"presentation\" class=\"container\" id=\"card\" width=\"600\" bgcolor=\"#ffffff\" style=\"background:#ffffff;\">\n<tr><td align=\"center\" style=\"padding:24px;\"><img src=\"data:image/png;base64,iVBORw0KGgo=\" width=\"140\" alt=\"Tailor Store\"></td></tr>\n<tr><td id=\"headline\" align=\"center\" class=\"headline\">The Winter Edit is here</td></tr>\n<tr><td id=\"copy\" align=\"center\" class=\"copy\">Tailored wool coats, merino knits and chinos.</td></tr>\n<tr><td align=\"center\" class=\"btn\"><a id=\"button\" href=\"https://example.com/shop\">SHOP NOW</a></td></tr>\n<tr><td><table width=\"100%\"><tr>\n<td id=\"tile1\" width=\"50%\" bgcolor=\"#f7f3ee\"><b id=\"tile1-name\" style=\"color:#5a3e2b\">Wool overcoat</b><br><span id=\"tile1-price\" style=\"color:#7a6a5a\">$289</span></td>\n<td id=\"tile2\" width=\"50%\" bgcolor=\"#eef3f7\"><b id=\"tile2-name\" style=\"color:#2b405a\">Merino crew</b></td>\n</tr></table></td></tr>\n<tr><td id=\"promo\" bgcolor=\"#fff4d6\" style=\"padding:12px 24px;color:#7a5b00;\" align=\"center\">Use code <strong id=\"code\">WARM20</strong> for 20% off</td></tr>\n<tr class=\"footer\"><td id=\"footer\" bgcolor=\"#e9e9e9\" align=\"center\">You are receiving this because you signed up.<br><a id=\"unsubscribe\" href=\"https://example.com/unsub\" style=\"color:#8a8a8a\">Unsubscribe</a></td></tr>\n</table></td></tr></table></div>",
+      "colorSchemes": [],
+      "plain": false,
+      "expect": [
+        {
+          "selector": "#outer",
+          "background": "#252525"
+        },
+        {
+          "selector": "#card",
+          "background": "#1e1e1e"
+        },
+        {
+          "selector": "#headline",
+          "color": "#c4c4c4"
+        },
+        {
+          "selector": "#copy",
+          "color": "#8c8c8c"
+        },
+        {
+          "selector": "#button",
+          "color": "#ffffff",
+          "background": "#1b1b1b"
+        },
+        {
+          "selector": "#tile1",
+          "background": "#252423"
+        },
+        {
+          "selector": "#tile1-name",
+          "color": "#b1907b"
+        },
+        {
+          "selector": "#tile1-price",
+          "color": "#988877"
+        },
+        {
+          "selector": "#tile2",
+          "background": "#242526"
+        },
+        {
+          "selector": "#tile2-name",
+          "color": "#879fbd"
+        },
+        {
+          "selector": "#promo",
+          "color": "#a6863b",
+          "background": "#26241e"
+        },
+        {
+          "selector": "#code",
+          "color": "#a6863b"
+        },
+        {
+          "selector": "#footer",
+          "color": "#919090",
+          "background": "#2a2a2a"
+        },
+        {
+          "selector": "#unsubscribe",
+          "color": "#919090"
+        }
+      ],
+      "sheetColors": [
+        "#1b1b1b",
+        "#ffffff"
+      ],
+      "sheetAbsent": [
+        "#f2f2f2",
+        "#111111",
+        "#444444",
+        "#555555"
+      ]
+    },
+    {
+      "name": "Mailchimp-style template: id rules, background-image:none, light gray footer and a border",
+      "html": "<style type=\"text/css\">\nbody,#bodyTable{background-color:#FAFAFA;}\n#templateHeader{background-color:#FFFFFF;background-image:none;}\n#templateBody{background-color:#FFFFFF;background-image:none;border-bottom:2px solid #EAEAEA;}\n#templateFooter{background-color:#FAFAFA;background-image:none;}\n#templateBody .mcnTextContent,#templateBody .mcnTextContent p{color:#202020;}\n#templateFooter .mcnTextContent{color:#656565;}\n#templateFooter .mcnTextContent a{color:#656565;}\nh1{color:#202020;}\na:hover{color:#0a0a0a;}\n</style>\n<center><table id=\"bodyTable\" width=\"100%\"><tr><td id=\"bodyCell\">\n<table width=\"100%\" style=\"max-width:600px\">\n<tr><td id=\"templateHeader\" style=\"background:#FFFFFF none no-repeat center/cover;background-color:#FFFFFF;background-image:none;\"><img src=\"data:image/png;base64,iVBORw0KGgo=\" alt=\"Logo\"></td></tr>\n<tr><td id=\"templateBody\" style=\"background:#FFFFFF none no-repeat center/cover;background-color:#FFFFFF;background-image:none;\"><div class=\"mcnTextContent\"><h1 id=\"title\">November newsletter</h1><p id=\"para\">Here's what's new this month.</p><p><a id=\"cta\" href=\"https://example.com\" style=\"background-color:#2baadf;color:#ffffff;padding:12px 20px;\">Read more</a></p></div></td></tr>\n<tr><td id=\"templateFooter\" style=\"background:#FAFAFA none no-repeat center/cover;background-color:#FAFAFA;background-image:none;\"><div class=\"mcnTextContent\"><em id=\"copyright\">Copyright © 2026 The Shop.</em><br><a id=\"unsub\" href=\"https://example.com/u\">unsubscribe from this list</a></div></td></tr>\n</table></td></tr></table></center>",
+      "colorSchemes": [],
+      "plain": false,
+      "expect": [
+        {
+          "selector": "#bodyTable",
+          "background": "#212121"
+        },
+        {
+          "selector": "#templateHeader",
+          "background": "#1e1e1e"
+        },
+        {
+          "selector": "#templateBody",
+          "background": "#1e1e1e"
+        },
+        {
+          "selector": "#templateFooter",
+          "background": "#212121"
+        },
+        {
+          "selector": "#title",
+          "color": "#b6b6b6"
+        },
+        {
+          "selector": "#para",
+          "color": "#b6b6b6"
+        },
+        {
+          "selector": "#copyright",
+          "color": "#888887"
+        },
+        {
+          "selector": "#unsub",
+          "color": "#888887"
+        },
+        {
+          "selector": "#cta",
+          "color": "#ffffff",
+          "background": "#146181"
+        }
+      ],
+      "sheetAbsent": [
+        "#fafafa",
+        "#ffffff",
+        "#eaeaea",
+        "#202020",
+        "#656565",
+        "#0a0a0a"
+      ]
+    },
+    {
+      "name": "hero with a background image over a fallback color, and a dark header band",
+      "html": "<table width=\"100%\" bgcolor=\"#ffffff\"><tr><td align=\"center\">\n<table width=\"600\" style=\"background-color:#ffffff\">\n<tr><td id=\"band\" bgcolor=\"#0b3d2e\" align=\"center\"><img src=\"data:image/png;base64,iVBORw0KGgo=\" alt=\"Brand\"></td></tr>\n<tr><td id=\"hero\" background=\"https://img.example/hero.jpg\" style=\"background-image:url('https://img.example/hero.jpg');background-color:#d9c6a5;text-align:center\"><span id=\"hero-text\" style=\"font-size:30px;color:#ffffff\">Up to 40% off</span></td></tr>\n<tr><td id=\"body\" style=\"color:#333333\">Our seasonal sale ends Sunday.</td></tr>\n<tr><td id=\"foot\" style=\"background:#f5f5f5;color:#999999;font-size:12px\">Sent by Brand Inc.</td></tr>\n</table></td></tr></table>",
+      "colorSchemes": [],
+      "plain": false,
+      "expect": [
+        {
+          "selector": "#band",
+          "background": "#0b3d2e"
+        },
+        {
+          "selector": "#hero",
+          "background": "#433c31"
+        },
+        {
+          "selector": "#hero-text",
+          "color": "#ffffff"
+        },
+        {
+          "selector": "#body",
+          "color": "#a6a6a6"
+        },
+        {
+          "selector": "#foot",
+          "color": "#999999",
+          "background": "#242424"
+        }
+      ]
+    },
+    {
+      "name": "transactional receipt: plain text color on default white, a gray rule and rgba muted text",
+      "html": "<div style=\"font-family:Arial\">\n<p id=\"greeting\">Hi Jordan,</p>\n<p id=\"muted\" style=\"color:rgba(0,0,0,0.54)\">Order #10423 · Placed today</p>\n<table style=\"border-top:1px solid #dddddd;width:100%\"><tr><td id=\"item\">Merino crew</td><td id=\"price\" align=\"right\" style=\"color:hsl(210, 60%, 30%)\">$89.00</td></tr></table>\n<p><font id=\"note\" color=\"#cc0000\">Final sale items can't be returned.</font></p>\n<p><a id=\"link\" href=\"https://example.com/orders\">View your order</a></p>\n</div>",
+      "colorSchemes": [],
+      "plain": false,
+      "expect": [
+        {
+          "selector": "#greeting",
+          "color": "#eeeae2"
+        },
+        {
+          "selector": "#muted",
+          "color": "#858584"
+        },
+        {
+          "selector": "#item",
+          "color": "#eeeae2"
+        },
+        {
+          "selector": "#price",
+          "color": "#6898ca"
+        },
+        {
+          "selector": "#note",
+          "color": "#f54132"
+        },
+        {
+          "selector": "#link",
+          "color": "#a3d8bc"
+        }
+      ],
+      "inline": [
+        {
+          "selector": "table",
+          "property": "border-top",
+          "colors": [
+            "#313131"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "already dark: dark tables with light text stay as sent",
+      "html": "<style>body{background:#111111}.wrap{background-color:#111111;color:#eeeeee}.muted{color:#555555}</style>\n<table width=\"100%\" class=\"wrap\" bgcolor=\"#111111\"><tr><td align=\"center\">\n<table width=\"600\" bgcolor=\"#1c1c1c\">\n<tr><td style=\"color:#ffffff;font-size:24px\">Late-night drops</td></tr>\n<tr><td style=\"color:#cccccc\">New pieces land at midnight. Set a reminder so you don't miss out.</td></tr>\n<tr><td><a href=\"https://example.com\" style=\"background:#ff4f9a;color:#111111\">Remind me</a></td></tr>\n<tr><td style=\"background:#ffffff;color:#000000\">A white strip</td></tr>\n<tr><td class=\"muted\">You're on the Night Owl list.</td></tr>\n</table></td></tr></table>",
+      "colorSchemes": [],
+      "plain": false,
+      "unchanged": true
+    },
+    {
+      "name": "own dark design by media query stays as sent",
+      "html": "<style>.wrap{background:#ffffff;color:#222222}@media (prefers-color-scheme: dark){.wrap{background:#0f1720 !important;color:#e6e6e6 !important}}</style><table class=\"wrap\"><tr><td>Your order has shipped</td></tr></table>",
+      "colorSchemes": [],
+      "plain": false,
+      "unchanged": true
+    },
+    {
+      "name": "own dark design by meta tag stays as sent",
+      "html": "<table bgcolor=\"#ffffff\"><tr><td style=\"color:#222222\">Your order has shipped</td></tr></table>",
+      "colorSchemes": [
+        "light dark"
+      ],
+      "plain": false,
+      "unchanged": true
+    },
+    {
+      "name": "own dark design by color-scheme CSS stays as sent",
+      "html": "<style>:root{color-scheme:light dark}</style><table bgcolor=\"#ffffff\"><tr><td style=\"color:#222222\">Your order has shipped</td></tr></table>",
+      "colorSchemes": [],
+      "plain": false,
+      "unchanged": true
+    },
+    {
+      "name": "a light-only color scheme doesn't count as a dark design",
+      "html": "<style>:root{color-scheme:light only}</style><table id=\"table\" bgcolor=\"#ffffff\"><tr><td id=\"cell\" style=\"color:#222222\">Your order has shipped</td></tr></table>",
+      "colorSchemes": [],
+      "plain": false,
+      "expect": [
+        {
+          "selector": "#table",
+          "background": "#1e1e1e"
+        },
+        {
+          "selector": "#cell",
+          "color": "#b4b4b4"
+        }
+      ]
+    },
+    {
+      "name": "cascade: important beats inline, inline beats ids, ids beat classes, later beats earlier",
+      "html": "<style>\n.box{background:#ffeeee}\n#a{background:#eeffee}\n.box{background:#eeeeff}\np.note{color:#003300 !important}\n.note{color:#330000}\n</style>\n<div id=\"a\" class=\"box\">by id</div>\n<div id=\"b\" class=\"box\">by later class</div>\n<div id=\"c\" class=\"box\" style=\"background-color:#fffbe6\">inline</div>\n<p id=\"d\" class=\"note\" style=\"color:#000033\">important rule over inline</p>",
+      "colorSchemes": [],
+      "plain": false,
+      "expect": [
+        {
+          "selector": "#a",
+          "background": "#1f221f"
+        },
+        {
+          "selector": "#b",
+          "background": "#26262a"
+        },
+        {
+          "selector": "#c",
+          "background": "#22211d"
+        },
+        {
+          "selector": "#d",
+          "color": "#8cbf87"
+        }
+      ]
+    },
+    {
+      "name": "inheritance, currentcolor, background shorthand reset and transparent",
+      "html": "<style>.panel{color:#004400;background-color:#ffffff}.panel .reset{background:url(https://img.example/x.png)}</style>\n<div class=\"panel\" id=\"panel\"><span id=\"inherits\">inherited green</span>\n<div class=\"reset\" id=\"reset\">shorthand without a color</div>\n<div id=\"current\" style=\"background-color:currentcolor;color:#ffffff\">white on its own color</div>\n<div id=\"clear\" style=\"background:transparent;color:inherit\">transparent</div></div>",
+      "colorSchemes": [],
+      "plain": false,
+      "expect": [
+        {
+          "selector": "#panel",
+          "background": "#1e1e1e"
+        },
+        {
+          "selector": "#inherits",
+          "color": "#78b573"
+        },
+        {
+          "selector": "#reset",
+          "color": "#78b573"
+        },
+        {
+          "selector": "#current",
+          "color": "#ffffff",
+          "background": "#1e1e1e"
+        },
+        {
+          "selector": "#clear",
+          "color": "#78b573"
+        }
+      ]
+    },
+    {
+      "name": "rules with dynamic pseudo-classes and pseudo-elements don't place colors; structural ones do",
+      "html": "<style>\na:hover{color:#ff0000}\np::first-line{color:#00ff00}\ntr:nth-child(2) td{background:#f0f0ff}\ntd:not(.skip){color:#202060}\n</style>\n<p id=\"p\">first line</p>\n<table><tr><td id=\"r1\">row one</td></tr><tr><td id=\"r2\">row two</td></tr><tr><td id=\"r3\" class=\"skip\">row three</td></tr></table>",
+      "colorSchemes": [],
+      "plain": false,
+      "expect": [
+        {
+          "selector": "#p",
+          "color": "#eeeae2"
+        },
+        {
+          "selector": "#r1",
+          "color": "#9ba6f2"
+        },
+        {
+          "selector": "#r2",
+          "color": "#9ba6f2",
+          "background": "#252528"
+        },
+        {
+          "selector": "#r3",
+          "color": "#eeeae2"
+        }
+      ],
+      "sheetColors": [
+        "#ff0000",
+        "#00ff00"
+      ],
+      "sheetAbsent": [
+        "#f0f0ff",
+        "#202060"
+      ]
+    },
+    {
+      "name": "print and color-scheme media don't place colors",
+      "html": "<style>@media print{.x{color:#ff0000}}@media (prefers-color-scheme: light){.x{background:#000000}}</style><p id=\"x\" class=\"x\">text</p>",
+      "colorSchemes": [],
+      "plain": false,
+      "expect": [
+        {
+          "selector": "#x",
+          "color": "#eeeae2"
+        }
+      ]
+    },
+    {
+      "name": "low-contrast text is made readable on its new background",
+      "html": "<div id=\"pale\" style=\"background:#ffff99;color:#cccc00\">yellow on yellow</div>\n<div id=\"mid\" style=\"background:#888888;color:#ffffff\">white on mid gray</div>\n<div id=\"dim\" style=\"background:#ffffff;color:#bbbbbb\">light gray on white</div>",
+      "colorSchemes": [],
+      "plain": false,
+      "expect": [
+        {
+          "selector": "#pale",
+          "color": "#cccc00",
+          "background": "#232311"
+        },
+        {
+          "selector": "#mid",
+          "color": "#ffffff",
+          "background": "#686868"
+        },
+        {
+          "selector": "#dim",
+          "color": "#bbbbbb",
+          "background": "#1e1e1e"
+        }
+      ]
+    },
+    {
+      "name": "plain mail's backgrounds give way to the page",
+      "html": "<table bgcolor=\"#ffffff\"><tr><td id=\"cell\" style=\"background:#fdfdfd;color:#333333\">Hi</td></tr></table>",
+      "colorSchemes": [],
+      "plain": true,
+      "expect": [
+        {
+          "selector": "#cell",
+          "color": "#a6a6a6"
+        }
+      ]
+    },
+    {
+      "name": "a semi-transparent tint is judged over what is behind it",
+      "html": "<div style=\"background:#ffffff\"><div id=\"tint\" style=\"background:rgba(0,0,0,0.05);color:#222222\">tinted</div></div>",
+      "colorSchemes": [],
+      "plain": false,
+      "expect": [
+        {
+          "selector": "#tint",
+          "color": "#b4b4b4",
+          "background": "#252525"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "labels": [
+    { "name": "done restores inbox, pin, spam and trash", "kind": "done", "touched": [], "expect": ["INBOX", "STARRED", "SPAM", "TRASH"] },
+    { "name": "snooze restores inbox, pin, spam and trash", "kind": "snooze", "touched": [], "expect": ["INBOX", "STARRED", "SPAM", "TRASH"] },
+    { "name": "pin restores inbox, pin, spam and trash", "kind": "pin", "touched": [], "expect": ["INBOX", "STARRED", "SPAM", "TRASH"] },
+    { "name": "spam restores inbox, pin, spam and trash", "kind": "spam", "touched": [], "expect": ["INBOX", "STARRED", "SPAM", "TRASH"] },
+    { "name": "trash restores inbox, pin, spam and trash", "kind": "trash", "touched": [], "expect": ["INBOX", "STARRED", "SPAM", "TRASH"] },
+    { "name": "a label change restores what it touched, once each", "kind": "label", "touched": ["Label_1", "Label_2", "Label_1"], "expect": ["Label_1", "Label_2"] },
+    { "name": "a move restores the categories it touched", "kind": "move", "touched": ["CATEGORY_UPDATES", "CATEGORY_SOCIAL"], "expect": ["CATEGORY_UPDATES", "CATEGORY_SOCIAL"] },
+    { "name": "mark read restores unread", "kind": "read", "touched": [], "expect": ["UNREAD"] },
+    { "name": "mark unread restores unread", "kind": "unread", "touched": ["UNREAD"], "expect": ["UNREAD"] }
+  ],
+  "change": [
+    { "name": "puts back a removed label", "before": ["INBOX", "UNREAD"], "current": ["UNREAD"], "restore": ["INBOX", "STARRED", "SPAM", "TRASH"], "expect": { "add": ["INBOX"], "remove": [] } },
+    { "name": "takes off an added label", "before": ["INBOX"], "current": ["INBOX", "Label_1"], "restore": ["Label_1"], "expect": { "add": [], "remove": ["Label_1"] } },
+    { "name": "moves back between categories", "before": ["INBOX", "CATEGORY_SOCIAL"], "current": ["INBOX", "CATEGORY_UPDATES"], "restore": ["CATEGORY_UPDATES", "CATEGORY_SOCIAL"], "expect": { "add": ["CATEGORY_SOCIAL"], "remove": ["CATEGORY_UPDATES"] } },
+    { "name": "leaves labels outside the restore set alone", "before": ["INBOX", "UNREAD"], "current": ["Label_9"], "restore": ["UNREAD"], "expect": { "add": ["UNREAD"], "remove": [] } },
+    { "name": "takes a thread back out of the trash", "before": ["INBOX", "UNREAD"], "current": ["UNREAD", "TRASH"], "restore": ["INBOX", "STARRED", "SPAM", "TRASH"], "expect": { "add": ["INBOX"], "remove": ["TRASH"] } },
+    { "name": "nothing when already as before", "before": ["INBOX"], "current": ["INBOX"], "restore": ["INBOX", "STARRED", "SPAM", "TRASH"], "expect": { "add": [], "remove": [] } }
+  ],
+  "snooze": { "done": true, "snooze": true, "spam": true, "pin": false, "notSpam": false, "trash": true, "delete": false, "move": false, "label": false, "read": false, "unread": false },
+  "merge": [
+    { "name": "keeps the earlier state of a thread both touched", "earlier": [{ "id": "a", "labelIds": ["INBOX"] }], "later": [{ "id": "a", "labelIds": ["INBOX", "Label_1"] }, { "id": "b", "labelIds": [] }], "expect": [{ "id": "a", "labelIds": ["INBOX"] }, { "id": "b", "labelIds": [] }] },
+    { "name": "nothing earlier", "earlier": [], "later": [{ "id": "b", "labelIds": ["INBOX"] }], "expect": [{ "id": "b", "labelIds": ["INBOX"] }] }
+  ],
+  "text": [
+    { "kind": "done", "count": 1, "pinned": false, "expect": "Done" },
+    { "kind": "done", "count": 3, "pinned": false, "expect": "3 done" },
+    { "kind": "snooze", "count": 1, "pinned": false, "expect": "Snoozed" },
+    { "kind": "snooze", "count": 2, "pinned": false, "expect": "2 snoozed" },
+    { "kind": "pin", "count": 1, "pinned": true, "expect": "Pinned" },
+    { "kind": "pin", "count": 2, "pinned": true, "expect": "2 pinned" },
+    { "kind": "pin", "count": 1, "pinned": false, "expect": "Unpinned" },
+    { "kind": "pin", "count": 4, "pinned": false, "expect": "4 unpinned" },
+    { "kind": "delete", "count": 1, "pinned": false, "expect": "Deleted" },
+    { "kind": "delete", "count": 2, "pinned": false, "expect": "2 deleted" },
+    { "kind": "move", "count": 1, "pinned": false, "expect": "Moved" },
+    { "kind": "move", "count": 2, "pinned": false, "expect": "2 moved" },
+    { "kind": "spam", "count": 1, "pinned": false, "expect": "Marked as spam" },
+    { "kind": "spam", "count": 2, "pinned": false, "expect": "2 marked as spam" },
+    { "kind": "notSpam", "count": 1, "pinned": false, "expect": "Moved to Inbox" },
+    { "kind": "notSpam", "count": 2, "pinned": false, "expect": "2 moved to Inbox" },
+    { "kind": "trash", "count": 1, "pinned": false, "expect": "Moved to trash" },
+    { "kind": "trash", "count": 2, "pinned": false, "expect": "2 moved to trash" },
+    { "kind": "label", "count": 1, "pinned": false, "expect": "Labels changed" },
+    { "kind": "label", "count": 3, "pinned": false, "expect": "Labels changed on 3" },
+    { "kind": "read", "count": 1, "pinned": false, "expect": "Marked as read" },
+    { "kind": "read", "count": 2, "pinned": false, "expect": "2 marked as read" },
+    { "kind": "unread", "count": 1, "pinned": false, "expect": "Marked as unread" },
+    { "kind": "unread", "count": 5, "pinned": false, "expect": "5 marked as unread" }
+  ]
+}
