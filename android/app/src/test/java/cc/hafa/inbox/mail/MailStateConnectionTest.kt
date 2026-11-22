@@ -13,8 +13,10 @@ import cc.hafa.inbox.core.mail.threadRowKey
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -82,6 +84,9 @@ class MailStateConnectionTest {
             onNotificationDoneFailed = {},
             focusOn = MutableStateFlow(false),
             transport = gmail,
+            // On the main thread, each call's outcome is applied as it happens, so a call left over
+            // from start can't land after a step the test took later.
+            gmailIo = Dispatchers.Main,
             gate = RateGate(now = { clock }, sleep = { clock += it }),
         )
     }
@@ -114,10 +119,11 @@ class MailStateConnectionTest {
     fun `the network coming back clears the mark at once`() {
         val state = build("connection-network-test")
         await(state, "inbox load") { model -> model.lists[View.INBOX.key]?.loaded == true }
+        // Checked before the looper runs again: an answer to a call left over from start would clear the mark.
         state.noteConnection(ConnectionEvent.NetworkDown)
-        await(state, "the mark") { model -> model.offline }
+        assertTrue("no mark", state.model.value.offline)
         state.noteConnection(ConnectionEvent.NetworkUp)
-        await(state, "the mark clearing") { model -> !model.offline }
+        assertFalse("mark kept", state.model.value.offline)
     }
 
     @Test
