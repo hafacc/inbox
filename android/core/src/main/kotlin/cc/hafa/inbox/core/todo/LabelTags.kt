@@ -1,11 +1,20 @@
 package cc.hafa.inbox.core.todo
 
 import cc.hafa.inbox.core.gmail.GmailLabel
+import cc.hafa.inbox.core.label.labelNameError
 import cc.hafa.inbox.core.mail.ViewFilter
 import cc.hafa.inbox.core.search.labelQueryValue
 
 // A todo's `#tags` read as the user's own Gmail labels, the same as web's
 // shared/src/todos/label-tags.ts; both run shared/testdata/label-tag-fixtures.json.
+
+/** A tag in use that names no label, and the name of the Gmail label that would. */
+data class UnlabeledTag(
+    /** the tag, without `#` */
+    val tag: String,
+    /** the label to make for it: the tag as written, nested at its `/` */
+    val label: String,
+)
 
 /**
  * The user labels a todo's `#tag` names, by the tag's key ([Tags.key]), each key's labels in name
@@ -90,6 +99,40 @@ data class LabelTags(
                 if (replacement != null) renamed = renamed.substring(0, span.start + 1) + replacement + renamed.substring(span.end)
             }
             return renamed
+        }
+
+        /**
+         * The tags [texts] use that name no user label of [labels], one per [Tags.key] (its
+         * spelling most texts use, ignoring case, as first written; the first seen of those tied),
+         * in key order, each with the name of the label that would answer to it, nested under the
+         * label its leading parts name, if any, as that label is spelled. A tag whose label name
+         * another label (Gmail's own included) has already is left out, as Gmail wouldn't make it.
+         */
+        fun unlabeledTags(texts: Iterable<String>, labels: List<GmailLabel>): List<UnlabeledTag> {
+            val index = LabelTags(labels).byKey
+            val byKey = LinkedHashMap<String, Tags.Known>()
+            for (known in Tags.count(texts).values) {
+                val key = Tags.key(known.name)
+                val best = byKey[key]
+                if (best == null || known.count > best.count) byKey[key] = known
+            }
+            return byKey.entries
+                .filter { it.key !in index }
+                .sortedBy { it.key }
+                .map { (_, known) -> UnlabeledTag(known.name, tagLabelName(known.name, index)) }
+                .filter { labelNameError(labels, it.label) == null }
+        }
+
+        // The label name for a tag: its `/` parts as written, empty ones dropped, with the longest
+        // leading run that names a user label spelled as that label is, so `#work/meetings` nests
+        // under "Work".
+        private fun tagLabelName(tag: String, index: Map<String, List<GmailLabel>>): String {
+            val parts = tag.split('/').filter { Tags.key(it).isNotEmpty() }
+            for (depth in parts.size - 1 downTo 1) {
+                val parent = index[Tags.key(parts.subList(0, depth).joinToString("/"))]?.firstOrNull()
+                if (parent != null) return (listOf(parent.name) + parts.subList(depth, parts.size)).joinToString("/")
+            }
+            return parts.joinToString("/")
         }
 
         /**

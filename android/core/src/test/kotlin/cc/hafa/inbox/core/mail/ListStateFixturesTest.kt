@@ -24,11 +24,17 @@ class ListStateFixturesTest {
             "todo" -> LayoutEntry.Todo(entry["id"] as String, Unit)
             else -> LayoutEntry.Bundle(
                 entry["labelId"] as String,
-                (entry["threads"] as List<*>).map(::layoutThread),
+                (entry["items"] as List<*>?)?.map(::itemOf)
+                    ?: (entry["threads"] as List<*>).map { LayoutEntry.Thread(layoutThread(it)) },
                 entry["more"] as Boolean,
                 entry["loading"] as Boolean,
             )
         }
+    }
+
+    private fun itemOf(value: Any?): LayoutItem<Unit, Unit> {
+        val item = value as Map<*, *>
+        return if (item["kind"] == "todo") LayoutEntry.Todo(item["id"] as String, Unit) else LayoutEntry.Thread(layoutThread(item))
     }
 
     private fun sectionOf(value: Any?): LayoutSection<Unit, Unit> {
@@ -201,9 +207,15 @@ private fun randomLayout(random: Mulberry): List<LayoutSection<Unit, Unit>> {
                 else -> {
                     val labelId = random.pick(randomLabels)
                     val size = (random.next() * 8).toInt()
-                    val threads = List(size) { LayoutThread(random.pick(randomThreads), Unit) }
+                    val items = List<LayoutItem<Unit, Unit>>(size) {
+                        if (random.next() < 0.75) {
+                            LayoutEntry.Thread(LayoutThread(random.pick(randomThreads), Unit))
+                        } else {
+                            LayoutEntry.Todo(random.pick(randomTodos), Unit)
+                        }
+                    }
                     val more = random.next() < 0.4
-                    LayoutEntry.Bundle(labelId, threads, more, random.next() < 0.2)
+                    LayoutEntry.Bundle(labelId, items, more, random.next() < 0.2)
                 }
             }
         }
@@ -299,7 +311,9 @@ private fun stepProblems(before: State, event: ListEvent<Unit, Unit>, after: Sta
             event == ListEvent.Dismiss
         // Inside an open bundle that stays open, focus stays inside it: its next row, else its previous.
         val label = before.bundle?.labelId
-        fun insideOf(state: State, key: String?) = state.rows.any { it.key == key && it is ListRow.Thread && it.bundle == label }
+        fun insideOf(state: State, key: String?) = state.rows.any {
+            it.key == key && ((it is ListRow.Thread && it.bundle == label) || (it is ListRow.Todo && it.bundle == label))
+        }
         val stays = label != null && after.bundle?.labelId == label && insideOf(before, focus) && insideOf(after, after.focus)
         val expected = if (movedItself || (stays && !insideOf(after, following))) after.focus else following ?: preceding
         if (after.focus != expected) problems += "focus went to ${after.focus}, not the next row $expected"
@@ -308,6 +322,7 @@ private fun stepProblems(before: State, event: ListEvent<Unit, Unit>, after: Sta
     fun inBundle(state: State, labelId: String): Boolean = when (val row = state.rowOf(state.focus)) {
         is ListRow.Bundle -> row.labelId == labelId
         is ListRow.Thread -> row.bundle == labelId
+        is ListRow.Todo -> row.bundle == labelId
         else -> false
     }
     val keyboard = event == ListEvent.Next || event == ListEvent.Previous || (event is ListEvent.Focus && event.by == FocusSource.KEYBOARD)

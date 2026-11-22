@@ -12,6 +12,7 @@ import {
   taggedThreadIds,
   tagLabel,
   todoLabelIds,
+  unlabeledTags,
 } from "./label-tags";
 import { countTags, suggestTags, tagKey } from "./tags";
 
@@ -42,6 +43,11 @@ type Fixtures = {
     ids: string[];
   }[];
   filter: { name: string; filter: ViewFilter; out: ViewFilter }[];
+  unlabeled: {
+    name: string;
+    texts: string[];
+    out: { tag: string; label: string }[];
+  }[];
 };
 
 const fixtures = JSON.parse(
@@ -101,6 +107,13 @@ describe("label tag fixtures", () => {
           (todo) => todo.id,
         ),
       ).toEqual(fixtureCase.ids);
+    });
+  }
+  for (const fixtureCase of fixtures.unlabeled) {
+    test(`unlabeled: ${fixtureCase.name}`, () => {
+      expect(unlabeledTags(fixtureCase.texts, fixtures.labels)).toEqual(
+        fixtureCase.out,
+      );
     });
   }
   for (const fixtureCase of fixtures.threads) {

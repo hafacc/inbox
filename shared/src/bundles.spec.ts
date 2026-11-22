@@ -8,6 +8,8 @@ import {
   type BundleSupply,
   bundleCounts,
   bundledOnArrival,
+  bundledOnWake,
+  bundleLine,
   bundleSweepIds,
   bundlesToFetch,
   bundlesToRemember,
@@ -40,9 +42,11 @@ type Fixtures = {
     expect: string[];
   }[];
   remember: { name: string; bundles: BundleList[]; expect: string[] }[];
+  line: { name: string; texts: string[]; expect: string }[];
   counts: {
     name: string;
     threads: number;
+    todos?: number;
     unread: number;
     more: boolean;
     expect: BundleCounts;
@@ -136,10 +140,20 @@ describe("bundle fixtures (must match Android)", () => {
       expect(bundlesToRemember(fixture.bundles)).toEqual(fixture.expect);
     });
   }
+  for (const fixture of fixtures.line) {
+    test(`bundleLine: ${fixture.name}`, () => {
+      expect(bundleLine(fixture.texts)).toEqual(fixture.expect);
+    });
+  }
   for (const fixture of fixtures.counts) {
     test(`bundleCounts: ${fixture.name}`, () => {
       expect(
-        bundleCounts(fixture.threads, fixture.unread, fixture.more),
+        bundleCounts(
+          fixture.threads,
+          fixture.unread,
+          fixture.more,
+          fixture.todos,
+        ),
       ).toEqual(fixture.expect);
     });
   }
@@ -178,8 +192,14 @@ type ArrivalFixtures = {
     name: string;
     labels: string[];
     bundleOff: string[];
-    hasTodo?: boolean;
     expect: { labels: string[]; bundled: boolean };
+  }[];
+  wake: {
+    name: string;
+    labels: string[];
+    pinned: boolean;
+    bundleLabels: string[];
+    expect: boolean;
   }[];
 };
 
@@ -193,12 +213,19 @@ const arrival = JSON.parse(
 describe("arrival-bundle fixtures", () => {
   for (const fixture of arrival.cases) {
     test(fixture.name, () => {
+      expect(arrivalBundleLabels(fixture.labels, fixture.bundleOff)).toEqual(
+        fixture.expect.labels,
+      );
+      expect(bundledOnArrival(fixture.labels, fixture.bundleOff)).toBe(
+        fixture.expect.bundled,
+      );
+    });
+  }
+  for (const fixture of arrival.wake) {
+    test(`bundledOnWake: ${fixture.name}`, () => {
       expect(
-        arrivalBundleLabels(fixture.labels, fixture.bundleOff, fixture.hasTodo),
-      ).toEqual(fixture.expect.labels);
-      expect(
-        bundledOnArrival(fixture.labels, fixture.bundleOff, fixture.hasTodo),
-      ).toBe(fixture.expect.bundled);
+        bundledOnWake(fixture.labels, fixture.pinned, fixture.bundleLabels),
+      ).toBe(fixture.expect);
     });
   }
 });

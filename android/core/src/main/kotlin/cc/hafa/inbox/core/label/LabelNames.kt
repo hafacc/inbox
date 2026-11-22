@@ -66,3 +66,12 @@ fun labelNameError(labels: List<GmailLabel>, name: String, exceptId: String? = n
     val taken = labels.any { it.id != exceptId && it.name.lowercase() == trimmed.lowercase() }
     return if (taken) "A label has that name" else null
 }
+
+/**
+ * The label Gmail counts as named [name], ignoring case as Gmail does (so making [name] again is
+ * refused as a duplicate), or null. Web's `labelNamed` is the same.
+ */
+fun labelNamed(labels: List<GmailLabel>, name: String): GmailLabel? {
+    val wanted = name.trim().lowercase()
+    return labels.firstOrNull { it.name.lowercase() == wanted }
+}

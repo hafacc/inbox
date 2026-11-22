@@ -55,4 +55,11 @@ class LabelNameFixturesTest {
             assertEquals(case["name"] as String, case["expect"], labelNameError(labels, case["text"] as String, case["exceptId"] as String?))
         }
     }
+
+    @Test
+    fun named() {
+        for (case in Fixtures.cases(fixtures, "named")) {
+            assertEquals(case["name"] as String, case["expect"], labelNamed(labels, case["text"] as String)?.id)
+        }
+    }
 }

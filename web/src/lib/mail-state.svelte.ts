@@ -49,7 +49,7 @@ import {
   NO_HELD_PLACES,
 } from "@inbox/shared/held-places";
 import { type SavedMessages, threadLabels } from "@inbox/shared/history-apply";
-import { renames, sortLabels } from "@inbox/shared/label-names";
+import { labelNamed, renames, sortLabels } from "@inbox/shared/label-names";
 import { CATEGORY_TONES, labelPrefsFrom } from "@inbox/shared/label-prefs";
 import {
   type BundlePaging,
@@ -73,6 +73,7 @@ import {
   listStep,
   openBundleTail,
   rowThreadId,
+  rowTodoId,
   selectableKeys,
   selectedThreads,
   selectedTodos,
@@ -157,11 +158,14 @@ import {
   taggedFilter,
   taggedThreadIds,
   tagLabel,
+  todoLabelIds,
   todoLimit,
   todosLoaded,
   todosView,
   todosViewCount,
   todosViewPlace,
+  type UnlabeledTag,
+  unlabeledTags,
 } from "@inbox/shared/todos";
 import {
   mergeUndoItems,
@@ -573,8 +577,24 @@ export class MailState {
   skippedInbox = $state.raw<ReadonlySet<string>>(new Set());
   /** The account's Gmail labels. */
   labels = $state.raw<GmailLabel[]>([]);
+  /** Whether `labels` came from the device or Gmail yet, rather than being empty for want of either. */
+  labelsLoaded = $state(false);
   /** The user labels a todo's `#tag` names, by the tag's key (`labelTags`). */
   readonly labelTags = $derived(labelTags(this.labels));
+  /**
+   * The tags of the todos a label could bundle (of their own, not done) that name no label yet, each
+   * with the label that would (Settings › Labels); none until the labels have loaded.
+   */
+  readonly unlabeledTags: UnlabeledTag[] = $derived.by(() =>
+    this.todos.enabled && this.labelsLoaded
+      ? unlabeledTags(
+          this.todos.todos
+            .filter((todo) => todo.state !== "DONE")
+            .map((todo) => todo.text),
+          this.labels,
+        )
+      : [],
+  );
   /** The user labels as tags, offered as a todo's `#tag` is typed. */
   readonly labelTagNames = $derived(labelTagNames(this.labelTags));
 
@@ -661,6 +681,7 @@ export class MailState {
   readonly openBundle = $derived(this.list.bundle?.labelId ?? null);
   // The focused thread, whose pinning moves it only once focus leaves.
   readonly #focusedThread = $derived(rowThreadId(this.focusKey));
+  readonly #focusedTodo = $derived(rowTodoId(this.focusKey));
   /** The open thread's messages, once loaded. */
   detail = $state.raw<ThreadDetail | null>(null);
   /** Why the open thread couldn't load. */
@@ -1073,7 +1094,11 @@ export class MailState {
         this.#held,
         this.activeTodos,
         this.#exhaustedBundles,
-        this.todos.enabled ? this.todos.byThread : undefined,
+        (todo) => todoLabelIds(todo.text, this.labelTags),
+        (row) => {
+          const todo = this.todoOfRow(row);
+          return todo === null ? [] : todoLabelIds(todo.text, this.labelTags);
+        },
       );
     } else if (view.kind === "snoozed") {
       return snoozedSections(
@@ -1434,6 +1459,7 @@ export class MailState {
           this.openBundle,
           this.openId,
           this.#focusedThread,
+          this.#focusedTodo,
         ),
       );
       const view = viewKey(this.view);
@@ -1570,6 +1596,7 @@ export class MailState {
           labels as GmailLabel[],
           this.accountQueue,
         );
+        this.labelsLoaded = true;
       }
       if (Array.isArray(bundles)) {
         this.#bundlesRemembered = new Set(bundles as string[]);
@@ -1766,6 +1793,7 @@ export class MailState {
             this.openBundle,
             this.openId,
             this.#focusedThread,
+            this.#focusedTodo,
           ),
         ),
       );
@@ -2285,6 +2313,7 @@ export class MailState {
       // An earlier call answering last would put back a list from before a label was made.
       if (this.#disposed || call !== this.#labelsCall) return;
       this.labels = labelsWithPending(labels, this.accountQueue);
+      this.labelsLoaded = true;
       this.#draftLabelThreads = drafts.threadsTotal ?? 0;
       void this.#cache
         .put("meta", LABELS_KEY, labels)
@@ -3861,11 +3890,9 @@ export class MailState {
       } catch (error) {
         // A try that timed out but was made, or the same label made elsewhere: use Gmail's.
         const existing = isDuplicateLabel(error)
-          ? (await this.gmail.listLabels()).find(
-              (entry) => entry.name === change.name,
-            )
-          : undefined;
-        if (existing === undefined) throw error;
+          ? labelNamed(await this.gmail.listLabels(), change.name)
+          : null;
+        if (existing === null) throw error;
         label = existing;
       }
       this.#labelMade(change, label);
@@ -4023,43 +4050,75 @@ export class MailState {
   }
 
   /**
-   * Done all on a label group. When Gmail has more of the label's inbox threads than were
-   * fetched, every unpinned one is listed by id (up to `MAX_BULK_THREADS`, no thread read) and
-   * archived with the shown ones; undo puts them all back.
+   * Done all on a label group: its threads and its todos (`todoIds`; a repeating one makes its
+   * next copy). When Gmail has more of the label's inbox threads than were fetched, every unpinned
+   * one is listed by id (up to `MAX_BULK_THREADS`, no thread read) and archived with the shown
+   * ones; undo puts them all back.
    */
   doneGroup = async (
     labelId: string,
     shown: readonly string[],
+    todoIds: readonly string[] = [],
   ): Promise<void> => {
     const { ids } = await this.#groupSweep(labelId, shown);
-    this.done(ids, [LABEL.inbox, labelId]);
+    this.#act(this.#fromFor(ids), () => {
+      const before = this.lastUndo;
+      this.done(ids, [LABEL.inbox, labelId]);
+      for (const id of todoIds) this.#stopEditing(id);
+      this.#joinUndo(before, "done", this.todos.done(todoIds));
+    });
   };
 
   /**
-   * Pin all on a label group: every thread Done all would take (see `doneGroup`), as one undo.
-   * Pinned, they leave the bundle for the inbox.
+   * Pin all on a label group: every thread and todo Done all would take (see `doneGroup`), as one
+   * undo. Pinned, they leave the bundle for the inbox.
    */
   pinGroup = async (
     labelId: string,
     shown: readonly string[],
+    todoIds: readonly string[] = [],
   ): Promise<void> => {
     const { ids } = await this.#groupSweep(labelId, shown);
-    this.setPinned(ids, true, [LABEL.inbox, labelId]);
-  };
-
-  /** Delete all on a label group: every thread Done all would take (see `doneGroup`) to the trash, as one undo. */
-  trashGroup = async (
-    labelId: string,
-    shown: readonly string[],
-  ): Promise<void> => {
-    const { ids } = await this.#groupSweep(labelId, shown);
-    this.trash(ids, [LABEL.inbox, labelId]);
+    this.#act(this.#fromFor(ids), () => {
+      const before = this.lastUndo;
+      this.setPinned(ids, true, [LABEL.inbox, labelId]);
+      const undos = this.selectedTodos(todoIds)
+        .filter((todo) => !todo.pinned)
+        .flatMap((todo) => this.todos.togglePin(todo.id) ?? []);
+      this.#joinUndo(
+        before,
+        "pin",
+        undos.length === 0
+          ? null
+          : { before: undos.flatMap((undo) => undo.before), spawned: [] },
+        true,
+      );
+    });
   };
 
   /**
-   * Snooze every thread of a label group until `epoch`, as one pick and one undo: those Done all
-   * would take. When Gmail has more of the label's inbox threads than were fetched, they are
-   * listed by id (no thread read) and snoozed with the shown ones; the menu closes meanwhile.
+   * Delete all on a label group: every thread Done all would take (see `doneGroup`) to the trash,
+   * and its todos deleted, as one undo.
+   */
+  trashGroup = async (
+    labelId: string,
+    shown: readonly string[],
+    todoIds: readonly string[] = [],
+  ): Promise<void> => {
+    const { ids } = await this.#groupSweep(labelId, shown);
+    this.#act(this.#fromFor(ids), () => {
+      const before = this.lastUndo;
+      this.trash(ids, [LABEL.inbox, labelId]);
+      for (const id of todoIds) this.#stopEditing(id);
+      const kind = this.lastUndo !== before ? this.lastUndo!.kind : "delete";
+      this.#joinUndo(before, kind, this.todos.remove(todoIds));
+    });
+  };
+
+  /**
+   * Snooze every thread and todo of a label group until `epoch`, as one pick and one undo: those
+   * Done all would take. When Gmail has more of the label's inbox threads than were fetched, they
+   * are listed by id (no thread read) and snoozed with the shown ones; the menu closes meanwhile.
    */
   snoozeGroup = async (
     labelId: string,
@@ -4067,14 +4126,27 @@ export class MailState {
     epoch: number,
     source: SnoozeSource,
     pickedKey?: string,
+    todoIds: readonly string[] = [],
   ): Promise<void> => {
     if (this.bundleHasMore(labelId)) this.closeSnoozeMenu();
     const { ids, listed } = await this.#groupSweep(labelId, shown);
     this.#act(this.#fromFor(ids), () => {
+      const before = this.lastUndo;
       this.#snoozeAll(ids, epoch, source, pickedKey, listed, [
         LABEL.inbox,
         labelId,
       ]);
+      if (todoIds.length === 0 || epoch <= Date.now()) return;
+      for (const id of todoIds) this.#stopEditing(id);
+      const undo = this.todos.snooze(todoIds, epoch);
+      if (undo === null) return;
+      // The stats count one pick, made by the threads' snooze when there were any.
+      const statsUndo =
+        this.lastUndo !== before
+          ? undefined
+          : this.#stats.commit(Date.now(), epoch, source, pickedKey ?? null);
+      this.#joinUndo(before, "snooze", undo, undefined, statsUndo);
+      this.closeSnoozeMenu();
     });
   };
 
@@ -5494,8 +5566,9 @@ export class MailState {
     if (target.from === "selection") {
       this.#selectionCommand(action);
     } else if (target.bundle !== null) {
-      if (action === "done") void this.doneGroup(target.bundle, target.threads);
-      else if (action === "snooze")
+      if (action === "done") {
+        void this.doneGroup(target.bundle, target.threads, target.todos);
+      } else if (action === "snooze")
         this.openSnoozeMenu(bundleRowKey(target.bundle));
     } else if (todo !== undefined) {
       this.#todoCommand(action, todo);

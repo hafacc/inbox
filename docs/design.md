@@ -102,7 +102,8 @@ users/{uid}
                          rules don't check its type, which would push a write with a pgp key past
                          their step limit),
               quietBundles (bool, off unless true: new mail that lands in a bundle sends no
-                            notification; see Notifications) }
+                            notification, nor, on Android, a bundled thread's or todo's snooze
+                            ending; see Notifications) }
   pgp:                                            // client-written, shape checked by the rules (docs/pgp-contract.md)
     publicKey                                     // armored; the server reads only this, to publish it
     sealed: [{ credentialId, salt, sealedPrivateKey, name, addedAt }]   // one per passkey, at most 8
@@ -332,16 +333,16 @@ except where the list says.
   bundle's header), not the rows the thread had covered. A layout measured while the thread was
   open never scrolls the page back after the close, and once the close has played the row is
   checked again and brought back if it ended up off screen, unless the user scrolled meanwhile.
-- Pinning or unpinning the focused thread doesn't move it to or from Pinned, or into or out of a
-  bundle, under the user: that move waits until focus goes elsewhere (`shared/src/held-places.ts`).
-  In focus mode, unpinning the focused thread likewise leaves it showing in place until focus
-  leaves (`shared/src/focus.ts`).
+- Pinning or unpinning the focused thread or todo doesn't move it to or from Pinned, or into or out
+  of a bundle, under the user: that move waits until focus goes elsewhere (`shared/src/held-places.ts`,
+  a todo held by its row key). In focus mode, unpinning the focused thread or todo likewise leaves
+  it showing in place until focus leaves (`shared/src/focus.ts`).
   Only the pinning waits; a reply, a new label or a refetch moves the focused thread at once, as
   any other. Closing a thread lets go of what its being open held, so it moves where it belongs
   once its close has played, though focus stays on its row.
 - One row per thread, in exactly one place: one section, one bundle, or the inbox's own rows; a todo
-  of its own shows once, as its own row, and an email's todo inside its email's row (in the Todos
-  view, its email's row drawn as the todo; see Lists). A thread is dated by
+  of its own shows once, as its own row or in a bundle, and an email's todo inside its email's row
+  (in a bundle too; in the Todos view, its email's row drawn as the todo; see Lists). A thread is dated by
   its latest received message (a woken snooze by its wake time).
 - The open thread holds focus. Acting on it, or a refetch dropping it, returns to the list with
   focus where its row was. j and k from an open thread open the next or previous thread.
@@ -352,9 +353,10 @@ except where the list says.
   there, closes it as Back does, as in reader but farther, so a scroll that runs on past the edge
   doesn't close it by accident: it follows the finger less and less, an arrow in the gap turns over,
   and a haptic tick marks crossing that point (either way) and letting go there.
-- One bundle is open at a time. It shows its first five threads until j goes past them or "Show
-  more" is pressed. When j goes past its last loaded thread and Gmail has more, focus sits on the
-  bundle's header while the page loads, then moves to its first new row (or back, if none came);
+- One bundle is open at a time. It shows its first five items (threads and todos, in date order)
+  until j goes past them or "Show more" is pressed. When j goes past its last loaded item and Gmail has more, focus sits on the
+  bundle's header while the page loads, then moves to its first new row, even one that sorts above
+  an older todo it went past (or back, if none came);
   the same happens when Done, another action or a refetch takes away its last shown thread. A
   refresh of a bundle's first page keeps the later pages already loaded (the lists merge), so it
   doesn't shrink an open bundle; a thread archived elsewhere leaves it. An open bundle left with no
@@ -458,14 +460,16 @@ except where the list says.
   long press on the row opens the menu on its avatar for taps, and the row's actions for TalkBack
   (Android) and screen readers (the web) are its swipes' and the menu's: Done (Move to inbox), Snooze
   (Wake now), Pin (Unpin) and Delete (Move to inbox).
-- **Holding a closed bundle's row** (Android, and the web on touch) for 450 ms opens the same round
-  menu centered where the finger is, placed as an email's and a todo's, its name in the pill: Pin all
-  and Delete all, acting on every thread Done all takes (those shown and the rest Gmail lists, with
-  one undo that covers those listed later): Pin all pins them, so they leave the bundle for the inbox,
-  and Delete all moves them to the trash. The bundle's swipes stay Done all and Snooze all. Sliding,
+- **Holding a bundle's row** (Android, and the web on touch) for 450 ms, closed or the open bundle's
+  header, opens the same round menu centered where the finger is, placed as an email's and a todo's,
+  its name in the pill: Pin all
+  and Delete all, acting on every thread and todo Done all takes (those shown and the rest Gmail
+  lists, with one undo that covers those listed later): Pin all pins them, so they leave the bundle
+  for the inbox, and Delete all moves the threads to the trash and deletes the todos. The bundle's swipes stay Done all and Snooze all. Sliding,
   letting go, taps and Back work as on an email's; TalkBack's long press on the row opens it on the
   label's mark for taps, and the row's actions for TalkBack and screen readers are Done all, Snooze
-  all, Pin all and Delete all. An open bundle's header has no menu.
+  all, Pin all and Delete all; on an open bundle's header, which doesn't swipe and shows its own
+  Done all, Pin all and Delete all.
 - **Hold menu.** Holding a todo for 450 ms, on its select dot or anywhere else on the row, opens a
   half disc centered where the finger is, cut into wedges, with a pill above naming the todo: Pin
   (Unpin when pinned; not on a done todo, whose place stays empty) and Delete, with the usual undo,
@@ -504,10 +508,10 @@ except where the list says.
   fades out meanwhile); short of it, the row springs back. A row being swiped is lifted (raised, with its shadow, its selection tint
   and bar hidden); under it only the action of the side it moves toward shows, filling the row
   in its soft color, which turns to its strong color (150 ms) with the icon growing once letting go acts.
-- A closed bundle's row swipes as a thread's does, on every thread in it: leftward is its Done all
-  (below), rightward opens the snooze menu (sheet) for the bundle and the time picked applies to
-  every thread in it, each with one undo; the strip under it names the move with the count its row
-  shows ("Done · 14", "Snooze · 10+"). An open bundle's header doesn't swipe (a tap closes it). With
+- A closed bundle's row swipes as a thread's does, on every thread and todo in it: leftward is its
+  Done all (below), rightward opens the snooze menu (sheet) for the bundle and the time picked
+  applies to every thread and todo in it, each with one undo; the strip under it names the move with
+  the count its row shows ("Done · 14", "Snooze · 10+"). An open bundle's header doesn't swipe (a tap closes it). With
   rows selected it acts on that bundle alone. TalkBack (and screen readers on the web) offer the same
   as Done all and Snooze all on the closed row, and Snooze's key (b) on a focused bundle opens its
   menu as Done's (e) acts (`bundleSwipeAction` in `shared/src/swipe.ts`, `bundles` in the swipe
@@ -627,15 +631,26 @@ code), `repeat-fixtures.json` and `position-fixtures.json` (latr's).
   (a joined row's: the first of its threads, lead first, with one) are
   `shared/src/todos/linked.ts` and `:core` `todo/Linked.kt`, fixtures
   `shared/testdata/linked-todo-fixtures.json`.
-- **Tags and labels.** A todo's tags stay part of its text (`#name`) and todos are never bundled,
-  nor is an email with a todo: it keeps a row of its own, the todo inside, and doesn't count
-  toward its label's bundle (a bundle needs two inbox emails without one).
+- **Tags and labels.** A todo's tags stay part of its text (`#name`).
   A tag that names one of the user's own Gmail labels (user labels only, never Gmail's own or the
   categories) makes the todo act as if it carried that label, with nothing stored and nothing
   written to Gmail: the tag is drawn in the label's color; the label's list, and a search with
   `label:` for it, show the todo among the threads; and a todo on an email shows there in its
   email's row, though Gmail doesn't give the email the label (the email is read from the cache, or
-  from Gmail, when the list doesn't hold it). `-label:` leaves such todos out, and `label:` with
+  from Gmail, when the list doesn't hold it).
+  So a todo of its own bundles through its tags: one whose tag names a label that bundles joins
+  that label's bundle in the inbox, among its emails by date, and counts toward it as an email
+  does; a bundle can hold todos alone. A todo whose tags name several such labels goes by the
+  emails' rule (Labels, `bundle`): the bundle with the most items, todos counted. A pinned todo
+  stays in Pinned, as a pinned thread does. An email with a todo bundles by its own Gmail labels
+  and the labels its todo's tags name, together, by the same rule (an email labeled "M" whose todo
+  says `#l` may join L's bundle, or M's, whichever has more), its todo inside its row there; a
+  pinned one stays in Pinned. A closed bundle's row lists, after its senders, the first three
+  subjects and todo texts in the bundle's own order, newest first, todos among the emails by their
+  time, a blank one left out and a repeated one named once (`bundleLine`, the `line` cases of
+  `bundle-fixtures.json`). Bundles are only the inbox's: the Todos view,
+  Snoozed and Done list a todo as before. Nothing more is stored (`inboxSections` in
+  `shared/src/list-model.ts`, the `todos` of `label-group-fixtures.json`). `-label:` leaves such todos out, and `label:` with
   any other mail operator lists no todos, as before. A tag names a label when their keys agree
   (`tagKey`): lower case, each run of anything but letters, digits, marks and `_` as one `-`, `-`
   and `_` trimmed from each part, so `#read-later` names "Read Later" and "Bills & Receipts" is
@@ -644,7 +659,19 @@ code), `repeat-fixtures.json` and `position-fixtures.json` (latr's).
   label whose name has no letter (`2024`) has no tag. Labels sharing a key are all named, and the
   color is the first's by name (a label with no color of its own is gray, as its dot is). `#` in a
   todo, and in the search field, offers the user's labels as tags (in that form) after the tags in
-  use, each drawn in its label's color. A `#name` that names no label is only a tag: it never creates a label.
+  use, each drawn in its label's color. A `#name` that names no label is only a tag: typing it never
+  creates a label. Settings › Labels (web and Android) lists, under "Tags without a label", the tags
+  of the todos a label could bundle (todos of their own, not done; not email todos) that name none,
+  one per key (the spelling most todos use, ignoring case, as first written), each with "Make
+  label": it makes the Gmail user label named as the tag is written (`#grocery` makes "grocery",
+  the nested `#a/b` the nested "a/b"), but with the leading parts that name a label spelled as that
+  label is (`#work/meetings` under "Work" makes "Work/meetings"), which the tag then names, so its
+  todos bundle once that label bundles (on by default). A tag whose name a label has already,
+  Gmail's own included, isn't listed (`unlabeledTags`, the `unlabeled` cases of
+  `label-tag-fixtures.json`). The section shows only once the labels have loaded (from the device
+  or Gmail), so no tag is offered for want of them. When Gmail refuses the new label as a
+  duplicate, the label it has by that name, ignoring case as Gmail does, is used (`labelNamed`,
+  the `named` cases of `label-name-fixtures.json`).
   Renaming or moving a label in the app rewrites the tags naming it, and those naming labels
   nested under it, in every todo (`renameTags`; the todos are read once from Firestore's servers if
   Show todos is off). The new name is trimmed. Each rename waits in a queue on the device until its
@@ -654,7 +681,7 @@ code), `repeat-fixtures.json` and `position-fixtures.json` (latr's).
   `shared/testdata/label-tag-fixtures.json` and the `label:` cases of
   `search-scope-fixtures.json`.
 - **Account deletion** covers todos: `deleteAccount` deletes `users/{uid}` recursively. The server
-  reads todos only to keep an email with one out of bundles (Notifications, below).
+  reads no todos but the one whose write runs `todoSnoozePing` (Notifications, below).
 
 On the web, with Show todos on:
 
@@ -1092,9 +1119,10 @@ without bundling turned off in `labelPrefs`, and isn't pinned (starred). That ho
 inbox threads carry the label, even when this is the only one, and whatever the snoozes
 (`bundledOnArrival` in `shared/src/bundles.ts`, fixtures in
 `shared/testdata/arrival-bundle-fixtures.json`; functions imports the same code).
-While todos show (`settings.showTodos`), a thread whose email has a todo (a live
-`todos/{threadId}`) never counts as bundled, as the apps never bundle it; the todo is read only for
-mail that would otherwise be skipped. When the check, the settings or the todos can't be read, the mail notifies.
+While Show todos is on, the labels a thread's email todo's tags name count too, as the apps bundle
+by them: the todo (`todos/{threadId}`) is read only when the thread's own labels don't bundle it,
+it isn't pinned, and the account has a user label that bundles (Gmail's label list, read at most
+once a push, says). When the check, the todo or the settings can't be read, the mail notifies.
 Each send is logged (`push sent`: its kind, how many devices, how many FCM took and refused, and
 the error codes; never the mail or an address), and each run with new mail logs how many messages
 it looked at, how many were already read or archived, how many landed in a bundle (with the
@@ -1109,7 +1137,11 @@ schedules nothing, it only tells a phone when a snooze change concerns it:
   `snoozeUntil` is no earlier than a day before now and, while todos show, todos'): from the open
   app's listeners while each is following without error, else one query each. It notifies those that
   ended since the last check (not while the app is on screen, nor one that newer mail already woke,
-  as that mail was notified), sets one inexact alarm for the earliest end still ahead, and writes its
+  as that mail was notified, nor, with "Skip notifications for bundled mail" on, one that counts as
+  bundled: the thread isn't pinned and one of its labels, as the device's cache last saw them, or,
+  while todos show, of those its email todo's tags name, bundles, however many inbox threads carry
+  it; `bundledOnWake`, the `wake` cases of
+  `arrival-bundle-fixtures.json`), sets one inexact alarm for the earliest end still ahead, and writes its
   own entry in `meta/snoozeWaits`, keyed by its push token: `{ itemId, snoozeUntil, updatedAt }` for
   that snooze (`updatedAt` the server's time), or `{ updatedAt }` alone when nothing is pending. Once
   the server has the entry, the phone reads the snoozes again, from Firestore rather than its
@@ -1138,7 +1170,11 @@ schedules nothing, it only tells a phone when a snooze change concerns it:
   to `todos/{id}` and pings as `snoozePing` does when the snooze phones wait on (none once the todo
   is done or deleted) changed. A todo's notification shows its text (markers removed) and "Back
   from snooze", with Done (written straight to Firestore); a tap opens the Todos view scrolled to
-  the todo, highlighted for a moment.
+  the todo, highlighted for a moment. With "Skip notifications for bundled mail" on, none shows for
+  a todo that counts as bundled, as for a thread: it isn't pinned and a tag names a label that
+  bundles, however many items carry that label (`bundledOnWake`, the `wake` cases of
+  `arrival-bundle-fixtures.json`). With the app closed, only the snoozes already over are judged
+  (their threads' cached labels, the label prefs, their todos), the rest when their alarm comes.
 - Sign-out cancels the alarm, forgets the last check, and removes the phone's entry with its
   device doc. The web app gives no reminder while it is closed; open, it just shows the thread
   again.
@@ -1194,12 +1230,17 @@ of our code to be up.
 - Per-label settings live in `users/{uid}/labelPrefs/{labelId}` (`shared/src/label-prefs.ts`, fixtures in
   `shared/testdata/label-prefs-fixtures.json`). `sidebar` (bool): shown in the sidebar; when unset,
   Gmail's `labelListVisibility` decides (hidden only for `labelHide`). `bundle` (bool, default on):
-  the inbox folds this label's threads into one row (once, in the time section of its newest
-  thread, holding every one of its inbox threads; at least two); grouping looks only at labels with
-  it on. Like a todo being edited in latr, an open bundle keeps the place it opened at (its date
+  the inbox folds this label's unpinned threads, and the todos whose tags name it (Todos, Tags and
+  labels), into one row, once, in the time section of its newest item; grouping looks only at labels
+  with it on. A thread or todo with several such labels joins the one with the most of the inbox's
+  items (ties go by label order), and a label left with fewer than two gives its items back to
+  their own rows and the choice is made again without it, so a bundle holds those of its label's
+  items no bigger bundle took, at least two (`groupByLabel` in `shared/src/label-groups.ts`). Its
+  counts add its todos to its threads (only the threads come in pages, so "10+" stays a floor).
+  Like a todo being edited in latr, an open bundle keeps the place it opened at (its date
   and section) until it closes and its close has played, then moves to where it belongs: acting on
-  its threads doesn't move it, new mail of its label shows inside it, and it stays a bundle with
-  a single thread, or none while Gmail may have more of the label. Once its last thread is
+  its items doesn't move it, new mail of its label shows inside it, and it stays a bundle with
+  a single item, or none while Gmail may have more of the label. Once its last item is
   gone and its own list shows Gmail has no more, it closes itself and collapses out of the list
   (undoing that last action brings the threads back, closed). A thread open in place (web) keeps its date and pinning the
   same way, so a reply or a star doesn't move it (`shared/src/held-places.ts`, fixtures in
@@ -1219,9 +1260,10 @@ of our code to be up.
   of an open one comes into view, or when the thread open in one has fewer than 3 of its loaded
   threads after it (`openBundleTail` in `shared/src/list-state.ts`), so swiping on reaches every
   thread of the bundle; a page that failed says why, with Retry, and waits for a tap on it. Its Done all (and a
-  swipe on its row, Done or Snooze) takes its loaded threads but pinned ones and, when Gmail has
-  more, lists the label's unpinned inbox threads by id (up to 500, no thread read, each snoozed
-  with the history id Gmail listed) and archives or snoozes them all, with one undo. The undo shows at once for
+  swipe on its row, Done or Snooze) takes its loaded threads but pinned ones, and its todos (marked
+  done or snoozed, a repeating one making its next copy as Done does), and, when Gmail has more,
+  lists the label's unpinned inbox threads by id (up to 500, no thread read, each snoozed with the
+  history id Gmail listed) and archives or snoozes them all, with one undo. The undo shows at once for
   the loaded threads; those listed after join it while it shows, and an undo before the listing returns leaves them be. A list is fetched again (its first page, keeping pages past it) when the
   minute's `history.list` shows a change carrying its label, when its last fetch failed, or on a
   forced refresh (`shared/src/bundles.ts`, fixtures in `shared/testdata/bundle-fixtures.json`).

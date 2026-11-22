@@ -48,6 +48,16 @@ export interface GmailThread {
   messages?: GmailMessage[];
 }
 
+/** A Gmail label as `labels.list` gives it. */
+export interface GmailLabel {
+  /** label id */
+  id: string;
+  /** its name, `/` between nested levels */
+  name: string;
+  /** "user" for the user's own, "system" for Gmail's */
+  type: string;
+}
+
 /** One record of `history.list`. */
 export interface GmailHistoryRecord {
   /** history id of the record */
@@ -213,6 +223,8 @@ export interface GmailApi {
   getMessage(id: string, headers?: readonly string[]): Promise<GmailMessage>;
   /** A thread's history id and messages with sender and subject. */
   getThread(id: string): Promise<GmailThread>;
+  /** The mailbox's labels, Gmail's own included. */
+  listLabels(): Promise<GmailLabel[]>;
   /** Add and remove labels on every message of a thread. */
   modifyThread(id: string, add: string[], remove: string[]): Promise<void>;
   /** Ids of messages matching a Gmail search, newest first. */
@@ -341,6 +353,10 @@ export function gmailApi(
     },
     getThread(id) {
       return request(`/threads/${encodeURIComponent(id)}?${metadataParams()}`);
+    },
+    async listLabels() {
+      const result = await request<{ labels?: GmailLabel[] }>("/labels");
+      return result.labels ?? [];
     },
     async modifyThread(id, add, remove) {
       await request(`/threads/${encodeURIComponent(id)}/modify`, {

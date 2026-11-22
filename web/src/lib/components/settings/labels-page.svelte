@@ -1,4 +1,4 @@
-<!-- @component Settings › Labels: which labels show in the sidebar and fold into inbox bundles (and their icons), then the user's Gmail labels as a tree, with new, rename, move (nest) and color. -->
+<!-- @component Settings › Labels: which labels show in the sidebar and fold into inbox bundles (and their icons), the todo tags that name no label yet (each made a label with a tap), then the user's Gmail labels as a tree, with new, rename, move (nest) and color. -->
 <script lang="ts">
   import {
     labelNameError,
@@ -281,6 +281,36 @@
         </span>
       {/each}
     </div>
+  </section>
+{/if}
+
+{#if mail.unlabeledTags.length > 0}
+  <section
+    aria-labelledby="unlabeled-tags"
+    class="mb-6 rounded-[22px] bg-surface shadow-card p-5"
+  >
+    <h2 id="unlabeled-tags" class="text-[15px] font-semibold">
+      Tags without a label
+    </h2>
+    <p class="mt-1 text-[13px] text-text-secondary">
+      Make a label from a tag to bundle its todos with its mail.
+    </p>
+    <ul class="mt-3 flex flex-col text-sm">
+      {#each mail.unlabeledTags as entry (entry.label)}
+        <li class="min-h-11 flex items-center gap-3 border-t border-separator">
+          <span class="flex-1 min-w-0 truncate">#{entry.tag}</span>
+          <button
+            type="button"
+            aria-label={`Make label ${entry.label}`}
+            onclick={() => mail.createLabel(entry.label)}
+            class={rowButton}
+          >
+            <Plus class="w-4 h-4" aria-hidden="true" />
+            Make label
+          </button>
+        </li>
+      {/each}
+    </ul>
   </section>
 {/if}
 

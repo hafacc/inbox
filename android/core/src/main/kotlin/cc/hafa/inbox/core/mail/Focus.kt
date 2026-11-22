@@ -38,7 +38,7 @@ private fun shown(entry: SectionEntry<Row>, openId: String?, heldPins: Map<Strin
     is ListEntry.Single -> entry.thread.thread.let { thread ->
         thread.id == openId || thread.isPinned || heldPins[thread.id] == true
     }
-    is TodoEntry -> entry.todo.pinned
+    is TodoEntry -> entry.todo.pinned || heldPins[todoRowKey(entry.todo.id)] == true
     is ListEntry.Group -> openId != null && entry.threads.any { it.thread.id == openId }
 }
 
@@ -46,8 +46,8 @@ private fun shown(entry: SectionEntry<Row>, openId: String?, heldPins: Map<Strin
  * Apply focus mode to a list's sections.
  *
  * Only pinned threads (Gmail's star) and pinned todos show, plus the open thread, alone or in its bundle, so unpinning it doesn't close it, and the focused
- * thread while [heldPins] ([HeldPlaces.pins]) holds it pinned, so unpinning it doesn't hide it until
- * focus leaves. Pinned threads never sit in bundles, so bundles are hidden. Sections left with
+ * thread or todo while [heldPins] ([HeldPlaces.pins]) holds it pinned, so unpinning it doesn't hide it
+ * until focus leaves. Pinned threads never sit in bundles, so bundles are hidden. Sections left with
  * nothing are dropped.
  */
 fun focusSections(sections: List<SectionModel>, openId: String?, heldPins: Map<String, Boolean> = emptyMap()): FocusResult {

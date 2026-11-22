@@ -91,6 +91,8 @@ data class MailModel(
     val skippedInbox: Set<String> = emptySet(),
     /** the account's Gmail labels */
     val labels: List<GmailLabel> = emptyList(),
+    /** whether [labels] came from the device or Gmail yet, rather than being empty for want of either */
+    val labelsLoaded: Boolean = false,
     /** stored per-label settings, `users/{uid}/labelPrefs/{labelId}`, by label id */
     val labelPrefDocs: Map<String, Map<String, Any?>> = emptyMap(),
     /** threads with the DRAFT label, as Gmail counts them */
@@ -529,9 +531,17 @@ data class MailModel(
     private fun computeSections(zone: ZoneId): List<SectionModel> {
         val current = view
         if (current == View.INBOX) {
-            return inboxSections(withOpen(inboxRows), now, bundleLabelIds, zone, held, activeTodos, exhaustedBundles) { row ->
-                rowTodo(row.thread.id) != null
-            }
+            return inboxSections(
+                withOpen(inboxRows),
+                now,
+                bundleLabelIds,
+                zone,
+                held,
+                activeTodos,
+                exhaustedBundles,
+                todoLabels = { todo -> labelTags.labelIds(todo.text) },
+                rowTodoLabels = { row -> rowTodo(row.thread.id)?.let { labelTags.labelIds(it.text) }.orEmpty() },
+            )
         }
         if (current == View.Fixed(Mailbox.SNOOZED)) return snoozedSections(withOpen(snoozedRows), now, zone, snoozedTodos)
         if (current == View.Todos) {

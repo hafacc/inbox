@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import {
   compareLabelNames,
+  labelNamed,
   labelNameError,
   leafName,
   type NamedLabel,
@@ -27,6 +28,7 @@ type Fixtures = {
     exceptId: string | null;
     expect: string | null;
   }[];
+  named: { name: string; text: string; expect: string | null }[];
 };
 
 const fixtures = JSON.parse(
@@ -61,6 +63,16 @@ describe("renames", () => {
   for (const fixture of fixtures.renames) {
     test(fixture.name, () => {
       expect(renames(fixtures.labels, fixture.id, fixture.newName)).toEqual(
+        fixture.expect,
+      );
+    });
+  }
+});
+
+describe("named", () => {
+  for (const fixture of fixtures.named) {
+    test(fixture.name, () => {
+      expect(labelNamed(fixtures.labels, fixture.text)?.id ?? null).toBe(
         fixture.expect,
       );
     });

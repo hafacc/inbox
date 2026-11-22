@@ -59,10 +59,13 @@
 
   let {
     todo,
+    compact = false,
     class: className = "",
   }: {
     /** the todo shown */
     todo: Todo;
+    /** the narrower row of a bundle, lined up with its email rows */
+    compact?: boolean;
     /** classes added to the row */
     class?: ClassValue;
   } = $props();
@@ -504,7 +507,8 @@
     ontransitionend={() => (swipe.settling = false)}
     onmousedown={onRowMouseDown}
     class={[
-      "relative flex items-center gap-3.5 px-5 py-1 rounded-[inherit]",
+      "relative flex items-center gap-3.5 py-1 rounded-[inherit]",
+      compact ? "px-4" : "px-5",
       swipe.dx !== 0
         ? "bg-surface-raised shadow-raised"
         : selected
@@ -536,7 +540,10 @@
       title={selected
         ? "Unselect (hold for Pin and Delete)"
         : "Select (hold for Pin and Delete)"}
-      class="group/check hit-target w-9 h-9 shrink-0 self-start mt-1.5 flex items-center justify-center rounded-full select-none touch-none [-webkit-touch-callout:none] hover:bg-surface-muted transition-colors"
+      class={[
+        "group/check hit-target shrink-0 self-start flex items-center justify-center rounded-full select-none touch-none [-webkit-touch-callout:none] hover:bg-surface-muted transition-colors",
+        compact ? "w-8 h-8 mt-2" : "w-9 h-9 mt-1.5",
+      ]}
     >
       {#if selected}
         <span

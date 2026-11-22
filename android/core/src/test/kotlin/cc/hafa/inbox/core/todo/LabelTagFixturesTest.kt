@@ -93,4 +93,15 @@ class LabelTagFixturesTest {
             assertEquals(case["name"] as String, filter(case["out"]), index.taggedFilter(filter(case["filter"])))
         }
     }
+
+    @Test
+    fun unlabeled() {
+        for (case in cases("unlabeled")) {
+            val expected = (case["out"] as List<*>).map { entry ->
+                val tag = entry as Map<*, *>
+                UnlabeledTag(tag["tag"] as String, tag["label"] as String)
+            }
+            assertEquals(case["name"] as String, expected, LabelTags.unlabeledTags(strings(case["texts"]), index.labels))
+        }
+    }
 }

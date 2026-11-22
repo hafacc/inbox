@@ -1,7 +1,8 @@
 {
   "_doc": {
     "about": "Whether new mail lands in a bundle, for the server's choice not to notify about bundled mail. Run by shared/src/bundles.spec.ts; functions imports the same code.",
-    "cases": "arrivalBundleLabels(labels, bundleOff) is labels: the thread's user labels (ids starting Label_) and categories other than Primary, without those in bundleOff, in order; none when the thread is starred or hasTodo (optional: it has a todo the apps show). bundledOnArrival(labels, bundleOff) is bundled: it has any of those labels, however many inbox threads carry it (even this one alone)."
+    "cases": "arrivalBundleLabels(labels, bundleOff) is labels: the thread's user labels (ids starting Label_) and categories other than Primary, without those in bundleOff, in order; none when the thread is starred (a thread with a todo bundles like any other). bundledOnArrival(labels, bundleOff) is bundled: it has any of those labels, however many inbox threads carry it (even this one alone).",
+    "wake": "bundledOnWake(labels, pinned, bundleLabels) is bundled: a thread or todo coming back from its snooze counts as bundled when it isn't pinned and one of labels (a thread's own, or those a todo's tags name) is in bundleLabels (those that bundle), however many items carry it. Run by shared/src/bundles.spec.ts and Android :core (ArrivalBundleFixturesTest)."
   },
   "cases": [
     {
@@ -106,18 +107,113 @@
       }
     },
     {
-      "name": "a thread with a todo the apps show never bundles",
+      "name": "a thread with a todo bundles like any other",
       "labels": [
         "INBOX",
         "UNREAD",
         "Label_1"
       ],
       "bundleOff": [],
-      "hasTodo": true,
       "expect": {
-        "labels": [],
-        "bundled": false
+        "labels": [
+          "Label_1"
+        ],
+        "bundled": true
       }
+    }
+  ],
+  "wake": [
+    {
+      "name": "a thread with a label that bundles counts as bundled",
+      "labels": [
+        "INBOX",
+        "Label_1"
+      ],
+      "pinned": false,
+      "bundleLabels": [
+        "Label_1",
+        "CATEGORY_PROMOTIONS"
+      ],
+      "expect": true
+    },
+    {
+      "name": "a pinned thread never counts as bundled",
+      "labels": [
+        "INBOX",
+        "STARRED",
+        "Label_1"
+      ],
+      "pinned": true,
+      "bundleLabels": [
+        "Label_1"
+      ],
+      "expect": false
+    },
+    {
+      "name": "a category that bundles counts like a label",
+      "labels": [
+        "INBOX",
+        "CATEGORY_PROMOTIONS"
+      ],
+      "pinned": false,
+      "bundleLabels": [
+        "CATEGORY_PROMOTIONS"
+      ],
+      "expect": true
+    },
+    {
+      "name": "a todo whose tag names a label that bundles counts as bundled",
+      "labels": [
+        "Label_1"
+      ],
+      "pinned": false,
+      "bundleLabels": [
+        "Label_1"
+      ],
+      "expect": true
+    },
+    {
+      "name": "a todo naming no label that bundles doesn't",
+      "labels": [
+        "Label_2"
+      ],
+      "pinned": false,
+      "bundleLabels": [
+        "Label_1"
+      ],
+      "expect": false
+    },
+    {
+      "name": "a todo naming no label doesn't",
+      "labels": [],
+      "pinned": false,
+      "bundleLabels": [
+        "Label_1"
+      ],
+      "expect": false
+    },
+    {
+      "name": "any one of several labels that bundles is enough",
+      "labels": [
+        "Label_2",
+        "Label_1"
+      ],
+      "pinned": false,
+      "bundleLabels": [
+        "Label_1"
+      ],
+      "expect": true
+    },
+    {
+      "name": "a pinned todo never counts as bundled",
+      "labels": [
+        "Label_1"
+      ],
+      "pinned": true,
+      "bundleLabels": [
+        "Label_1"
+      ],
+      "expect": false
     }
   ]
 }

@@ -2,9 +2,9 @@
  * Places an open thread or bundle keeps in the list until it closes, so acting on it (or on the
  * threads of an open bundle) doesn't move it under the user, as latr keeps a todo being edited in
  * place. A list sorts and sections a held thread or bundle by its held place instead of its live
- * one; once it closes it lets go and moves to where it belongs. The focused thread holds only its
- * pinning, so pinning or unpinning it moves it once focus leaves, while anything else moves it at
- * once.
+ * one; once it closes it lets go and moves to where it belongs. The focused thread or todo holds
+ * only its pinning, so pinning or unpinning it moves it once focus leaves, while anything else moves
+ * it at once.
  */
 
 /** Where an open thread sat when it opened. */
@@ -23,7 +23,7 @@ export type HeldPlaces = {
   threads: ReadonlyMap<string, ThreadPlace>;
   /** open bundles by label id: the date of their newest thread when they opened, epoch milliseconds */
   bundles: ReadonlyMap<string, number>;
-  /** focused threads not open, by thread id: whether they were pinned when focus came to them */
+  /** focused threads not open, by thread id, and focused todos, by row key: whether they were pinned when focus came to them */
   pins: ReadonlyMap<string, boolean>;
 };
 

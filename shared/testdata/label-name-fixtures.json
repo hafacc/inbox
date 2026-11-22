@@ -1,5 +1,5 @@
 {
- "_doc": "User label names (shared/src/label-names.ts, Android :core label/LabelNames.kt). `sort`: the names in list order (compareLabelNames). `parts`: parentName and leafName. `nested`: nestedName(parent, leaf). `renames` and `errors` run against `labels`: renames(labels, id, newName) and labelNameError(labels, text, exceptId).",
+ "_doc": "User label names (shared/src/label-names.ts, Android :core label/LabelNames.kt). `sort`: the names in list order (compareLabelNames). `parts`: parentName and leafName. `nested`: nestedName(parent, leaf). `renames` and `errors` run against `labels`: renames(labels, id, newName) and labelNameError(labels, text, exceptId). `named`: labelNamed(labels, text), the id of the label Gmail counts as that name (ignoring case), or null.",
  "labels": [
   {
    "id": "INBOX",
@@ -344,6 +344,23 @@
    "name": "new under a parent",
    "text": "Work/C",
    "exceptId": null,
+   "expect": null
+  }
+ ],
+ "named": [
+  {
+   "name": "the same name in another case",
+   "text": "work",
+   "expect": "L1"
+  },
+  {
+   "name": "a nested name in another case",
+   "text": "WORK/a",
+   "expect": "L2"
+  },
+  {
+   "name": "no such label",
+   "text": "Workshops",
    "expect": null
   }
  ]

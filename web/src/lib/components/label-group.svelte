@@ -1,6 +1,6 @@
-<!-- @component A label's threads as a bundle: a row like a thread's, which opens in place into a raised card listing them while the rest of the list dims. Closed, on touch, a swipe left marks them all done and right snoozes them all; a long press opens a round menu around the finger with Pin all and Delete all, placed as a thread's. -->
+<!-- @component A label's threads and todos as a bundle: a row like a thread's, which opens in place into a raised card listing them while the rest of the list dims. Closed, on touch, a swipe left marks them all done and right snoozes them all; a long press, closed or on the open bundle's header, opens a round menu around the finger with Pin all and Delete all, placed as a thread's. -->
 <script lang="ts">
-  import { bundleCounts } from "@inbox/shared/bundles";
+  import { bundleCounts, bundleLine } from "@inbox/shared/bundles";
   import { rowHoldWedges } from "@inbox/shared/hold-menu";
   import {
     type BundleSwipeAction,
@@ -8,6 +8,7 @@
     bundleSwipeLabel,
   } from "@inbox/shared/swipe";
   import { formatListDate } from "@inbox/shared/time-format";
+  import { styledPlain, type Todo, todoListDate } from "@inbox/shared/todos";
   import Check from "@lucide/svelte/icons/check";
   import CheckCheck from "@lucide/svelte/icons/check-check";
   import Clock from "@lucide/svelte/icons/clock";
@@ -29,9 +30,11 @@
   import { stuck } from "./sticky";
   import SwipeBackdrop, { type SwipeLook } from "./swipe-backdrop.svelte";
   import ThreadRow from "./thread-row.svelte";
+  import TodoRow from "./todo-row.svelte";
 
   type ListRow = MailList["rows"][number];
   type ThreadItem = Extract<ListRow, { kind: "thread" }>;
+  type ShownItem = Extract<ListRow, { kind: "thread" | "todo" }>;
 
   let {
     bundle,
@@ -41,10 +44,10 @@
     closing: shrinking = false,
     class: className = "",
   }: {
-    /** its row in the list: its label and all its threads, newest first */
+    /** its row in the list: its label and all its threads and todos, newest first */
     bundle: Extract<ListRow, { kind: "bundle" }>;
-    /** the thread rows it shows while open */
-    shown: readonly ThreadItem[];
+    /** the thread and todo rows it shows while open */
+    shown: readonly ShownItem[];
     /** its foot while open: loaded threads not shown yet, and whether Gmail has more */
     more: Extract<ListRow, { kind: "more" }> | null;
     /** whether it is open, listing its threads */
@@ -60,13 +63,22 @@
   const mail = getMailState();
   const labelId = $derived(bundle.labelId);
   const rows = $derived(bundle.threads.map((thread) => thread.data));
+  const todos = $derived(
+    bundle.todos.map((todo) => mail.todos.get(todo.id) ?? todo.data),
+  );
   const label = $derived(mail.userLabels.find((entry) => entry.id === labelId));
   const name = $derived(label?.name ?? labelId);
   const unread = $derived(rows.filter((row) => row.thread.unread).length);
   // Gmail has more of the label's inbox threads than were fetched, so counts are "N+".
-  const counts = $derived(bundleCounts(rows.length, unread, bundle.more));
+  const counts = $derived(
+    bundleCounts(rows.length, unread, bundle.more, todos.length),
+  );
   const newest = $derived(
-    rows.reduce((latest, row) => Math.max(latest, row.thread.lastDate), 0),
+    Math.max(
+      0,
+      ...rows.map((row) => row.thread.lastDate),
+      ...todos.map(todoListDate),
+    ),
   );
   const focused = $derived(mail.focusKey === bundle.key && inputMode.keyboard);
   const openShown = $derived(
@@ -78,7 +90,7 @@
   );
   // An open thread lifts out of the bundle's card as it does out of a day's, splitting the rows around it.
   type Piece =
-    | { kind: "rows"; key: string; rows: ThreadItem[] }
+    | { kind: "rows"; key: string; rows: ShownItem[] }
     | { kind: "open"; key: string; row: ThreadItem };
   const pieces = $derived.by(() => {
     let current: Piece & { kind: "rows" } = {
@@ -88,7 +100,10 @@
     };
     const out: Piece[] = [current];
     for (const item of shown) {
-      if (item.id === mail.openId || closing.has(item.id)) {
+      if (
+        item.kind === "thread" &&
+        (item.id === mail.openId || closing.has(item.id))
+      ) {
         out.push({ kind: "open", key: `open:${item.id}`, row: item });
         current = { kind: "rows", key: `after:${item.id}`, rows: [] };
         out.push(current);
@@ -118,16 +133,31 @@
     }
     return [...seen.values()].join(", ");
   });
+  // In the bundle's own order, newest first, todos among the emails by their time.
   const subjects = $derived(
-    rows
-      .map((row) => row.thread.subject)
-      .filter((subject) => subject !== "")
-      .slice(0, 3)
-      .join(" · "),
+    bundleLine(
+      bundle.items.map((item) =>
+        item.kind === "thread"
+          ? item.data.thread.subject
+          : styledPlain((mail.todos.get(item.id) ?? item.data).text),
+      ),
+    ),
+  );
+  const one = $derived(rows.length + todos.length === 1 && !bundle.more);
+  const noun = $derived(
+    todos.length === 0
+      ? one
+        ? "thread"
+        : "threads"
+      : rows.length === 0 && !bundle.more
+        ? one
+          ? "todo"
+          : "todos"
+        : "items",
   );
   const summary = $derived(
     [
-      `${counts.threads} ${rows.length === 1 && !bundle.more ? "thread" : "threads"}`,
+      `${counts.threads} ${noun}`,
       counts.unread,
       senders !== "" && `from ${senders}`,
     ]
@@ -168,26 +198,27 @@
 
   let button = $state<HTMLButtonElement>();
 
-  // Done all, Snooze all, Pin all and Delete all act on every thread in it, as the open bundle's
-  // Done all does.
+  // Done all, Snooze all, Pin all and Delete all act on every thread and todo in it, as the open
+  // bundle's Done all does.
   const threadIds = $derived(rows.map((row) => row.thread.id));
+  const todoIds = $derived(todos.map((todo: Todo) => todo.id));
   const snoozeOpen = $derived(mail.snoozeMenuFor === bundle.key);
   function doneAll() {
-    void mail.doneGroup(labelId, threadIds);
+    void mail.doneGroup(labelId, threadIds, todoIds);
   }
   function pinAll() {
-    void mail.pinGroup(labelId, threadIds);
+    void mail.pinGroup(labelId, threadIds, todoIds);
   }
   function deleteAll() {
-    void mail.trashGroup(labelId, threadIds);
+    void mail.trashGroup(labelId, threadIds, todoIds);
   }
   function runBundleAction(action: BundleSwipeAction) {
     if (action === "done") doneAll();
     else mail.openSnoozeMenu(bundle.key);
   }
   // A closed bundle's row swipes as a thread's does: left marks every thread done, right snoozes
-  // them all. A long press opens a round menu around the finger, as a thread's does, with Pin all
-  // and Delete all.
+  // them all. A long press, on the open bundle's header too, opens a round menu around the finger,
+  // as a thread's does, with Pin all and Delete all.
   const swipe = new RowSwipe<BundleSwipeAction>(
     () => ({
       start: bundleSwipeAction("start", expanded),
@@ -196,8 +227,16 @@
     runBundleAction,
     (pointerId, press) => openBundleMenu(pointerId, press),
   );
+  // The open bundle's header takes the long press itself; it doesn't swipe.
+  const openHeadHold = {
+    onpointerdown: swipe.down,
+    onpointermove: swipe.move,
+    onpointerup: swipe.up,
+    onpointercancel: swipe.cancel,
+    oncontextmenu: swipe.contextMenu,
+    onclickcapture: swipe.clickCapture,
+  };
   function openBundleMenu(pointerId: number, press: { x: number; y: number }) {
-    if (expanded) return;
     holdMenu.open({
       x: press.x,
       y: press.y,
@@ -292,8 +331,11 @@
   <div
     data-row-key={bundle.key}
     {@attach expanded ? stuck : undefined}
+    {...expanded ? openHeadHold : {}}
     class={[
       "group/row flex items-center gap-3.5 h-[72px] px-5 transition-[background-color,box-shadow] duration-150",
+      expanded &&
+        "touch-pan-y pointer-coarse:select-none pointer-coarse:[-webkit-touch-callout:none]",
       expanded
         ? "sticky top-[calc(4rem+env(safe-area-inset-top))] z-[5] rounded-t-[22px] bg-surface/80 backdrop-blur-xl backdrop-saturate-150 data-[stuck]:rounded-none data-[stuck]:bg-surface data-[stuck]:shadow-[0_6px_18px_-12px_rgb(0_0_0/0.35)]"
         : swipe.dx !== 0
@@ -312,9 +354,9 @@
       aria-expanded={expanded}
       onclick={() => mail.dispatch({ type: "tap", key: bundle.key })}
     ></button>
-    {#if !expanded}
-      <!-- The swipes and the round menu for screen readers, which can't swipe or hold. -->
-      <div class="sr-only">
+    <!-- The swipes (open, its own Done all shows instead) and the round menu for screen readers, which can't swipe or hold. -->
+    <div class="sr-only">
+      {#if !expanded}
         <button type="button" tabindex="-1" onclick={doneAll}>Done all</button>
         <button
           type="button"
@@ -323,12 +365,12 @@
         >
           Snooze all
         </button>
-        <button type="button" tabindex="-1" onclick={pinAll}>Pin all</button>
-        <button type="button" tabindex="-1" onclick={deleteAll}>
-          Delete all
-        </button>
-      </div>
-    {/if}
+      {/if}
+      <button type="button" tabindex="-1" onclick={pinAll}>Pin all</button>
+      <button type="button" tabindex="-1" onclick={deleteAll}>
+        Delete all
+      </button>
+    </div>
     <span class="pointer-events-none"><LabelMark {label} size={36} /></span>
     <div class="flex-1 min-w-0 flex flex-col pointer-events-none">
       <div class="flex items-center gap-2 min-w-0">
@@ -348,7 +390,7 @@
           {counts.unread ?? counts.threads}
         </span>
         <span class="flex-1"></span>
-        {#if !expanded && rows.length > 0}
+        {#if !expanded && newest > 0}
           <span
             class={[
               "text-xs tabular-nums",
@@ -383,11 +425,7 @@
     {#if expanded}
       <button
         type="button"
-        onclick={() =>
-          void mail.doneGroup(
-            labelId,
-            rows.map((row) => row.thread.id),
-          )}
+        onclick={doneAll}
         class="relative h-8 shrink-0 flex items-center gap-1.5 px-3 rounded-full text-[13px] font-medium text-text-secondary hover:bg-surface-hover hover:text-text transition-colors"
       >
         <CheckCheck class="w-4 h-4" aria-hidden="true" />
@@ -401,7 +439,14 @@
       <div class="absolute right-3 top-1/2">
         <SnoozePopover
           onPick={(epoch, source, key) =>
-            void mail.snoozeGroup(labelId, threadIds, epoch, source, key)}
+            void mail.snoozeGroup(
+              labelId,
+              threadIds,
+              epoch,
+              source,
+              key,
+              todoIds,
+            )}
           onClose={mail.closeSnoozeMenu}
         />
       </div>
@@ -439,18 +484,28 @@
           ]}
         >
           {#each piece.rows as item, position (item.key)}
+            {@const rounding = [
+              (top || position > 0) && "border-t border-separator",
+              !top && position === 0 && "rounded-t-[22px]",
+              position === piece.rows.length - 1 &&
+                !(last && footer !== null) &&
+                "rounded-b-[22px]",
+            ]}
             <div in:rowIn={item.key} out:rowOut={item.key}>
-              <ThreadRow
-                row={item.data}
-                compact
-                class={[
-                  (top || position > 0) && "border-t border-separator",
-                  !top && position === 0 && "rounded-t-[22px]",
-                  position === piece.rows.length - 1 &&
-                    !(last && footer !== null) &&
-                    "rounded-b-[22px]",
-                ]}
-              />
+              {#if item.kind === "thread"}
+                <ThreadRow
+                  row={item.data}
+                  compact
+                  todo={mail.todoOfRow(item.data)}
+                  class={rounding}
+                />
+              {:else}
+                <TodoRow
+                  todo={mail.todos.get(item.id) ?? item.data}
+                  compact
+                  class={rounding}
+                />
+              {/if}
             </div>
           {/each}
           {#if last && footer !== null}

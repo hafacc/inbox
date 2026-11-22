@@ -3,6 +3,7 @@ import { labelQueryValue } from "./search";
 export {
   arrivalBundleLabels,
   bundledOnArrival,
+  bundledOnWake,
   PINNED_LABEL,
 } from "./arrival-bundles";
 
@@ -158,26 +159,45 @@ export function bundlesToRemember(bundles: readonly BundleList[]): string[] {
 
 /** What a bundle row counts. */
 export type BundleCounts = {
-  /** threads, as "12" or "50+" */
+  /** threads and todos, as "12" or "50+" */
   threads: string;
   /** unread threads, as "3 new" or "50+ new"; null when none */
   unread: string | null;
 };
 
 /**
- * A bundle row's counts. When Gmail has more of the label's inbox threads than were fetched,
- * both counts are lower bounds and read "N+".
+ * A bundle row's counts: its threads and todos together, and its unread threads. When Gmail has
+ * more of the label's inbox threads than were fetched, both counts are lower bounds and read "N+".
  */
 export function bundleCounts(
   threads: number,
   unread: number,
   more: boolean,
+  todos = 0,
 ): BundleCounts {
   const plus = more ? "+" : "";
   return {
-    threads: `${threads}${plus}`,
+    threads: `${threads + todos}${plus}`,
     unread: unread > 0 ? `${unread}${plus} new` : null,
   };
+}
+
+/** How many subjects and todo texts a closed bundle row's line names. */
+export const BUNDLE_LINE_ITEMS = 3;
+
+/**
+ * A closed bundle row's line after its senders: `texts` (its emails' subjects and its todos' plain
+ * texts, in the bundle's order) trimmed, blank and repeated ones left out, the first
+ * {@link BUNDLE_LINE_ITEMS} joined by " · ".
+ */
+export function bundleLine(texts: readonly string[]): string {
+  const kept: string[] = [];
+  for (const text of texts) {
+    const trimmed = text.trim();
+    if (trimmed !== "" && !kept.includes(trimmed)) kept.push(trimmed);
+    if (kept.length === BUNDLE_LINE_ITEMS) break;
+  }
+  return kept.join(" · ");
 }
 
 /** A loaded thread of a bundle, as Done all and a bundle's swipe see it. */
