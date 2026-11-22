@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">Inbox</string>
+    <!-- Launcher shortcuts, offered by holding the app's icon. -->
+    <string name="shortcut_new_email">New email</string>
+    <string name="shortcut_new_todo">New todo</string>
+    <string name="shortcut_search">Search</string>
+    <string name="shortcut_todos_off">Todos are off</string>
+</resources>

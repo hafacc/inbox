@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- TalkBack actions on a link in a message. -->
+    <item name="link_copy" type="id" />
+    <item name="link_share" type="id" />
+</resources>

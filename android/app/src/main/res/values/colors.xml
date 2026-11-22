@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The green theme's bg and accent (shared/themes/themes.json), shown before the app draws. -->
+    <color name="paper">#FFF1EEE8</color>
+    <color name="accent">#FF2E6B4F</color>
+</resources>

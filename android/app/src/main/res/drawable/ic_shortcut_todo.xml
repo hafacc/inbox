@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A launcher shortcut's icon: the glyph in the accent on the paper color, one-color for themed icons. -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/paper" />
+    <foreground android:drawable="@drawable/ic_shortcut_todo_glyph" />
+    <monochrome android:drawable="@drawable/ic_shortcut_todo_glyph" />
+</adaptive-icon>

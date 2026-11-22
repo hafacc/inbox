@@ -2,7 +2,9 @@
 
 What the web and Android encryption UIs build against. Pure logic: `@inbox/shared/pgp`
 (`shared/src/pgp/`, openpgp.js and hash-wasm), pinned by `shared/testdata/pgp-fixtures.json`, which
-Android's `:core` runs too. Server: `functions/src/key-publish.ts` (publishes public keys),
+Android's `:core` runs too. `:core:test` also runs `shared/src/pgp/interop.ts`, so Bouncy Castle
+decrypts the decrypt cases' messages built by openpgp.js and openpgp.js decrypts those built by
+Bouncy Castle, with keys made on that run and kept in `android/core/build/`. Server: `functions/src/key-publish.ts` (publishes public keys),
 `functions/src/lib/notification.ts` (encrypted pushes), the Key Worker `workers/wkd`. Rules:
 `firebase/firestore.rules`. Background: design.md "Encrypted mail (OpenPGP)".
 

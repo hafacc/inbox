@@ -24,6 +24,12 @@ updates:
         patterns:
           - tailwindcss
           - "@tailwindcss/*"
+  - package-ecosystem: gradle
+    directory: /android
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
   - package-ecosystem: github-actions
     directory: /
     schedule:

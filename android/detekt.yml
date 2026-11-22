@@ -1,0 +1,27 @@
+# Only the public-documentation checks run; every other rule set is off.
+comments:
+  active: true
+  UndocumentedPublicClass:
+    active: true
+    # A bare `companion object` only holds members, which are checked themselves.
+    ignoreDefaultCompanionObject: true
+  UndocumentedPublicFunction:
+    active: true
+  UndocumentedPublicProperty:
+    active: true
+complexity:
+  active: false
+coroutines:
+  active: false
+empty-blocks:
+  active: false
+exceptions:
+  active: false
+naming:
+  active: false
+performance:
+  active: false
+potential-bugs:
+  active: false
+style:
+  active: false
