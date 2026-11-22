@@ -1,0 +1,284 @@
+{
+  "_doc": "Selecting several threads and acting on them together (shared/src/selection.ts, Android :core Selection.kt). `toggle`: toggleSelected(selected, id). `range`: selectRange(selected, order, anchor, id). `keepShown`: keepShown(selected, shown). `after`: selectionAfter(action) for each action. `plan`: selectionPlan(threads). `label`: labelChoice(threads, labelId). `category`: selectionCategory(threads). `todos`: todoSelectionPlan(threads, todos). `all`: allSelected(selected, shown) and selectAll(selected, shown). `disc`: selectionDisc(available), the corner button's inner and outer rings, each from the top.",
+  "toggle": [
+    { "name": "selects", "selected": [], "id": "a", "expect": ["a"] },
+    { "name": "a new one goes last", "selected": ["b", "a"], "id": "c", "expect": ["b", "a", "c"] },
+    { "name": "unselects", "selected": ["a", "b", "c"], "id": "b", "expect": ["a", "c"] },
+    { "name": "unselecting the last leaves none", "selected": ["a"], "id": "a", "expect": [] }
+  ],
+  "range": [
+    {
+      "name": "downward from the anchor",
+      "selected": ["b"],
+      "order": ["a", "b", "c", "d", "e"],
+      "anchor": "b",
+      "id": "d",
+      "expect": ["b", "c", "d"]
+    },
+    {
+      "name": "upward from the anchor",
+      "selected": ["d"],
+      "order": ["a", "b", "c", "d", "e"],
+      "anchor": "d",
+      "id": "a",
+      "expect": ["d", "a", "b", "c"]
+    },
+    {
+      "name": "keeps what was selected outside the range",
+      "selected": ["e", "b"],
+      "order": ["a", "b", "c", "d", "e"],
+      "anchor": "b",
+      "id": "c",
+      "expect": ["e", "b", "c"]
+    },
+    {
+      "name": "no anchor toggles the one clicked",
+      "selected": [],
+      "order": ["a", "b", "c"],
+      "anchor": null,
+      "id": "b",
+      "expect": ["b"]
+    },
+    {
+      "name": "an anchor no longer listed toggles the one clicked",
+      "selected": ["c"],
+      "order": ["a", "b", "c"],
+      "anchor": "gone",
+      "id": "c",
+      "expect": []
+    },
+    {
+      "name": "the anchor itself stays selected",
+      "selected": ["b"],
+      "order": ["a", "b", "c"],
+      "anchor": "b",
+      "id": "b",
+      "expect": ["b"]
+    }
+  ],
+  "keepShown": [
+    {
+      "name": "drops threads that left the list, keeps selection order",
+      "selected": ["c", "a", "x"],
+      "shown": ["a", "b", "c"],
+      "expect": ["c", "a"]
+    },
+    { "name": "nothing shown", "selected": ["a"], "shown": [], "expect": [] }
+  ],
+  "after": {
+    "done": "clear",
+    "snooze": "clear",
+    "wake": "clear",
+    "spam": "clear",
+    "category": "clear",
+    "pin": "keep",
+    "unread": "keep",
+    "label": "keep"
+  },
+  "plan": [
+    {
+      "name": "inbox threads, some pinned, some unread",
+      "threads": [
+        { "id": "a", "labelIds": ["INBOX", "UNREAD"], "status": "none" },
+        { "id": "b", "labelIds": ["INBOX", "STARRED"], "status": "none" },
+        { "id": "c", "labelIds": ["INBOX"], "status": "none" }
+      ],
+      "expect": {
+        "done": ["a", "b", "c"],
+        "wake": [],
+        "pin": { "on": true, "ids": ["a", "c"] },
+        "unread": { "on": false, "ids": ["a"] },
+        "spam": { "on": true, "ids": ["a", "b", "c"] }
+      }
+    },
+    {
+      "name": "all pinned and read: unpin and mark unread",
+      "threads": [
+        { "id": "a", "labelIds": ["INBOX", "STARRED"], "status": "none" },
+        { "id": "b", "labelIds": ["STARRED", "Label_1"], "status": "none" }
+      ],
+      "expect": {
+        "done": ["a"],
+        "wake": [],
+        "pin": { "on": false, "ids": ["a", "b"] },
+        "unread": { "on": true, "ids": ["a", "b"] },
+        "spam": { "on": true, "ids": ["a", "b"] }
+      }
+    },
+    {
+      "name": "snoozed and lapsed threads can be done; only snoozed ones wake",
+      "threads": [
+        { "id": "a", "labelIds": [], "status": "snoozed" },
+        { "id": "b", "labelIds": ["INBOX"], "status": "lapsed" },
+        { "id": "c", "labelIds": ["Label_1"], "status": "none" }
+      ],
+      "expect": {
+        "done": ["a", "b"],
+        "wake": ["a"],
+        "pin": { "on": true, "ids": ["a", "b", "c"] },
+        "unread": { "on": true, "ids": ["a", "b", "c"] },
+        "spam": { "on": true, "ids": ["a", "b", "c"] }
+      }
+    },
+    {
+      "name": "spam with other mail: report the rest; spam can't be done",
+      "threads": [
+        { "id": "a", "labelIds": ["SPAM", "UNREAD"], "status": "none" },
+        { "id": "b", "labelIds": ["INBOX"], "status": "none" }
+      ],
+      "expect": {
+        "done": ["b"],
+        "wake": [],
+        "pin": { "on": true, "ids": ["a", "b"] },
+        "unread": { "on": false, "ids": ["a"] },
+        "spam": { "on": true, "ids": ["b"] }
+      }
+    },
+    {
+      "name": "all spam: not spam",
+      "threads": [
+        { "id": "a", "labelIds": ["SPAM"], "status": "none" },
+        { "id": "b", "labelIds": ["SPAM", "INBOX"], "status": "none" }
+      ],
+      "expect": {
+        "done": [],
+        "wake": [],
+        "pin": { "on": true, "ids": ["a", "b"] },
+        "unread": { "on": true, "ids": ["a", "b"] },
+        "spam": { "on": false, "ids": ["a", "b"] }
+      }
+    }
+  ],
+  "label": [
+    {
+      "name": "none carry it: add to all",
+      "threads": [
+        { "id": "a", "labelIds": ["INBOX"], "status": "none" },
+        { "id": "b", "labelIds": [], "status": "none" }
+      ],
+      "labelId": "Label_1",
+      "expect": { "state": "none", "add": ["a", "b"], "remove": [] }
+    },
+    {
+      "name": "some carry it: add to the rest",
+      "threads": [
+        { "id": "a", "labelIds": ["Label_1"], "status": "none" },
+        { "id": "b", "labelIds": ["INBOX"], "status": "none" },
+        { "id": "c", "labelIds": [], "status": "none" }
+      ],
+      "labelId": "Label_1",
+      "expect": { "state": "some", "add": ["b", "c"], "remove": [] }
+    },
+    {
+      "name": "all carry it: remove from all",
+      "threads": [
+        { "id": "a", "labelIds": ["Label_1"], "status": "none" },
+        { "id": "b", "labelIds": ["Label_1", "INBOX"], "status": "none" }
+      ],
+      "labelId": "Label_1",
+      "expect": { "state": "all", "add": [], "remove": ["a", "b"] }
+    },
+    {
+      "name": "no threads",
+      "threads": [],
+      "labelId": "Label_1",
+      "expect": { "state": "none", "add": [], "remove": [] }
+    }
+  ],
+  "category": [
+    {
+      "name": "all in one category",
+      "threads": [
+        { "id": "a", "labelIds": ["CATEGORY_PROMOTIONS"], "status": "none" },
+        { "id": "b", "labelIds": ["CATEGORY_PROMOTIONS", "INBOX"], "status": "none" }
+      ],
+      "expect": "CATEGORY_PROMOTIONS"
+    },
+    {
+      "name": "no category counts as Primary",
+      "threads": [
+        { "id": "a", "labelIds": ["INBOX"], "status": "none" },
+        { "id": "b", "labelIds": ["CATEGORY_PERSONAL"], "status": "none" }
+      ],
+      "expect": "CATEGORY_PERSONAL"
+    },
+    {
+      "name": "mixed",
+      "threads": [
+        { "id": "a", "labelIds": ["CATEGORY_SOCIAL"], "status": "none" },
+        { "id": "b", "labelIds": ["INBOX"], "status": "none" }
+      ],
+      "expect": null
+    },
+    { "name": "no threads", "threads": [], "expect": null }
+  ],
+  "todos": [
+    {"name": "todos alone: open ones are done, snoozed and pinned", "threads": [], "todos": [{"id": "t1", "done": false, "pinned": false}, {"id": "t2", "done": false, "pinned": true}, {"id": "t3", "done": true, "pinned": false}], "expect": {"done": ["t1", "t2"], "snooze": ["t1", "t2"], "pin": {"on": true, "threads": [], "todos": ["t1"]}}},
+    {"name": "an unpinned thread makes Pin pin, leaving pinned todos", "threads": [{"id": "a", "labelIds": ["INBOX"], "status": "none"}, {"id": "b", "labelIds": ["INBOX", "STARRED"], "status": "none"}], "todos": [{"id": "t1", "done": false, "pinned": true}], "expect": {"done": ["t1"], "snooze": ["t1"], "pin": {"on": true, "threads": ["a"], "todos": []}}},
+    {"name": "an unpinned todo makes Pin pin, leaving pinned threads", "threads": [{"id": "b", "labelIds": ["INBOX", "STARRED"], "status": "none"}], "todos": [{"id": "t1", "done": false, "pinned": false}], "expect": {"done": ["t1"], "snooze": ["t1"], "pin": {"on": true, "threads": [], "todos": ["t1"]}}},
+    {"name": "everything pinned: Pin unpins all", "threads": [{"id": "b", "labelIds": ["INBOX", "STARRED"], "status": "none"}], "todos": [{"id": "t1", "done": false, "pinned": true}, {"id": "t2", "done": true, "pinned": true}], "expect": {"done": ["t1"], "snooze": ["t1"], "pin": {"on": false, "threads": ["b"], "todos": ["t1"]}}},
+    {"name": "only done todos: nothing to do", "threads": [], "todos": [{"id": "t1", "done": true, "pinned": false}], "expect": {"done": [], "snooze": [], "pin": {"on": false, "threads": [], "todos": []}}},
+    {"name": "no todos", "threads": [{"id": "a", "labelIds": ["INBOX"], "status": "none"}], "todos": [], "expect": {"done": [], "snooze": [], "pin": {"on": true, "threads": ["a"], "todos": []}}}
+  ],
+  "all": [
+    {"name": "none selected selects all", "selected": [], "shown": ["a", "todo:1", "b"], "all": false, "expect": ["a", "todo:1", "b"]},
+    {"name": "some selected selects all in list order", "selected": ["b"], "shown": ["a", "b", "c"], "all": false, "expect": ["a", "b", "c"]},
+    {"name": "all selected selects none", "selected": ["c", "a", "b"], "shown": ["a", "b", "c"], "all": true, "expect": []},
+    {"name": "nothing shown", "selected": [], "shown": [], "all": false, "expect": []}
+  ],
+  "actions": [
+    {
+      "name": "threads alone offer every thread action",
+      "threads": 2,
+      "todos": 0,
+      "expect": [
+        "wake",
+        "snooze",
+        "pin",
+        "label",
+        "move",
+        "category",
+        "read",
+        "spam",
+        "inbox",
+        "done"
+      ]
+    },
+    {
+      "name": "todos alone offer every todo action",
+      "threads": 0,
+      "todos": 3,
+      "expect": [
+        "snooze",
+        "pin",
+        "delete",
+        "done"
+      ]
+    },
+    {
+      "name": "threads and todos together offer only what both support",
+      "threads": 1,
+      "todos": 1,
+      "expect": [
+        "snooze",
+        "pin",
+        "done"
+      ]
+    },
+    {
+      "name": "nothing selected offers nothing",
+      "threads": 0,
+      "todos": 0,
+      "expect": []
+    }
+  ],
+  "disc": [
+    { "name": "inbox threads: Done, Snooze, Pin inside; the rest outside", "available": ["done", "snooze", "pin", "label", "read", "spam"], "inner": ["done", "snooze", "pin"], "outer": ["label", "read", "spam"] },
+    { "name": "snoozed threads: Wake now takes Snooze's place, which goes outside", "available": ["done", "snooze", "wake", "pin", "label", "read", "spam"], "inner": ["done", "wake", "pin"], "outer": ["snooze", "label", "read", "spam"] },
+    { "name": "archived threads: Move to inbox takes Done's place", "available": ["inbox", "snooze", "pin", "label", "read", "spam"], "inner": ["inbox", "snooze", "pin"], "outer": ["label", "read", "spam"] },
+    { "name": "archived and inbox threads: Done goes outside", "available": ["done", "inbox", "snooze", "pin", "label", "read", "spam"], "inner": ["inbox", "snooze", "pin"], "outer": ["done", "label", "read", "spam"] },
+    { "name": "todos: Delete outside", "available": ["done", "snooze", "pin", "delete"], "inner": ["done", "snooze", "pin"], "outer": ["delete"] },
+    { "name": "done todos with nothing to pin: Delete alone outside", "available": ["delete"], "inner": [], "outer": ["delete"] },
+    { "name": "threads and todos together: no outer ring", "available": ["done", "snooze", "pin"], "inner": ["done", "snooze", "pin"], "outer": [] }
+  ]
+}

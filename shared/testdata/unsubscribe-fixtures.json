@@ -1,0 +1,204 @@
+{
+  "_doc": {
+    "about": "Reading List-Unsubscribe / List-Unsubscribe-Post every client must match: web (shared/src/unsubscribe.ts) and Android :core.",
+    "parse": "parseUnsubscribe(listUnsubscribe, listUnsubscribePost). Unfold (CRLF/LF + spaces/tabs → one space). URIs: the contents of every <…> with all whitespace removed (RFC 2369: whitespace inside brackets is ignored); when there are no brackets, the text with (comments) removed split on commas and trimmed. Only http:, https: and mailto: URIs that are non-empty and hold no whitespace are kept (scheme case-insensitive). url = first http(s). oneClickUrl = first https, only when the POST header with all whitespace removed equals 'List-Unsubscribe=One-Click' case-insensitively (RFC 8058; never http). mailto = first mailto: that gives a message: the text before '?' percent-decoded (UTF-8; invalid sequences kept as written) THEN split on commas, trimmed, empties dropped, followed by any to= values (decoded, split the same way); only the first of these is used, and only when it is a plain address (exactly one '@' with text on each side; no whitespace, control characters, ',', ';', '<' or '>'), else that mailto gives nothing. Query names are case-insensitive; subject= and body= percent-decoded ('+' stays '+', RFC 6068); missing ones are ''. preferred: oneClick, else mailto, else url, else null."
+  },
+  "parse": [
+    {
+      "name": "one-click with mailto fallback",
+      "listUnsubscribe": "<mailto:unsub-8f2a@lists.example.com?subject=unsubscribe>, <https://lists.example.com/u/8f2a?e=user%40hafa.cc>",
+      "listUnsubscribePost": "List-Unsubscribe=One-Click",
+      "expect": {
+        "oneClickUrl": "https://lists.example.com/u/8f2a?e=user%40hafa.cc",
+        "mailto": { "address": "unsub-8f2a@lists.example.com", "subject": "unsubscribe", "body": "" },
+        "url": "https://lists.example.com/u/8f2a?e=user%40hafa.cc",
+        "preferred": "oneClick"
+      }
+    },
+    {
+      "name": "no POST header: mailto is preferred over the URL",
+      "listUnsubscribe": "<https://news.example.org/unsubscribe/abc>, <mailto:leave@news.example.org>",
+      "listUnsubscribePost": null,
+      "expect": {
+        "oneClickUrl": null,
+        "mailto": { "address": "leave@news.example.org", "subject": "", "body": "" },
+        "url": "https://news.example.org/unsubscribe/abc",
+        "preferred": "mailto"
+      }
+    },
+    {
+      "name": "URL only",
+      "listUnsubscribe": "<https://shop.example/prefs?u=42>",
+      "listUnsubscribePost": null,
+      "expect": { "oneClickUrl": null, "mailto": null, "url": "https://shop.example/prefs?u=42", "preferred": "url" }
+    },
+    {
+      "name": "one-click never uses plain http",
+      "listUnsubscribe": "<http://old.example/unsub?id=7>",
+      "listUnsubscribePost": "List-Unsubscribe=One-Click",
+      "expect": { "oneClickUrl": null, "mailto": null, "url": "http://old.example/unsub?id=7", "preferred": "url" }
+    },
+    {
+      "name": "one-click takes the first https URI",
+      "listUnsubscribe": "<http://a.example/u>, <https://b.example/u>",
+      "listUnsubscribePost": "list-unsubscribe = one-click",
+      "expect": {
+        "oneClickUrl": "https://b.example/u",
+        "mailto": null,
+        "url": "http://a.example/u",
+        "preferred": "oneClick"
+      }
+    },
+    {
+      "name": "any other POST value is not one-click",
+      "listUnsubscribe": "<https://b.example/u>",
+      "listUnsubscribePost": "List-Unsubscribe=Yes",
+      "expect": { "oneClickUrl": null, "mailto": null, "url": "https://b.example/u", "preferred": "url" }
+    },
+    {
+      "name": "folded header with whitespace inside the brackets",
+      "listUnsubscribe": "<https://mail.example.net/unsubscribe?token=aGVsbG8gd29y\r\n  bGQ&list=weekly>,\r\n <mailto:unsubscribe@mail.example.net>",
+      "listUnsubscribePost": "List-Unsubscribe=One-Click",
+      "expect": {
+        "oneClickUrl": "https://mail.example.net/unsubscribe?token=aGVsbG8gd29ybGQ&list=weekly",
+        "mailto": { "address": "unsubscribe@mail.example.net", "subject": "", "body": "" },
+        "url": "https://mail.example.net/unsubscribe?token=aGVsbG8gd29ybGQ&list=weekly",
+        "preferred": "oneClick"
+      }
+    },
+    {
+      "name": "encoded mailto fields",
+      "listUnsubscribe": "<MAILTO:list-request%2Bleave@groups.example.com?Subject=Unsubscribe%20me&body=please%20remove%0D%0Auser%40hafa.cc+now>",
+      "listUnsubscribePost": null,
+      "expect": {
+        "oneClickUrl": null,
+        "mailto": {
+          "address": "list-request+leave@groups.example.com",
+          "subject": "Unsubscribe me",
+          "body": "please remove\r\nuser@hafa.cc+now"
+        },
+        "url": null,
+        "preferred": "mailto"
+      }
+    },
+    {
+      "name": "mailto address given as to=",
+      "listUnsubscribe": "<mailto:?to=remove@lists.example.com&subject=remove>",
+      "listUnsubscribePost": null,
+      "expect": {
+        "oneClickUrl": null,
+        "mailto": { "address": "remove@lists.example.com", "subject": "remove", "body": "" },
+        "url": null,
+        "preferred": "mailto"
+      }
+    },
+    {
+      "name": "invalid percent sequences are kept",
+      "listUnsubscribe": "<mailto:leave@x.example?subject=100%25%20off%ZZ>",
+      "listUnsubscribePost": null,
+      "expect": {
+        "oneClickUrl": null,
+        "mailto": { "address": "leave@x.example", "subject": "100% off%ZZ", "body": "" },
+        "url": null,
+        "preferred": "mailto"
+      }
+    },
+    {
+      "name": "a mailto without an address is skipped",
+      "listUnsubscribe": "<mailto:?subject=x>, <mailto:real@x.example>",
+      "listUnsubscribePost": null,
+      "expect": {
+        "oneClickUrl": null,
+        "mailto": { "address": "real@x.example", "subject": "", "body": "" },
+        "url": null,
+        "preferred": "mailto"
+      }
+    },
+    {
+      "name": "bare URIs without brackets, with a comment",
+      "listUnsubscribe": "https://bare.example/u?id=1 (click to leave), mailto:bare@x.example",
+      "listUnsubscribePost": null,
+      "expect": {
+        "oneClickUrl": null,
+        "mailto": { "address": "bare@x.example", "subject": "", "body": "" },
+        "url": "https://bare.example/u?id=1",
+        "preferred": "mailto"
+      }
+    },
+    {
+      "name": "other schemes and junk are ignored",
+      "listUnsubscribe": "<ftp://x.example/u>, <>, <javascript:alert(1)>",
+      "listUnsubscribePost": "List-Unsubscribe=One-Click",
+      "expect": { "oneClickUrl": null, "mailto": null, "url": null, "preferred": null }
+    },
+    {
+      "name": "no header",
+      "listUnsubscribe": null,
+      "listUnsubscribePost": null,
+      "expect": { "oneClickUrl": null, "mailto": null, "url": null, "preferred": null }
+    },
+    {
+      "name": "encoded comma keeps only the first address",
+      "listUnsubscribe": "<mailto:leave@x.example%2Ceve@evil.example?subject=bye>",
+      "listUnsubscribePost": null,
+      "expect": {
+        "oneClickUrl": null,
+        "mailto": {
+          "address": "leave@x.example",
+          "subject": "bye",
+          "body": ""
+        },
+        "url": null,
+        "preferred": "mailto"
+      }
+    },
+    {
+      "name": "encoded line break smuggling a header gives nothing",
+      "listUnsubscribe": "<mailto:leave@x.example%0D%0ABcc:%20eve@evil.example>, <https://x.example/u>",
+      "listUnsubscribePost": null,
+      "expect": {
+        "oneClickUrl": null,
+        "mailto": null,
+        "url": "https://x.example/u",
+        "preferred": "url"
+      }
+    },
+    {
+      "name": "only the first address is used, never a later one",
+      "listUnsubscribe": "<mailto:not-an-address,leave@x.example>",
+      "listUnsubscribePost": null,
+      "expect": {
+        "oneClickUrl": null,
+        "mailto": null,
+        "url": null,
+        "preferred": null
+      }
+    },
+    {
+      "name": "to= with an encoded comma keeps its first address",
+      "listUnsubscribe": "<mailto:?to=leave@x.example%2Ceve@evil.example>",
+      "listUnsubscribePost": null,
+      "expect": {
+        "oneClickUrl": null,
+        "mailto": {
+          "address": "leave@x.example",
+          "subject": "",
+          "body": ""
+        },
+        "url": null,
+        "preferred": "mailto"
+      }
+    },
+    {
+      "name": "an address with angle brackets is refused",
+      "listUnsubscribe": "<mailto:%3Ceve@evil.example%3E>",
+      "listUnsubscribePost": null,
+      "expect": {
+        "oneClickUrl": null,
+        "mailto": null,
+        "url": null,
+        "preferred": null
+      }
+    }
+  ]
+}

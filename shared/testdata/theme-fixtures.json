@@ -1,0 +1,347 @@
+{
+  "_doc": {
+    "about": "Run by shared/src/themes.spec.ts and Android :core ThemeFixturesTest; see shared/themes/themes.json _doc for the rules."
+  },
+  "labelTone": [
+    {
+      "hex": "#000000",
+      "tone": "gray"
+    },
+    {
+      "hex": "#434343",
+      "tone": "gray"
+    },
+    {
+      "hex": "#666666",
+      "tone": "gray"
+    },
+    {
+      "hex": "#999999",
+      "tone": "gray"
+    },
+    {
+      "hex": "#cccccc",
+      "tone": "gray"
+    },
+    {
+      "hex": "#efefef",
+      "tone": "gray"
+    },
+    {
+      "hex": "#f3f3f3",
+      "tone": "gray"
+    },
+    {
+      "hex": "#ffffff",
+      "tone": "gray"
+    },
+    {
+      "hex": "#fb4c2f",
+      "tone": "red"
+    },
+    {
+      "hex": "#ffad47",
+      "tone": "orange"
+    },
+    {
+      "hex": "#fad165",
+      "tone": "yellow"
+    },
+    {
+      "hex": "#16a766",
+      "tone": "green"
+    },
+    {
+      "hex": "#43d692",
+      "tone": "green"
+    },
+    {
+      "hex": "#4a86e8",
+      "tone": "blue"
+    },
+    {
+      "hex": "#a479e2",
+      "tone": "purple"
+    },
+    {
+      "hex": "#f691b3",
+      "tone": "pink"
+    },
+    {
+      "hex": "#f6c5be",
+      "tone": "red"
+    },
+    {
+      "hex": "#ffe6c7",
+      "tone": "orange"
+    },
+    {
+      "hex": "#fef1d1",
+      "tone": "yellow"
+    },
+    {
+      "hex": "#b9e4d0",
+      "tone": "green"
+    },
+    {
+      "hex": "#c6f3de",
+      "tone": "green"
+    },
+    {
+      "hex": "#c9daf8",
+      "tone": "blue"
+    },
+    {
+      "hex": "#e4d7f5",
+      "tone": "purple"
+    },
+    {
+      "hex": "#fcdee8",
+      "tone": "pink"
+    },
+    {
+      "hex": "#cc3a21",
+      "tone": "red"
+    },
+    {
+      "hex": "#eaa041",
+      "tone": "orange"
+    },
+    {
+      "hex": "#f2c960",
+      "tone": "yellow"
+    },
+    {
+      "hex": "#149e60",
+      "tone": "green"
+    },
+    {
+      "hex": "#3dc789",
+      "tone": "green"
+    },
+    {
+      "hex": "#3c78d8",
+      "tone": "blue"
+    },
+    {
+      "hex": "#8e63ce",
+      "tone": "purple"
+    },
+    {
+      "hex": "#e07798",
+      "tone": "pink"
+    },
+    {
+      "hex": "#ac2b16",
+      "tone": "red"
+    },
+    {
+      "hex": "#cf8933",
+      "tone": "orange"
+    },
+    {
+      "hex": "#d5ae49",
+      "tone": "yellow"
+    },
+    {
+      "hex": "#0b804b",
+      "tone": "green"
+    },
+    {
+      "hex": "#2a9c68",
+      "tone": "green"
+    },
+    {
+      "hex": "#285bac",
+      "tone": "blue"
+    },
+    {
+      "hex": "#653e9b",
+      "tone": "purple"
+    },
+    {
+      "hex": "#b65775",
+      "tone": "pink"
+    },
+    {
+      "hex": "#822111",
+      "tone": "red"
+    },
+    {
+      "hex": "#a46a21",
+      "tone": "orange"
+    },
+    {
+      "hex": "#aa8831",
+      "tone": "yellow"
+    },
+    {
+      "hex": "#076239",
+      "tone": "green"
+    },
+    {
+      "hex": "#1a764d",
+      "tone": "green"
+    },
+    {
+      "hex": "#1c4587",
+      "tone": "blue"
+    },
+    {
+      "hex": "#41236d",
+      "tone": "purple"
+    },
+    {
+      "hex": "#83334c",
+      "tone": "pink"
+    },
+    {
+      "hex": "#e66550",
+      "tone": "red"
+    },
+    {
+      "hex": "#ffbc6b",
+      "tone": "orange"
+    },
+    {
+      "hex": "#4986e7",
+      "tone": "blue"
+    },
+    {
+      "hex": "#2da2bb",
+      "tone": "teal"
+    },
+    {
+      "hex": "#b694e8",
+      "tone": "purple"
+    },
+    {
+      "hex": "#f7a7c0",
+      "tone": "pink"
+    },
+    {
+      "hex": "#bfedd2",
+      "tone": "green"
+    },
+    {
+      "hex": "#94a3bf",
+      "tone": "blue"
+    },
+    {
+      "hex": "",
+      "tone": "gray"
+    },
+    {
+      "hex": "red",
+      "tone": "gray"
+    }
+  ],
+  "avatarIndex": [
+    {
+      "email": "maya@x.example.com",
+      "count": 6,
+      "index": 3
+    },
+    {
+      "email": "Maya@x.example.com",
+      "count": 6,
+      "index": 3
+    },
+    {
+      "email": "staging@hafa.cc",
+      "count": 6,
+      "index": 5
+    },
+    {
+      "email": "a@b.c",
+      "count": 6,
+      "index": 2
+    },
+    {
+      "email": "ünïcode@example.org",
+      "count": 6,
+      "index": 0
+    },
+    {
+      "email": "support@shop.example",
+      "count": 6,
+      "index": 5
+    }
+  ],
+  "colors": [
+    {
+      "theme": "green",
+      "mode": "light",
+      "expect": {
+        "bg": "#f1eee8",
+        "accent": "#2e6b4f",
+        "on-accent": "#ffffff",
+        "text": "#23211d",
+        "avatar-0": "#dce8df",
+        "on-avatar-5": "#2f5a56",
+        "label-blue": "#4a6a96"
+      }
+    },
+    {
+      "theme": "green",
+      "mode": "dark",
+      "expect": {
+        "bg": "#161513",
+        "accent": "#7cc29e",
+        "on-accent": "#0d2117",
+        "text": "#eeeae2",
+        "avatar-0": "#22352a",
+        "on-avatar-5": "#a6d6d0",
+        "label-blue": "#8fb0dc"
+      }
+    },
+    {
+      "theme": "clay",
+      "mode": "light",
+      "expect": {
+        "bg": "#f1eee8",
+        "accent": "#a24b2a",
+        "on-accent": "#ffffff",
+        "text": "#23211d",
+        "avatar-0": "#dce8df",
+        "on-avatar-5": "#2f5a56",
+        "label-blue": "#4a6a96"
+      }
+    },
+    {
+      "theme": "clay",
+      "mode": "dark",
+      "expect": {
+        "bg": "#161513",
+        "accent": "#e9967a",
+        "on-accent": "#2b1006",
+        "text": "#eeeae2",
+        "avatar-0": "#22352a",
+        "on-avatar-5": "#a6d6d0",
+        "label-blue": "#8fb0dc"
+      }
+    }
+  ],
+  "emailStyle": [
+    {
+      "theme": "green",
+      "mode": "dark",
+      "css": "html{background:#201e1b}body{color:#eeeae2}a{color:#a3d8bc}blockquote{border-left-color:#4a453e}img,video{filter:brightness(0.9)}"
+    },
+    {
+      "theme": "green",
+      "mode": "light",
+      "css": "html{background:#ffffff}body{color:#23211d}a{color:#24573f}blockquote{border-left-color:#e6e1d7}"
+    },
+    {
+      "theme": "clay",
+      "mode": "dark",
+      "css": "html{background:#201e1b}body{color:#eeeae2}a{color:#f2b9a4}blockquote{border-left-color:#4a453e}img,video{filter:brightness(0.9)}"
+    },
+    {
+      "theme": "nope",
+      "mode": "dark",
+      "css": "html{background:#201e1b}body{color:#eeeae2}a{color:#a3d8bc}blockquote{border-left-color:#4a453e}img,video{filter:brightness(0.9)}"
+    }
+  ]
+}

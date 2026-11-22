@@ -1,0 +1,511 @@
+{
+  "labels": {
+    "receipts": "Label_7"
+  },
+  "keeps": [
+    {
+      "name": "inbox keeps an inbox thread",
+      "view": {
+        "kind": "inbox"
+      },
+      "thread": {
+        "labelIds": [
+          "INBOX"
+        ],
+        "snoozed": false
+      },
+      "expect": true
+    },
+    {
+      "name": "inbox drops a done thread",
+      "view": {
+        "kind": "inbox"
+      },
+      "thread": {
+        "labelIds": [],
+        "snoozed": false
+      },
+      "expect": false
+    },
+    {
+      "name": "inbox drops a snoozed thread",
+      "view": {
+        "kind": "inbox"
+      },
+      "thread": {
+        "labelIds": [
+          "INBOX"
+        ],
+        "snoozed": true
+      },
+      "expect": false
+    },
+    {
+      "name": "inbox drops spam",
+      "view": {
+        "kind": "inbox"
+      },
+      "thread": {
+        "labelIds": [
+          "INBOX",
+          "SPAM"
+        ],
+        "snoozed": false
+      },
+      "expect": false
+    },
+    {
+      "name": "a label keeps its done thread",
+      "view": {
+        "kind": "label",
+        "labelId": "Label_1"
+      },
+      "thread": {
+        "labelIds": [
+          "Label_1"
+        ],
+        "snoozed": false
+      },
+      "expect": true
+    },
+    {
+      "name": "a label drops a thread whose label came off",
+      "view": {
+        "kind": "label",
+        "labelId": "Label_1"
+      },
+      "thread": {
+        "labelIds": [
+          "INBOX"
+        ],
+        "snoozed": false
+      },
+      "expect": false
+    },
+    {
+      "name": "a label drops trash",
+      "view": {
+        "kind": "label",
+        "labelId": "Label_1"
+      },
+      "thread": {
+        "labelIds": [
+          "Label_1",
+          "TRASH"
+        ],
+        "snoozed": false
+      },
+      "expect": false
+    },
+    {
+      "name": "sent keeps a done thread",
+      "view": {
+        "kind": "sent"
+      },
+      "thread": {
+        "labelIds": [
+          "SENT"
+        ],
+        "snoozed": false
+      },
+      "expect": true
+    },
+    {
+      "name": "done keeps an archived thread",
+      "view": {
+        "kind": "done"
+      },
+      "thread": {
+        "labelIds": [
+          "Label_1"
+        ],
+        "snoozed": false
+      },
+      "expect": true
+    },
+    {
+      "name": "done drops a thread moved to the inbox",
+      "view": {
+        "kind": "done"
+      },
+      "thread": {
+        "labelIds": [
+          "INBOX"
+        ],
+        "snoozed": false
+      },
+      "expect": false
+    },
+    {
+      "name": "done drops a snoozed thread",
+      "view": {
+        "kind": "done"
+      },
+      "thread": {
+        "labelIds": [],
+        "snoozed": true
+      },
+      "expect": false
+    },
+    {
+      "name": "snoozed keeps a snoozed thread",
+      "view": {
+        "kind": "snoozed"
+      },
+      "thread": {
+        "labelIds": [],
+        "snoozed": true
+      },
+      "expect": true
+    },
+    {
+      "name": "snoozed drops a woken one",
+      "view": {
+        "kind": "snoozed"
+      },
+      "thread": {
+        "labelIds": [
+          "INBOX"
+        ],
+        "snoozed": false
+      },
+      "expect": false
+    },
+    {
+      "name": "spam keeps spam",
+      "view": {
+        "kind": "spam"
+      },
+      "thread": {
+        "labelIds": [
+          "SPAM"
+        ],
+        "snoozed": false
+      },
+      "expect": true
+    },
+    {
+      "name": "spam drops a thread marked not spam",
+      "view": {
+        "kind": "spam"
+      },
+      "thread": {
+        "labelIds": [
+          "INBOX"
+        ],
+        "snoozed": false
+      },
+      "expect": false
+    },
+    {
+      "name": "a search without in:inbox keeps a done thread",
+      "view": {
+        "kind": "search",
+        "query": "from:ann"
+      },
+      "thread": {
+        "labelIds": [],
+        "snoozed": false
+      },
+      "expect": true
+    },
+    {
+      "name": "a search with in:inbox drops a done thread",
+      "view": {
+        "kind": "search",
+        "query": "from:ann in:inbox"
+      },
+      "thread": {
+        "labelIds": [],
+        "snoozed": false
+      },
+      "expect": false
+    },
+    {
+      "name": "a search with -in:inbox drops a thread moved to the inbox",
+      "view": {
+        "kind": "search",
+        "query": "-in:inbox report"
+      },
+      "thread": {
+        "labelIds": [
+          "INBOX"
+        ],
+        "snoozed": false
+      },
+      "expect": false
+    },
+    {
+      "name": "a search for is:starred drops an unpinned thread",
+      "view": {
+        "kind": "search",
+        "query": "is:starred"
+      },
+      "thread": {
+        "labelIds": [
+          "INBOX"
+        ],
+        "snoozed": false
+      },
+      "expect": false
+    },
+    {
+      "name": "a search for label:name uses the label's id",
+      "view": {
+        "kind": "search",
+        "query": "label:receipts"
+      },
+      "thread": {
+        "labelIds": [
+          "INBOX"
+        ],
+        "snoozed": false
+      },
+      "expect": false
+    },
+    {
+      "name": "a search for label:name keeps a thread carrying it",
+      "view": {
+        "kind": "search",
+        "query": "label:receipts"
+      },
+      "thread": {
+        "labelIds": [
+          "Label_7"
+        ],
+        "snoozed": false
+      },
+      "expect": true
+    },
+    {
+      "name": "a search drops spam unless it asks for it",
+      "view": {
+        "kind": "search",
+        "query": "from:ann"
+      },
+      "thread": {
+        "labelIds": [
+          "SPAM"
+        ],
+        "snoozed": false
+      },
+      "expect": false
+    },
+    {
+      "name": "a search for in:spam keeps spam",
+      "view": {
+        "kind": "search",
+        "query": "in:spam"
+      },
+      "thread": {
+        "labelIds": [
+          "SPAM"
+        ],
+        "snoozed": false
+      },
+      "expect": true
+    },
+    {
+      "name": "a search for in:anywhere keeps trash",
+      "view": {
+        "kind": "search",
+        "query": "in:anywhere ann"
+      },
+      "thread": {
+        "labelIds": [
+          "TRASH"
+        ],
+        "snoozed": false
+      },
+      "expect": true
+    },
+    {
+      "name": "a search with OR is read for spam and trash only",
+      "view": {
+        "kind": "search",
+        "query": "in:inbox OR is:starred"
+      },
+      "thread": {
+        "labelIds": [],
+        "snoozed": false
+      },
+      "expect": true
+    },
+    {
+      "name": "a search for in:snoozed drops a woken thread",
+      "view": {
+        "kind": "search",
+        "query": "in:snoozed"
+      },
+      "thread": {
+        "labelIds": [
+          "INBOX"
+        ],
+        "snoozed": false
+      },
+      "expect": false
+    },
+    {
+      "name": "a search with is:done keeps an archived thread",
+      "view": {
+        "kind": "search",
+        "query": "is:done"
+      },
+      "thread": {
+        "labelIds": [
+          "Label_1"
+        ],
+        "snoozed": false
+      },
+      "expect": true
+    },
+    {
+      "name": "a search with is:done drops a thread moved to the inbox",
+      "view": {
+        "kind": "search",
+        "query": "is:done"
+      },
+      "thread": {
+        "labelIds": [
+          "INBOX"
+        ],
+        "snoozed": false
+      },
+      "expect": false
+    },
+    {
+      "name": "a search with -is:done drops a done thread",
+      "view": {
+        "kind": "search",
+        "query": "-is:done"
+      },
+      "thread": {
+        "labelIds": [],
+        "snoozed": false
+      },
+      "expect": false
+    },
+    {
+      "name": "a search with is:pinned drops an unpinned thread",
+      "view": {
+        "kind": "search",
+        "query": "is:pinned"
+      },
+      "thread": {
+        "labelIds": [
+          "INBOX"
+        ],
+        "snoozed": false
+      },
+      "expect": false
+    },
+    {
+      "name": "a search with is:pinned keeps a pinned thread",
+      "view": {
+        "kind": "search",
+        "query": "is:pinned"
+      },
+      "thread": {
+        "labelIds": [
+          "INBOX",
+          "STARRED"
+        ],
+        "snoozed": false
+      },
+      "expect": true
+    }
+  ],
+  "inboxAction": [
+    {
+      "name": "an inbox thread offers Done",
+      "thread": {
+        "labelIds": [
+          "INBOX"
+        ],
+        "snoozed": false
+      },
+      "expect": "done"
+    },
+    {
+      "name": "a snoozed thread offers Done",
+      "thread": {
+        "labelIds": [],
+        "snoozed": true
+      },
+      "expect": "done"
+    },
+    {
+      "name": "an archived thread offers Move to inbox",
+      "thread": {
+        "labelIds": [
+          "Label_1"
+        ],
+        "snoozed": false
+      },
+      "expect": "inbox"
+    },
+    {
+      "name": "spam offers neither",
+      "thread": {
+        "labelIds": [
+          "SPAM"
+        ],
+        "snoozed": false
+      },
+      "expect": null
+    },
+    {
+      "name": "trash offers neither",
+      "thread": {
+        "labelIds": [
+          "TRASH",
+          "INBOX"
+        ],
+        "snoozed": false
+      },
+      "expect": null
+    }
+  ],
+  "inboxPlan": [
+    {
+      "name": "selected threads split between Done and Move to inbox",
+      "threads": [
+        {
+          "id": "a",
+          "labelIds": [
+            "INBOX"
+          ],
+          "snoozed": false
+        },
+        {
+          "id": "b",
+          "labelIds": [
+            "Label_1"
+          ],
+          "snoozed": false
+        },
+        {
+          "id": "c",
+          "labelIds": [],
+          "snoozed": true
+        },
+        {
+          "id": "d",
+          "labelIds": [
+            "SPAM"
+          ],
+          "snoozed": false
+        }
+      ],
+      "expect": {
+        "done": [
+          "a",
+          "c"
+        ],
+        "inbox": [
+          "b"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,74 @@
+{
+  "_doc": {
+    "about": "The order todos keep among threads in every list (shared/src/todos/todo.ts newestTodosFirst, Android :core todo/Todo.kt newestFirst). Run by shared/src/todos/order.spec.ts and Android :core TodoOrderFixturesTest.",
+    "todos": "Every todo is `base` with the listed fields replaced; times are epoch milliseconds, local times read in `zone`.",
+    "order": "newestTodosFirst(todos): the ids, newest first by todoListKey (a done todo's own place, any other's place in Active), then id. Todos with the same time go by the rest of their keys, so the order given never matters."
+  },
+  "zone": "America/New_York",
+  "base": {
+    "id": "a",
+    "text": "Buy milk",
+    "state": "ACTIVE",
+    "createdAt": 1794400000000,
+    "modifiedAt": 1794400000000,
+    "snoozeUntil": null,
+    "pinned": false,
+    "position": null,
+    "deleted": false,
+    "repeat": null,
+    "repeatSpawned": false,
+    "occurrence": null
+  },
+  "order": [
+    {
+      "name": "a new todo is above an older one",
+      "todos": [
+        { "id": "old", "modifiedAt": 1794400000000 },
+        { "id": "new", "createdAt": 1794403600000, "modifiedAt": 1794403600000 }
+      ],
+      "ids": ["new", "old"]
+    },
+    {
+      "name": "todos started with Enter stay above the one they were started from, in the order given or not",
+      "todos": [
+        { "id": "first" },
+        { "id": "third", "createdAt": 1794400009000, "modifiedAt": 1794400009000, "position": "1794400000000uthirdz" },
+        { "id": "next", "createdAt": 1794400005000, "modifiedAt": 1794400005000, "position": "1794400000000pnextz" }
+      ],
+      "ids": ["third", "next", "first"]
+    },
+    {
+      "name": "a todo made with New todo afterward is above the whole run",
+      "todos": [
+        { "id": "next", "createdAt": 1794400005000, "modifiedAt": 1794400005000, "position": "1794400000000pnextz" },
+        { "id": "first" },
+        { "id": "later", "createdAt": 1794400060000, "modifiedAt": 1794400060000 }
+      ],
+      "ids": ["later", "next", "first"]
+    },
+    {
+      "name": "a todo started with Enter in an older one sits just above it, below newer ones",
+      "todos": [
+        { "id": "newer", "createdAt": 1794400060000, "modifiedAt": 1794400060000 },
+        { "id": "first" },
+        { "id": "next", "createdAt": 1794400090000, "modifiedAt": 1794400090000, "position": "1794400000000pnextz" }
+      ],
+      "ids": ["newer", "next", "first"]
+    },
+    {
+      "name": "two todos in the same millisecond go by the rest of their keys",
+      "todos": [{ "id": "a" }, { "id": "b" }],
+      "ids": ["b", "a"]
+    },
+    {
+      "name": "a snoozed or woken todo sorts at its wake time, a done one by its own place",
+      "todos": [
+        { "id": "woke", "snoozeUntil": "2026-11-11T08:00:00" },
+        { "id": "plain", "createdAt": 1794403600000, "modifiedAt": 1794403600000 },
+        { "id": "done", "state": "DONE", "modifiedAt": 1794407200000 },
+        { "id": "snoozed", "snoozeUntil": "2026-11-12T09:00:00" }
+      ],
+      "ids": ["snoozed", "done", "plain", "woke"]
+    }
+  ]
+}

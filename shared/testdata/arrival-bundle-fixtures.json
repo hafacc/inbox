@@ -1,0 +1,123 @@
+{
+  "_doc": {
+    "about": "Whether new mail lands in a bundle, for the server's choice not to notify about bundled mail. Run by shared/src/bundles.spec.ts; functions imports the same code.",
+    "cases": "arrivalBundleLabels(labels, bundleOff) is labels: the thread's user labels (ids starting Label_) and categories other than Primary, without those in bundleOff, in order; none when the thread is starred or hasTodo (optional: it has a todo the apps show). bundledOnArrival(labels, bundleOff) is bundled: it has any of those labels, however many inbox threads carry it (even this one alone)."
+  },
+  "cases": [
+    {
+      "name": "a user label bundles, though no other inbox thread has it",
+      "labels": [
+        "INBOX",
+        "UNREAD",
+        "Label_1"
+      ],
+      "bundleOff": [],
+      "expect": {
+        "labels": [
+          "Label_1"
+        ],
+        "bundled": true
+      }
+    },
+    {
+      "name": "a category other than Primary bundles like a user label",
+      "labels": [
+        "INBOX",
+        "CATEGORY_PROMOTIONS"
+      ],
+      "bundleOff": [],
+      "expect": {
+        "labels": [
+          "CATEGORY_PROMOTIONS"
+        ],
+        "bundled": true
+      }
+    },
+    {
+      "name": "Primary and system labels never bundle",
+      "labels": [
+        "INBOX",
+        "CATEGORY_PERSONAL",
+        "IMPORTANT",
+        "UNREAD"
+      ],
+      "bundleOff": [],
+      "expect": {
+        "labels": [],
+        "bundled": false
+      }
+    },
+    {
+      "name": "a label with bundling off doesn't count",
+      "labels": [
+        "INBOX",
+        "Label_1"
+      ],
+      "bundleOff": [
+        "Label_1"
+      ],
+      "expect": {
+        "labels": [],
+        "bundled": false
+      }
+    },
+    {
+      "name": "any of several labels bundles",
+      "labels": [
+        "INBOX",
+        "Label_1",
+        "Label_2",
+        "CATEGORY_UPDATES"
+      ],
+      "bundleOff": [
+        "CATEGORY_UPDATES"
+      ],
+      "expect": {
+        "labels": [
+          "Label_1",
+          "Label_2"
+        ],
+        "bundled": true
+      }
+    },
+    {
+      "name": "a starred thread is pinned and never bundled",
+      "labels": [
+        "INBOX",
+        "STARRED",
+        "Label_1"
+      ],
+      "bundleOff": [],
+      "expect": {
+        "labels": [],
+        "bundled": false
+      }
+    },
+    {
+      "name": "no labels, no bundle",
+      "labels": [
+        "INBOX",
+        "UNREAD"
+      ],
+      "bundleOff": [],
+      "expect": {
+        "labels": [],
+        "bundled": false
+      }
+    },
+    {
+      "name": "a thread with a todo the apps show never bundles",
+      "labels": [
+        "INBOX",
+        "UNREAD",
+        "Label_1"
+      ],
+      "bundleOff": [],
+      "hasTodo": true,
+      "expect": {
+        "labels": [],
+        "bundled": false
+      }
+    }
+  ]
+}

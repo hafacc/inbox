@@ -1,0 +1,85 @@
+{
+  "_doc": "The round menu's geometry (shared/src/hold-menu.ts, Android :core HoldMenu.kt). Angles are degrees counterclockwise from rightward; points are px (dp) with y down. `row`: rowHoldWedges(slots, x, y, width, height), a todo's, an email's and a bundle's menu around the press, every wedge on ROW_RING; a null slot is left empty. `link`: linkHoldWedges(ids, x, y, width). `corner`: cornerHoldWedges(inner, outer, side); `ring` \"inner\" or \"outer\" names CORNER_INNER_RING or CORNER_OUTER_RING. `drag`: cornerDragStarts(press y, at y, reachedWedge); x is shown only for the picture. `hit`: hitWedge for the wedges of `menu` (a `row` {slots, x, y, width, height} or `corner` {inner, outer, side} case) around `center`, at each `points` [x, y], expecting the wedge's index or -1. `view`: viewHoldWedges(ids), every wedge on VIEW_RING; a `hit` menu may also be a `view` {ids} case. `side`: cornerSide(x, width). `pillTop`: pillTop(center, the menu's wedges, topLimit).",
+  "link": [
+    { "name": "above the finger, left to right", "ids": ["open", "copy", "share"], "x": 180, "y": 400, "width": 360, "expect": [{ "id": "open", "from": 120, "to": 180 }, { "id": "copy", "from": 60, "to": 120 }, { "id": "share", "from": 0, "to": 60 }] },
+    { "name": "turned inward near the left side", "ids": ["open", "copy", "share"], "x": 40, "y": 400, "width": 360, "expect": [{ "id": "open", "from": 85, "to": 145 }, { "id": "copy", "from": 25, "to": 85 }, { "id": "share", "from": -35, "to": 25 }] },
+    { "name": "below the finger near the top", "ids": ["open", "copy", "share"], "x": 180, "y": 100, "width": 360, "expect": [{ "id": "open", "from": 300, "to": 360 }, { "id": "copy", "from": 240, "to": 300 }, { "id": "share", "from": 180, "to": 240 }] },
+    { "name": "below and turned inward near the top right", "ids": ["open", "copy", "share"], "x": 330, "y": 100, "width": 360, "expect": [{ "id": "open", "from": 265, "to": 325 }, { "id": "copy", "from": 205, "to": 265 }, { "id": "share", "from": 145, "to": 205 }] }
+  ],
+  "corner": [
+    {
+      "name": "right corner: up and to the left, each ring from the top",
+      "inner": ["done", "snooze", "pin"],
+      "outer": ["label", "spam"],
+      "side": "right",
+      "expect": [
+        { "id": "done", "from": 90, "to": 120, "ring": "inner" },
+        { "id": "snooze", "from": 120, "to": 150, "ring": "inner" },
+        { "id": "pin", "from": 150, "to": 180, "ring": "inner" },
+        { "id": "label", "from": 90, "to": 135, "ring": "outer" },
+        { "id": "spam", "from": 135, "to": 180, "ring": "outer" }
+      ]
+    },
+    {
+      "name": "left corner mirrors: up and to the right",
+      "inner": ["done", "snooze", "pin"],
+      "outer": ["label", "spam"],
+      "side": "left",
+      "expect": [
+        { "id": "done", "from": 60, "to": 90, "ring": "inner" },
+        { "id": "snooze", "from": 30, "to": 60, "ring": "inner" },
+        { "id": "pin", "from": 0, "to": 30, "ring": "inner" },
+        { "id": "label", "from": 45, "to": 90, "ring": "outer" },
+        { "id": "spam", "from": 0, "to": 45, "ring": "outer" }
+      ]
+    },
+    {
+      "name": "no outer ring",
+      "inner": ["done", "pin"],
+      "outer": [],
+      "side": "right",
+      "expect": [
+        { "id": "done", "from": 90, "to": 135, "ring": "inner" },
+        { "id": "pin", "from": 135, "to": 180, "ring": "inner" }
+      ]
+    }
+  ],
+  "row": [
+    { "name": "up and right with room: Pin above, Delete to the right", "slots": ["pin", "delete"], "x": 30, "y": 400, "width": 360, "height": 800, "expect": [{ "id": "pin", "from": 45, "to": 135 }, { "id": "delete", "from": -45, "to": 45 }] },
+    { "name": "centered on the finger anywhere along the row", "slots": ["pin", "delete"], "x": 200, "y": 400, "width": 360, "height": 800, "expect": [{ "id": "pin", "from": 45, "to": 135 }, { "id": "delete", "from": -45, "to": 45 }] },
+    { "name": "right and down near the top", "slots": ["pin", "delete"], "x": 30, "y": 120, "width": 360, "height": 800, "expect": [{ "id": "pin", "from": -45, "to": 45 }, { "id": "delete", "from": -135, "to": -45 }] },
+    { "name": "turned upward near the bottom", "slots": ["pin", "delete"], "x": 30, "y": 760, "width": 360, "height": 800, "expect": [{ "id": "pin", "from": 75, "to": 165 }, { "id": "delete", "from": -15, "to": 75 }] },
+    { "name": "near the right edge it opens leftward, mirrored: Pin above, Delete to the left", "slots": ["pin", "delete"], "x": 300, "y": 400, "width": 360, "height": 800, "expect": [{ "id": "pin", "from": 45, "to": 135 }, { "id": "delete", "from": 135, "to": 225 }] },
+    { "name": "near the top right: Pin to the left, Delete below", "slots": ["pin", "delete"], "x": 300, "y": 120, "width": 360, "height": 800, "expect": [{ "id": "pin", "from": 135, "to": 225 }, { "id": "delete", "from": 225, "to": 315 }] },
+    { "name": "near the bottom right: turned upward, mirrored", "slots": ["pin", "delete"], "x": 300, "y": 760, "width": 360, "height": 800, "expect": [{ "id": "pin", "from": 15, "to": 105 }, { "id": "delete", "from": 105, "to": 195 }] },
+    { "name": "an empty slot leaves its place empty: a done todo offers only Delete", "slots": [null, "delete"], "x": 30, "y": 400, "width": 360, "height": 800, "expect": [{ "id": "delete", "from": -45, "to": 45 }] },
+    { "name": "an empty slot near the right edge", "slots": [null, "delete"], "x": 300, "y": 400, "width": 360, "height": 800, "expect": [{ "id": "delete", "from": 135, "to": 225 }] }
+  ],
+  "drag": [
+    { "name": "more than 24 down drags", "press": [300, 700], "at": [300, 730], "reachedWedge": false, "expect": true },
+    { "name": "24 or less down is still the menu's", "press": [300, 700], "at": [300, 724], "reachedWedge": false, "expect": false },
+    { "name": "once a wedge was reached it never drags", "press": [300, 700], "at": [300, 760], "reachedWedge": true, "expect": false },
+    { "name": "sideways and up are the menu's", "press": [300, 700], "at": [200, 600], "reachedWedge": false, "expect": false }
+  ],
+  "hit": [
+    { "name": "view menu: rightward is Inbox, either side of straight down Todos and Done, up and the hole are nothing", "menu": { "view": { "ids": ["inbox", "snoozed", "done", "todos"] } }, "center": [100, 60], "points": [{ "at": [180, 62], "expect": 0 }, { "at": [99, 140], "expect": 3 }, { "at": [101, 140], "expect": 2 }, { "at": [73, 135], "expect": 3 }, { "at": [100, 70], "expect": -1 }, { "at": [180, 20], "expect": -1 }, { "at": [240, 62], "expect": 0 }] },
+    { "name": "row: straight up is Pin, straight right is Delete; the hole, below and far away hit nothing; a little past the edge still counts", "menu": { "row": { "slots": ["pin", "delete"], "x": 30, "y": 400, "width": 360, "height": 800 } }, "center": [30, 400], "points": [{ "at": [30, 340], "expect": 0 }, { "at": [90, 400], "expect": 1 }, { "at": [40, 400], "expect": -1 }, { "at": [30, 460], "expect": -1 }, { "at": [-30, 400], "expect": -1 }, { "at": [161, 400], "expect": 1 }, { "at": [163, 400], "expect": -1 }] },
+    { "name": "row near the right edge: straight up is Pin, straight left is Delete, rightward nothing", "menu": { "row": { "slots": ["pin", "delete"], "x": 300, "y": 400, "width": 360, "height": 800 } }, "center": [300, 400], "points": [{ "at": [300, 340], "expect": 0 }, { "at": [240, 400], "expect": 1 }, { "at": [350, 400], "expect": -1 }] },
+    { "name": "corner: the button's middle hits nothing; each ring by its distance; past the outer ring still counts; down and away from the disc hit nothing", "menu": { "corner": { "inner": ["done", "snooze", "pin"], "outer": ["label", "spam"], "side": "right" } }, "center": [300, 700], "points": [{ "at": [300, 700], "expect": -1 }, { "at": [290, 620], "expect": 0 }, { "at": [240, 660], "expect": 1 }, { "at": [220, 695], "expect": 2 }, { "at": [290, 550], "expect": 3 }, { "at": [150, 680], "expect": 4 }, { "at": [300, 470], "expect": 3 }, { "at": [300, 455], "expect": -1 }, { "at": [360, 700], "expect": -1 }, { "at": [250, 760], "expect": -1 }] },
+    { "name": "corner on the left: mirrored", "menu": { "corner": { "inner": ["done", "snooze", "pin"], "outer": ["label", "spam"], "side": "left" } }, "center": [44, 700], "points": [{ "at": [54, 620], "expect": 0 }, { "at": [124, 695], "expect": 2 }, { "at": [194, 680], "expect": 4 }, { "at": [-20, 700], "expect": -1 }] }
+  ],
+  "view": [
+    { "name": "four views from rightward round to down and to the left", "ids": ["inbox", "snoozed", "done", "todos"], "expect": [{ "id": "inbox", "from": 330, "to": 360 }, { "id": "snoozed", "from": 300, "to": 330 }, { "id": "done", "from": 270, "to": 300 }, { "id": "todos", "from": 240, "to": 270 }] },
+    { "name": "without todos three views share the same arc", "ids": ["inbox", "snoozed", "done"], "expect": [{ "id": "inbox", "from": 320, "to": 360 }, { "id": "snoozed", "from": 280, "to": 320 }, { "id": "done", "from": 240, "to": 280 }] }
+  ],
+  "side": [
+    { "name": "left of the middle", "x": 100, "width": 360, "expect": "left" },
+    { "name": "right of the middle", "x": 300, "width": 360, "expect": "right" },
+    { "name": "the middle goes right", "x": 180, "width": 360, "expect": "right" }
+  ],
+  "pillTop": [
+    { "name": "row: above the disc with room", "menu": { "row": { "slots": ["pin", "delete"], "x": 30, "y": 400, "width": 360, "height": 800 } }, "center": [30, 400], "topLimit": 36, "expect": 248 },
+    { "name": "row: below the disc near the top", "menu": { "row": { "slots": ["pin", "delete"], "x": 30, "y": 60, "width": 360, "height": 800 } }, "center": [30, 60], "topLimit": 36, "expect": 178 },
+    { "name": "corner: above the outer ring", "menu": { "corner": { "inner": ["done", "snooze", "pin"], "outer": ["label", "spam"], "side": "right" } }, "center": [316, 720], "topLimit": 36, "expect": 460 }
+  ]
+}

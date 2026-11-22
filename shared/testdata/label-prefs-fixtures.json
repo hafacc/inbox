@@ -1,0 +1,160 @@
+{
+  "_doc": {
+    "about": "Per-label settings, run by shared/src/label-prefs.spec.ts and Android :core.",
+    "prefs": "labelPrefsFrom(stored, label): sidebar = stored.sidebar when a boolean, else Gmail's labelListVisibility is not \"labelHide\"; bundle = stored.bundle when a boolean, else true; icon = a category's fixed icon for Gmail's four categories, else stored.icon when a known icon id, else null (\"none\" included). Anything else stored is ignored."
+  },
+  "prefs": [
+    {
+      "name": "plain user label",
+      "label": {
+        "id": "Label_1"
+      },
+      "stored": null,
+      "expect": {
+        "sidebar": true,
+        "bundle": true,
+        "icon": null
+      }
+    },
+    {
+      "name": "hidden in Gmail",
+      "label": {
+        "id": "Label_2",
+        "labelListVisibility": "labelHide"
+      },
+      "stored": null,
+      "expect": {
+        "sidebar": false,
+        "bundle": true,
+        "icon": null
+      }
+    },
+    {
+      "name": "hidden in Gmail but shown here",
+      "label": {
+        "id": "Label_2",
+        "labelListVisibility": "labelHide"
+      },
+      "stored": {
+        "sidebar": true
+      },
+      "expect": {
+        "sidebar": true,
+        "bundle": true,
+        "icon": null
+      }
+    },
+    {
+      "name": "not bundled",
+      "label": {
+        "id": "Label_3"
+      },
+      "stored": {
+        "bundle": false
+      },
+      "expect": {
+        "sidebar": true,
+        "bundle": false,
+        "icon": null
+      }
+    },
+    {
+      "name": "icon picked",
+      "label": {
+        "id": "Label_4"
+      },
+      "stored": {
+        "icon": "plane"
+      },
+      "expect": {
+        "sidebar": true,
+        "bundle": true,
+        "icon": "plane"
+      }
+    },
+    {
+      "name": "unknown icon ignored",
+      "label": {
+        "id": "Label_4"
+      },
+      "stored": {
+        "icon": "rocket-ship",
+        "sidebar": "yes"
+      },
+      "expect": {
+        "sidebar": true,
+        "bundle": true,
+        "icon": null
+      }
+    },
+    {
+      "name": "category default icon",
+      "label": {
+        "id": "CATEGORY_PROMOTIONS"
+      },
+      "stored": null,
+      "expect": {
+        "sidebar": true,
+        "bundle": true,
+        "icon": "tag"
+      }
+    },
+    {
+      "name": "category icon is fixed",
+      "label": {
+        "id": "CATEGORY_SOCIAL"
+      },
+      "stored": {
+        "icon": "none"
+      },
+      "expect": {
+        "sidebar": true,
+        "bundle": true,
+        "icon": "users"
+      }
+    },
+    {
+      "name": "category keeps its icon, other settings apply",
+      "label": {
+        "id": "CATEGORY_UPDATES",
+        "labelListVisibility": "labelShow"
+      },
+      "stored": {
+        "icon": "bell",
+        "bundle": false,
+        "sidebar": false
+      },
+      "expect": {
+        "sidebar": false,
+        "bundle": false,
+        "icon": "info"
+      }
+    },
+    {
+      "name": "stored not an object",
+      "label": {
+        "id": "CATEGORY_FORUMS"
+      },
+      "stored": "x",
+      "expect": {
+        "sidebar": true,
+        "bundle": true,
+        "icon": "message-square"
+      }
+    },
+    {
+      "name": "icon cleared",
+      "label": {
+        "id": "Label_5"
+      },
+      "stored": {
+        "icon": "none"
+      },
+      "expect": {
+        "sidebar": true,
+        "bundle": true,
+        "icon": null
+      }
+    }
+  ]
+}

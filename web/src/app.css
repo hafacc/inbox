@@ -1,0 +1,498 @@
+@import "tailwindcss";
+
+@theme {
+  /* Fern (green), light: generated from shared/themes/themes.json and checked by app-css.spec.ts. */
+  --color-bg: #f1eee8;
+  --color-sidebar: #e9e5dd;
+  --color-sidebar-hover: #dfd9ce;
+  --color-surface: #fffdf9;
+  --color-surface-raised: #fffdf9;
+  --color-surface-muted: #f3f0ea;
+  --color-surface-hover: #f3efe8;
+  --color-field: #fffdf9;
+  --color-text: #23211d;
+  --color-text-secondary: #57524a;
+  --color-muted: #6c665c;
+  --color-border: #e6e1d7;
+  --color-border-strong: #cbc3b4;
+  --color-separator: #eee9e0;
+  --color-snackbar: #2b2925;
+  --color-on-snackbar: #f1eee8;
+  --color-snackbar-hover: #3d3a34;
+  --color-snooze: #94661c;
+  --color-snooze-soft: #f4e9d4;
+  --color-on-snooze: #ffffff;
+  --color-on-snooze-soft: #7a5414;
+  --color-done: #2f6b4a;
+  --color-done-soft: #e0ede5;
+  --color-on-done: #ffffff;
+  --color-danger: #b0402d;
+  --color-danger-soft: #f6e3dd;
+  --color-on-danger: #ffffff;
+  --color-scrim: #2b2925;
+  --color-accent: #2e6b4f;
+  --color-accent-strong: #24573f;
+  --color-accent-soft: #e0ede5;
+  --color-on-accent: #ffffff;
+  --color-focus: #2e6b4f;
+  --color-snackbar-accent: #a3d8bc;
+  --color-avatar-0: #dce8df;
+  --color-on-avatar-0: #24573f;
+  --color-avatar-1: #ece3d1;
+  --color-on-avatar-1: #6b5532;
+  --color-avatar-2: #dde4ee;
+  --color-on-avatar-2: #3b4e6b;
+  --color-avatar-3: #ecdfe5;
+  --color-on-avatar-3: #6b3b52;
+  --color-avatar-4: #e4e0ee;
+  --color-on-avatar-4: #4a3f6b;
+  --color-avatar-5: #dbe9e7;
+  --color-on-avatar-5: #2f5a56;
+  --color-label-red: #b5533f;
+  --color-label-orange: #b8692e;
+  --color-label-yellow: #a0742b;
+  --color-label-green: #4f7d4a;
+  --color-label-teal: #3f7f78;
+  --color-label-blue: #4a6a96;
+  --color-label-purple: #6f5a96;
+  --color-label-pink: #a0567a;
+  --color-label-gray: #8a8377;
+
+  --shadow-pop:
+    0 1px 2px rgb(60 48 30 / 0.08), 0 8px 24px -6px rgb(60 48 30 / 0.18);
+  --shadow-dock: 0 4px 16px -2px rgb(60 48 30 / 0.14);
+  --shadow-sheet: 0 -8px 32px rgb(60 48 30 / 0.18);
+  /* A day's card of mail. */
+  --shadow-card:
+    0 1px 2px rgb(60 48 30 / 0.06), 0 10px 30px -14px rgb(60 48 30 / 0.22);
+  /* An open thread or bundle, lifted off its day. */
+  --shadow-raised:
+    0 1px 3px rgb(60 48 30 / 0.1), 0 18px 44px -14px rgb(60 48 30 / 0.32);
+  /* The current mailbox's pill. */
+  --shadow-pill:
+    0 1px 2px rgb(60 48 30 / 0.1), 0 2px 8px -2px rgb(60 48 30 / 0.12);
+  --shadow-dialog:
+    0 1px 2px rgb(60 48 30 / 0.08), 0 24px 48px -12px rgb(60 48 30 / 0.28);
+
+  --font-sans:
+    "Geist Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, monospace;
+
+  --animate-rise: rise 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-sheet: sheet 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-shimmer: shimmer 1.4s ease-in-out infinite;
+  --animate-fade-in: fade-in 150ms ease-out;
+  /* Waits before fading in, so a fast start never shows it. */
+  --animate-appear-late: fade-in 200ms ease-out 400ms backwards;
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes sheet {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+  @keyframes shimmer {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.45;
+    }
+  }
+}
+
+/* Drives UA-rendered parts of native controls (scrollbars, date/search inputs), which no class can reach. */
+html {
+  color-scheme: light;
+}
+
+.dark {
+  color-scheme: dark;
+
+  /* Fern (green), dark: generated from shared/themes/themes.json and checked by app-css.spec.ts. */
+  --color-bg: #161513;
+  --color-sidebar: #100f0e;
+  --color-sidebar-hover: #22201d;
+  --color-surface: #201e1b;
+  --color-surface-raised: #28251f;
+  --color-surface-muted: #2a2724;
+  --color-surface-hover: #2a2723;
+  --color-field: #201e1b;
+  --color-text: #eeeae2;
+  --color-text-secondary: #bcb6aa;
+  --color-muted: #958f84;
+  --color-border: #2f2c28;
+  --color-border-strong: #4a453e;
+  --color-separator: #2a2723;
+  --color-snackbar: #3a3631;
+  --color-on-snackbar: #eeeae2;
+  --color-snackbar-hover: #4a453e;
+  --color-snooze: #e0b264;
+  --color-snooze-soft: #3a2f1c;
+  --color-on-snooze: #2a1d05;
+  --color-on-snooze-soft: #e6c07c;
+  --color-done: #7cc29e;
+  --color-done-soft: #1e3329;
+  --color-on-done: #0d2117;
+  --color-danger: #f08a78;
+  --color-danger-soft: #3d1f1a;
+  --color-on-danger: #2e0e0a;
+  --color-scrim: #000000;
+  --color-accent: #7cc29e;
+  --color-accent-strong: #a3d8bc;
+  --color-accent-soft: #1e3329;
+  --color-on-accent: #0d2117;
+  --color-focus: #7cc29e;
+  --color-snackbar-accent: #a3d8bc;
+  --color-avatar-0: #22352a;
+  --color-on-avatar-0: #a3d8bc;
+  --color-avatar-1: #3a3122;
+  --color-on-avatar-1: #e3cfa6;
+  --color-avatar-2: #243041;
+  --color-on-avatar-2: #afc4e3;
+  --color-avatar-3: #3a2630;
+  --color-on-avatar-3: #e3b2c8;
+  --color-avatar-4: #2c2840;
+  --color-on-avatar-4: #c3b8e6;
+  --color-avatar-5: #1f3331;
+  --color-on-avatar-5: #a6d6d0;
+  --color-label-red: #e08a76;
+  --color-label-orange: #e3a06a;
+  --color-label-yellow: #d6a95c;
+  --color-label-green: #93c08a;
+  --color-label-teal: #7fc0b8;
+  --color-label-blue: #8fb0dc;
+  --color-label-purple: #b3a2dc;
+  --color-label-pink: #dc9cbc;
+  --color-label-gray: #a8a196;
+
+  --shadow-pop: 0 0 0 1px var(--color-border), 0 8px 24px -6px rgb(0 0 0 / 0.5);
+  --shadow-card:
+    0 0 0 1px var(--color-border), 0 12px 30px -14px rgb(0 0 0 / 0.7);
+  --shadow-raised:
+    0 0 0 1px var(--color-border-strong), 0 18px 44px -14px rgb(0 0 0 / 0.8);
+  --shadow-pill: 0 0 0 1px var(--color-border);
+  --shadow-dialog:
+    0 0 0 1px var(--color-border), 0 24px 48px -12px rgb(0 0 0 / 0.6);
+  --shadow-dock:
+    0 0 0 1px var(--color-border), 0 4px 16px -2px rgb(0 0 0 / 0.5);
+  --shadow-sheet: 0 0 0 1px var(--color-border), 0 -8px 32px rgb(0 0 0 / 0.5);
+}
+
+html,
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font-size: 14px;
+  line-height: 20px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* In the base layer so a component's own outline or ring utility wins over these. */
+@layer base {
+  html {
+    accent-color: var(--color-accent);
+    caret-color: var(--color-accent);
+    scrollbar-color: var(--color-border-strong) transparent;
+  }
+
+  ::selection {
+    background-color: var(--color-accent-soft);
+    color: var(--color-text);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+}
+
+/* Set for a moment while the theme or light/dark changes, so colors fade instead of jumping. */
+html.theme-fade,
+html.theme-fade *,
+html.theme-fade *::before,
+html.theme-fade *::after {
+  transition-property:
+    background-color, border-color, color, fill, stroke, box-shadow,
+    outline-color;
+  transition-duration: 180ms;
+  transition-timing-function: ease-out;
+}
+
+@keyframes undo-drain {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+/* Text the user wrote (composer preview, signature), rendered as recipients will see it. */
+.rendered-markdown {
+  overflow-wrap: anywhere;
+}
+.rendered-markdown :where(a) {
+  color: var(--color-accent-strong);
+  text-decoration: underline;
+}
+.rendered-markdown :where(b, strong) {
+  font-weight: 600;
+}
+/* Headings, lists, quotes and code, in a message being written and in its preview. */
+:where(.rendered-markdown, .rich-editor) :where(h1, h2, h3, h4, h5, h6) {
+  font-weight: 600;
+  margin: 6px 0 2px;
+}
+:where(.rendered-markdown, .rich-editor) :where(h1) {
+  font-size: 22px;
+  line-height: 30px;
+}
+:where(.rendered-markdown, .rich-editor) :where(h2) {
+  font-size: 18px;
+  line-height: 26px;
+}
+:where(.rendered-markdown, .rich-editor) :where(h3) {
+  font-size: 16px;
+  line-height: 24px;
+}
+:where(.rendered-markdown, .rich-editor) :where(ul, ol) {
+  padding-left: 22px;
+}
+:where(.rendered-markdown, .rich-editor) :where(ul) {
+  list-style: disc;
+}
+:where(.rendered-markdown, .rich-editor) :where(ol) {
+  list-style: decimal;
+}
+:where(.rendered-markdown, .rich-editor) :where(blockquote) {
+  margin: 2px 0;
+  padding-left: 12px;
+  border-left: 3px solid var(--color-border-strong);
+  color: var(--color-text-secondary);
+}
+:where(.rendered-markdown, .rich-editor) :where(code) {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--color-surface-muted);
+}
+:where(.rendered-markdown, .rich-editor) :where(pre) {
+  margin: 4px 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--color-surface-muted);
+  white-space: pre-wrap;
+}
+:where(.rendered-markdown, .rich-editor) :where(pre code) {
+  padding: 0;
+  background: none;
+}
+.rich-editor :where(a) {
+  color: var(--color-accent-strong);
+  text-decoration: underline;
+}
+.rich-editor :where(strong) {
+  font-weight: 600;
+}
+.rich-editor .tiptap:focus {
+  outline: none;
+}
+.rich-editor .tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: var(--color-muted);
+}
+.rendered-markdown :where(img) {
+  max-width: 100%;
+  border-radius: 8px;
+}
+
+/* A todo's text, at rest and while edited: latr's markers kept but dimmed, its #tags as chips. */
+/* A todo's first line weighs as a new email's subject does (font-semibold); bold stands out above it. */
+.todo-text .todo-first-line,
+.todo-text .cm-line:first-child {
+  font-weight: 600;
+}
+.todo-text .md-bold {
+  font-weight: 700;
+}
+.todo-text .md-italic {
+  font-style: italic;
+}
+.todo-text .md-marker {
+  color: var(--color-muted);
+  font-weight: 400;
+}
+/* The static text and the editor pad tags alike, so a row doesn't shift as it opens to edit; inline padding leaves the line height alone. */
+.todo-text .md-tag {
+  color: var(--color-accent-strong);
+  background-color: var(--color-accent-soft);
+  border-radius: 6px;
+  padding: 2px 5px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+/* A tag naming one of the user's labels takes that label's color. */
+.todo-text .md-tag.md-tag-label {
+  color: var(--tag-color);
+  background-color: color-mix(in srgb, var(--tag-color) 14%, transparent);
+}
+
+html:has(dialog[open]) {
+  overflow: hidden;
+}
+
+dialog::backdrop {
+  background: color-mix(in srgb, var(--color-scrim) 36%, transparent);
+}
+
+/* The phone side panel's scrim fades in with it and out as it slides away (`closing`). */
+dialog.side-panel::backdrop {
+  animation: fade-in 220ms ease-out;
+  transition: opacity 200ms ease-in;
+}
+dialog.side-panel.closing::backdrop {
+  opacity: 0;
+}
+
+/* A control drawn small that still takes a 48px tap: its hit area reaches past its edges. */
+@utility hit-target {
+  position: relative;
+  &::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100%, 48px);
+    height: max(100%, 48px);
+    transform: translate(-50%, -50%);
+  }
+}
+
+/*
+ * What the bottom of the screen keeps clear of: the home bar's inset, and above it the strip of a
+ * message being written that is parked there (composer.svelte sets `data-parked` while it shows).
+ */
+:root {
+  --safe-bottom: env(safe-area-inset-bottom);
+}
+:root[data-parked] {
+  --safe-bottom: calc(3.5rem + env(safe-area-inset-bottom));
+}
+
+/*
+ * Room for the screen's notches, rounded corners and home bar (the page is laid out under them,
+ * viewport-fit=cover); at the bottom, the parked message's strip too (`--safe-bottom`). `pb-safe` pads by the inset alone; `pb-safe-4` by spacing 4 plus the
+ * inset; `bottom-safe-4` places a fixed element that far above the inset. Same for each side.
+ */
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+@utility pt-safe-* {
+  padding-top: calc(
+    var(--spacing) *
+    --value(number) +
+    env(safe-area-inset-top)
+  );
+}
+@utility pb-safe {
+  padding-bottom: var(--safe-bottom);
+}
+@utility pb-safe-* {
+  padding-bottom: calc(var(--spacing) * --value(number) + var(--safe-bottom));
+}
+@utility pl-safe {
+  padding-left: env(safe-area-inset-left);
+}
+@utility pl-safe-* {
+  padding-left: calc(
+    var(--spacing) *
+    --value(number) +
+    env(safe-area-inset-left)
+  );
+}
+@utility pr-safe {
+  padding-right: env(safe-area-inset-right);
+}
+@utility pr-safe-* {
+  padding-right: calc(
+    var(--spacing) *
+    --value(number) +
+    env(safe-area-inset-right)
+  );
+}
+@utility px-safe-* {
+  padding-left: calc(
+    var(--spacing) *
+    --value(number) +
+    env(safe-area-inset-left)
+  );
+  padding-right: calc(
+    var(--spacing) *
+    --value(number) +
+    env(safe-area-inset-right)
+  );
+}
+@utility top-safe-* {
+  top: calc(var(--spacing) * --value(number) + env(safe-area-inset-top));
+}
+@utility bottom-safe-* {
+  bottom: calc(var(--spacing) * --value(number) + var(--safe-bottom));
+}
+@utility left-safe-* {
+  left: calc(var(--spacing) * --value(number) + env(safe-area-inset-left));
+}
+@utility right-safe-* {
+  right: calc(var(--spacing) * --value(number) + env(safe-area-inset-right));
+}
+
+/* biome-ignore-start lint/complexity/noImportantStyles: reduced motion has to beat every component's own timing */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after,
+  ::backdrop {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+  html {
+    scroll-behavior: auto !important;
+  }
+}
+/* biome-ignore-end lint/complexity/noImportantStyles: reduced motion has to beat every component's own timing */

@@ -1,0 +1,49 @@
+{
+  "keys": [
+    {
+      "name": "a plain thread keeps its message ids and earliest date, and no answers",
+      "hiddenSubject": false,
+      "messages": [
+        { "messageId": " <a1@x> ", "inReplyTo": null, "references": null, "date": 1000 },
+        { "messageId": "<a2@x>", "inReplyTo": "<a1@x>", "references": "<a1@x>", "date": 2000 }
+      ],
+      "expect": { "messageIds": ["<a1@x>", "<a2@x>"], "answers": [], "firstDate": 1000 }
+    },
+    {
+      "name": "a hidden-subject thread keeps what its messages answer, in order, without repeats",
+      "hiddenSubject": true,
+      "messages": [
+        { "messageId": "<b1@x>", "inReplyTo": "<a2@x>", "references": "<a1@x>\r\n <a2@x>", "date": 2000 },
+        { "messageId": "<b2@x>", "inReplyTo": "<b1@x>", "references": null, "date": 3000 }
+      ],
+      "expect": { "messageIds": ["<b1@x>", "<b2@x>"], "answers": ["<a2@x>", "<a1@x>", "<b1@x>"], "firstDate": 2000 }
+    },
+    {
+      "name": "drafts count, and the earliest date wins whatever the order",
+      "hiddenSubject": true,
+      "messages": [
+        { "messageId": "<c2@x>", "inReplyTo": null, "references": null, "date": 5000 },
+        { "messageId": "<draft@x>", "inReplyTo": "<a1@x>", "references": null, "date": 4000 }
+      ],
+      "expect": { "messageIds": ["<c2@x>", "<draft@x>"], "answers": ["<a1@x>"], "firstDate": 4000 }
+    },
+    {
+      "name": "a Message-ID with a comment keeps only its id; missing and empty ones are skipped; repeats go",
+      "hiddenSubject": false,
+      "messages": [
+        { "messageId": "<d1@x> (sent by a list)", "inReplyTo": null, "references": null, "date": 1000 },
+        { "messageId": null, "inReplyTo": null, "references": null, "date": 2000 },
+        { "messageId": "", "inReplyTo": null, "references": null, "date": 3000 },
+        { "messageId": "not an id", "inReplyTo": null, "references": null, "date": 3500 },
+        { "messageId": "<d1@x>", "inReplyTo": null, "references": null, "date": 4000 }
+      ],
+      "expect": { "messageIds": ["<d1@x>"], "answers": [], "firstDate": 1000 }
+    },
+    {
+      "name": "no messages",
+      "hiddenSubject": true,
+      "messages": [],
+      "expect": { "messageIds": [], "answers": [], "firstDate": 0 }
+    }
+  ]
+}

@@ -1,0 +1,346 @@
+{
+  "_doc": {
+    "about": "Inbox bundles, run by shared/src/list-model.spec.ts and Android :core LabelGroupFixturesTest (America/New_York; times are local).",
+    "inbox": "inboxSections(threads, now, bundleLabels): STARRED threads go to Pinned; the rest, newest first, fold by label (a bundle label with two or more of them becomes one group holding all of them) and each entry lands in the time section of its newest thread. A section whose threads all moved into a newer bundle is left out. Entries are a thread id, or label[ids] for a group. held (optional) is what open threads and bundles keep until they close (see held-place-fixtures.json): a held thread sorts and sections by its held date, sits with the pinned threads or not as held, and when held as single stays out of bundles; held.pins (optional) holds the focused thread's pinning only: it sits with the pinned threads or not as held, and otherwise by its own date and labels; a held bundle sorts and sections by its held date, stays a bundle however few threads it has, and takes any thread carrying its label; left with none it stays too, unless its label is in exhausted (optional: bundle labels Gmail has no more of), when it leaves the list. todoThreads (optional) are the threads whose email has a todo: such a thread is never in a bundle, nor counts toward one, and has its own row.",
+    "plain": "plainSections(threads, now, held): any other mailbox, newest first in time sections; a held thread at its held date.",
+    "preview": "groupShownCount(threads, showAll): an open bundle shows its first 5 threads, then \"Show N more\" for the hidden rest; all once asked."
+  },
+  "preview": [
+    { "name": "fewer than five show all", "threads": 4, "showAll": false, "expect": { "shown": 4, "hidden": 0 } },
+    { "name": "exactly five show all", "threads": 5, "showAll": false, "expect": { "shown": 5, "hidden": 0 } },
+    { "name": "eight show five and offer three more", "threads": 8, "showAll": false, "expect": { "shown": 5, "hidden": 3 } },
+    { "name": "asked for all, eight show eight", "threads": 8, "showAll": true, "expect": { "shown": 8, "hidden": 0 } }
+  ],
+  "now": "2026-11-02T11:50:00",
+  "inbox": [
+    {
+      "name": "a bundle shows once, in the section of its newest thread, with its older threads",
+      "bundleLabels": ["L"],
+      "threads": [
+        { "id": "a", "date": "2026-11-02T10:00:00", "labels": ["INBOX"] },
+        { "id": "l1", "date": "2026-11-02T09:00:00", "labels": ["INBOX", "L"] },
+        { "id": "b", "date": "2026-11-01T18:00:00", "labels": ["INBOX"] },
+        { "id": "l2", "date": "2026-11-01T09:00:00", "labels": ["INBOX", "L"] },
+        { "id": "l3", "date": "2026-10-20T09:00:00", "labels": ["INBOX", "L"] },
+        { "id": "c", "date": "2026-10-15T09:00:00", "labels": ["INBOX"] }
+      ],
+      "sections": [
+        { "key": "today", "entries": ["a", "L[l1,l2,l3]"] },
+        { "key": "yesterday", "entries": ["b"] },
+        { "key": "month:2026-10", "entries": ["c"] }
+      ]
+    },
+    {
+      "name": "a section whose threads all moved into a bundle is left out",
+      "bundleLabels": ["L"],
+      "threads": [
+        { "id": "a", "date": "2026-11-01T10:00:00", "labels": ["INBOX"] },
+        { "id": "l1", "date": "2026-11-01T09:00:00", "labels": ["INBOX", "L"] },
+        { "id": "l2", "date": "2026-10-20T09:00:00", "labels": ["INBOX", "L"] },
+        { "id": "l3", "date": "2025-06-01T09:00:00", "labels": ["INBOX", "L"] }
+      ],
+      "sections": [{ "key": "yesterday", "entries": ["a", "L[l1,l2,l3]"] }]
+    },
+    {
+      "name": "the two-thread minimum counts across sections",
+      "bundleLabels": ["L"],
+      "threads": [
+        { "id": "l1", "date": "2026-11-02T09:00:00", "labels": ["INBOX", "L"] },
+        { "id": "l2", "date": "2026-10-20T09:00:00", "labels": ["INBOX", "L"] }
+      ],
+      "sections": [{ "key": "today", "entries": ["L[l1,l2]"] }]
+    },
+    {
+      "name": "one thread of a label stays a row",
+      "bundleLabels": ["L"],
+      "threads": [
+        { "id": "a", "date": "2026-11-02T10:00:00", "labels": ["INBOX"] },
+        { "id": "l1", "date": "2026-11-02T09:00:00", "labels": ["INBOX", "L"] }
+      ],
+      "sections": [{ "key": "today", "entries": ["a", "l1"] }]
+    },
+    {
+      "name": "pinned threads stay pinned and don't count toward a bundle",
+      "bundleLabels": ["L"],
+      "threads": [
+        { "id": "p", "date": "2026-10-01T09:00:00", "labels": ["INBOX", "STARRED", "L"] },
+        { "id": "l1", "date": "2026-11-02T09:00:00", "labels": ["INBOX", "L"] }
+      ],
+      "sections": [
+        { "key": "pinned", "entries": ["p"] },
+        { "key": "today", "entries": ["l1"] }
+      ]
+    },
+    {
+      "name": "two bundles each sit with their own newest thread",
+      "bundleLabels": ["L", "M"],
+      "threads": [
+        { "id": "m1", "date": "2026-11-02T10:00:00", "labels": ["INBOX", "M"] },
+        { "id": "l1", "date": "2026-11-01T09:00:00", "labels": ["INBOX", "L"] },
+        { "id": "m2", "date": "2026-10-28T09:00:00", "labels": ["INBOX", "M"] },
+        { "id": "l2", "date": "2026-10-20T09:00:00", "labels": ["INBOX", "L"] },
+        { "id": "m3", "date": "2026-10-10T09:00:00", "labels": ["INBOX", "M"] },
+        { "id": "l3", "date": "2026-09-01T09:00:00", "labels": ["INBOX", "L"] }
+      ],
+      "sections": [
+        { "key": "today", "entries": ["M[m1,m2,m3]"] },
+        { "key": "yesterday", "entries": ["L[l1,l2,l3]"] }
+      ]
+    },
+    {
+      "name": "an open bundle keeps its place after its newest thread is done",
+      "bundleLabels": ["L"],
+      "held": { "threads": {}, "bundles": { "L": "2026-11-02T09:00:00" } },
+      "threads": [
+        { "id": "a", "date": "2026-11-02T10:00:00", "labels": ["INBOX"] },
+        { "id": "b", "date": "2026-11-01T18:00:00", "labels": ["INBOX"] },
+        { "id": "l2", "date": "2026-11-01T09:00:00", "labels": ["INBOX", "L"] },
+        { "id": "l3", "date": "2026-10-20T09:00:00", "labels": ["INBOX", "L"] },
+        { "id": "l4", "date": "2026-10-19T09:00:00", "labels": ["INBOX", "L"] }
+      ],
+      "sections": [
+        { "key": "today", "entries": ["a", "L[l2,l3,l4]"] },
+        { "key": "yesterday", "entries": ["b"] }
+      ]
+    },
+    {
+      "name": "an open bundle left with fewer than two threads stays a bundle",
+      "bundleLabels": ["L"],
+      "held": { "threads": {}, "bundles": { "L": "2026-11-02T09:00:00" } },
+      "threads": [
+        { "id": "a", "date": "2026-11-02T10:00:00", "labels": ["INBOX"] },
+        { "id": "l3", "date": "2026-10-20T09:00:00", "labels": ["INBOX", "L"] }
+      ],
+      "sections": [{ "key": "today", "entries": ["a", "L[l3]"] }]
+    },
+    {
+      "name": "an open bundle left with no threads stays until it closes",
+      "bundleLabels": ["L"],
+      "held": { "threads": {}, "bundles": { "L": "2026-11-02T09:00:00" } },
+      "threads": [
+        { "id": "a", "date": "2026-11-02T10:00:00", "labels": ["INBOX"] },
+        { "id": "b", "date": "2026-11-01T18:00:00", "labels": ["INBOX"] }
+      ],
+      "sections": [
+        { "key": "today", "entries": ["a", "L[]"] },
+        { "key": "yesterday", "entries": ["b"] }
+      ]
+    },
+    {
+      "name": "an open bundle left with no threads leaves once Gmail has no more",
+      "bundleLabels": ["L"],
+      "exhausted": ["L"],
+      "held": { "threads": {}, "bundles": { "L": "2026-11-02T09:00:00" } },
+      "threads": [
+        { "id": "a", "date": "2026-11-02T10:00:00", "labels": ["INBOX"] },
+        { "id": "b", "date": "2026-11-01T18:00:00", "labels": ["INBOX"] }
+      ],
+      "sections": [
+        { "key": "today", "entries": ["a"] },
+        { "key": "yesterday", "entries": ["b"] }
+      ]
+    },
+    {
+      "name": "an open bundle with threads left stays though Gmail has no more",
+      "bundleLabels": ["L"],
+      "exhausted": ["L"],
+      "held": { "threads": {}, "bundles": { "L": "2026-11-02T09:00:00" } },
+      "threads": [
+        { "id": "a", "date": "2026-11-02T10:00:00", "labels": ["INBOX"] },
+        { "id": "l3", "date": "2026-10-20T09:00:00", "labels": ["INBOX", "L"] }
+      ],
+      "sections": [{ "key": "today", "entries": ["a", "L[l3]"] }]
+    },
+    {
+      "name": "new mail in an open bundle shows inside it without moving it",
+      "bundleLabels": ["L"],
+      "held": { "threads": {}, "bundles": { "L": "2026-11-01T09:00:00" } },
+      "threads": [
+        { "id": "l0", "date": "2026-11-02T11:00:00", "labels": ["INBOX", "L"] },
+        { "id": "a", "date": "2026-11-02T10:00:00", "labels": ["INBOX"] },
+        { "id": "l1", "date": "2026-11-01T09:00:00", "labels": ["INBOX", "L"] },
+        { "id": "l2", "date": "2026-10-20T09:00:00", "labels": ["INBOX", "L"] },
+        { "id": "l3", "date": "2026-10-19T09:00:00", "labels": ["INBOX", "L"] }
+      ],
+      "sections": [
+        { "key": "today", "entries": ["a"] },
+        { "key": "yesterday", "entries": ["L[l0,l1,l2,l3]"] }
+      ]
+    },
+    {
+      "name": "an open bundle keeps a thread it shares with a bigger bundle",
+      "bundleLabels": ["L", "M"],
+      "held": { "threads": {}, "bundles": { "L": "2026-11-02T09:00:00" } },
+      "threads": [
+        { "id": "m1", "date": "2026-11-02T11:00:00", "labels": ["INBOX", "M"] },
+        { "id": "m2", "date": "2026-11-02T10:30:00", "labels": ["INBOX", "M"] },
+        { "id": "m3", "date": "2026-11-02T10:15:00", "labels": ["INBOX", "M"] },
+        { "id": "lm", "date": "2026-11-02T09:00:00", "labels": ["INBOX", "L", "M"] },
+        { "id": "l2", "date": "2026-11-02T08:00:00", "labels": ["INBOX", "L"] }
+      ],
+      "sections": [{ "key": "today", "entries": ["M[m1,m2,m3]", "L[lm,l2]"] }]
+    },
+    {
+      "name": "an open thread keeps its place and stays out of Pinned after a reply and a star",
+      "bundleLabels": [],
+      "held": { "threads": { "x": { "date": "2026-11-01T12:00:00", "pinned": false, "single": true } }, "bundles": {} },
+      "threads": [
+        { "id": "x", "date": "2026-11-02T11:30:00", "labels": ["INBOX", "STARRED"] },
+        { "id": "a", "date": "2026-11-02T10:00:00", "labels": ["INBOX"] },
+        { "id": "b", "date": "2026-11-01T18:00:00", "labels": ["INBOX"] }
+      ],
+      "sections": [
+        { "key": "today", "entries": ["a"] },
+        { "key": "yesterday", "entries": ["b", "x"] }
+      ]
+    },
+    {
+      "name": "an open pinned thread stays pinned after its star is taken off",
+      "bundleLabels": [],
+      "held": { "threads": { "p": { "date": "2026-10-01T09:00:00", "pinned": true, "single": true } }, "bundles": {} },
+      "threads": [
+        { "id": "a", "date": "2026-11-02T10:00:00", "labels": ["INBOX"] },
+        { "id": "p", "date": "2026-10-01T09:00:00", "labels": ["INBOX"] }
+      ],
+      "sections": [
+        { "key": "pinned", "entries": ["p"] },
+        { "key": "today", "entries": ["a"] }
+      ]
+    },
+    {
+      "name": "an open thread on its own row stays out of a bundle that forms around it",
+      "bundleLabels": ["L"],
+      "held": { "threads": { "x": { "date": "2026-11-02T08:30:00", "pinned": false, "single": true } }, "bundles": {} },
+      "threads": [
+        { "id": "l1", "date": "2026-11-02T10:00:00", "labels": ["INBOX", "L"] },
+        { "id": "l2", "date": "2026-11-02T09:00:00", "labels": ["INBOX", "L"] },
+        { "id": "x", "date": "2026-11-02T08:30:00", "labels": ["INBOX", "L"] },
+        { "id": "l3", "date": "2026-11-02T08:00:00", "labels": ["INBOX", "L"] }
+      ],
+      "sections": [{ "key": "today", "entries": ["L[l1,l2,l3]", "x"] }]
+    },
+    {
+      "name": "a focused thread starred in a bundle stays in it until focus leaves",
+      "bundleLabels": ["L"],
+      "held": { "threads": {}, "bundles": {}, "pins": { "l2": false } },
+      "threads": [
+        { "id": "l1", "date": "2026-11-02T10:00:00", "labels": ["INBOX", "L"] },
+        { "id": "l2", "date": "2026-11-02T09:00:00", "labels": ["INBOX", "STARRED", "L"] },
+        { "id": "a", "date": "2026-11-02T08:30:00", "labels": ["INBOX"] }
+      ],
+      "sections": [{ "key": "today", "entries": ["L[l1,l2]", "a"] }]
+    },
+    {
+      "name": "a focused pinned thread stays pinned after its star is taken off, at its own date",
+      "bundleLabels": [],
+      "held": { "threads": {}, "bundles": {}, "pins": { "p": true, "q": true } },
+      "threads": [
+        { "id": "q", "date": "2026-11-02T10:00:00", "labels": ["INBOX", "STARRED"] },
+        { "id": "p", "date": "2026-11-02T11:00:00", "labels": ["INBOX"] },
+        { "id": "a", "date": "2026-11-02T09:00:00", "labels": ["INBOX"] }
+      ],
+      "sections": [
+        { "key": "pinned", "entries": ["p", "q"] },
+        { "key": "today", "entries": ["a"] }
+      ]
+    },
+    {
+      "name": "a focused thread moves at once after a reply and a new label",
+      "bundleLabels": ["L"],
+      "held": { "threads": {}, "bundles": {}, "pins": { "x": false } },
+      "threads": [
+        { "id": "x", "date": "2026-11-02T11:30:00", "labels": ["INBOX", "L"] },
+        { "id": "l1", "date": "2026-11-02T10:00:00", "labels": ["INBOX", "L"] },
+        { "id": "b", "date": "2026-11-01T18:00:00", "labels": ["INBOX"] }
+      ],
+      "sections": [
+        { "key": "today", "entries": ["L[x,l1]"] },
+        { "key": "yesterday", "entries": ["b"] }
+      ]
+    },
+    {
+      "name": "a thread open in an open bundle keeps its place in it after a reply and a star",
+      "bundleLabels": ["L"],
+      "held": {
+        "threads": { "l2": { "date": "2026-10-25T09:00:00", "pinned": false, "single": false } },
+        "bundles": { "L": "2026-11-02T09:00:00" }
+      },
+      "threads": [
+        { "id": "l2", "date": "2026-11-02T11:30:00", "labels": ["INBOX", "STARRED", "L"] },
+        { "id": "a", "date": "2026-11-02T10:00:00", "labels": ["INBOX"] },
+        { "id": "l1", "date": "2026-11-02T09:00:00", "labels": ["INBOX", "L"] },
+        { "id": "l3", "date": "2026-10-20T09:00:00", "labels": ["INBOX", "L"] }
+      ],
+      "sections": [{ "key": "today", "entries": ["a", "L[l1,l2,l3]"] }]
+    },
+    {
+      "name": "a label with bundling off never groups",
+      "bundleLabels": [],
+      "threads": [
+        { "id": "l1", "date": "2026-11-02T09:00:00", "labels": ["INBOX", "L"] },
+        { "id": "l2", "date": "2026-11-02T08:00:00", "labels": ["INBOX", "L"] },
+        { "id": "l3", "date": "2026-11-02T07:00:00", "labels": ["INBOX", "L"] }
+      ],
+      "sections": [{ "key": "today", "entries": ["l1", "l2", "l3"] }]
+    },
+    {
+      "name": "an email with a todo stays out of its bundle, on its own row",
+      "bundleLabels": ["L"],
+      "todoThreads": ["l1"],
+      "threads": [
+        { "id": "l1", "date": "2026-11-02T10:00:00", "labels": ["INBOX", "L"] },
+        { "id": "l2", "date": "2026-11-02T09:00:00", "labels": ["INBOX", "L"] },
+        { "id": "l3", "date": "2026-11-02T08:00:00", "labels": ["INBOX", "L"] }
+      ],
+      "sections": [{ "key": "today", "entries": ["l1", "L[l2,l3]"] }]
+    },
+    {
+      "name": "an email with a todo doesn't count toward a bundle",
+      "bundleLabels": ["L"],
+      "todoThreads": ["l1"],
+      "threads": [
+        { "id": "l1", "date": "2026-11-02T10:00:00", "labels": ["INBOX", "L"] },
+        { "id": "l2", "date": "2026-11-02T09:00:00", "labels": ["INBOX", "L"] }
+      ],
+      "sections": [{ "key": "today", "entries": ["l1", "l2"] }]
+    },
+    {
+      "name": "an open bundle doesn't take an email with a todo",
+      "bundleLabels": ["L"],
+      "todoThreads": ["l2"],
+      "held": { "threads": {}, "bundles": { "L": "2026-11-02T10:00:00" } },
+      "threads": [
+        { "id": "l1", "date": "2026-11-02T10:00:00", "labels": ["INBOX", "L"] },
+        { "id": "l2", "date": "2026-11-02T09:00:00", "labels": ["INBOX", "L"] }
+      ],
+      "sections": [{ "key": "today", "entries": ["L[l1]", "l2"] }]
+    }
+  ],
+  "plain": [
+    {
+      "name": "threads newest first in time sections",
+      "held": { "threads": {}, "bundles": {} },
+      "threads": [
+        { "id": "b", "date": "2026-11-01T18:00:00", "labels": ["L"] },
+        { "id": "a", "date": "2026-11-02T10:00:00", "labels": ["L"] }
+      ],
+      "sections": [
+        { "key": "today", "entries": ["a"] },
+        { "key": "yesterday", "entries": ["b"] }
+      ]
+    },
+    {
+      "name": "an open thread keeps its place after a reply",
+      "held": { "threads": { "x": { "date": "2026-11-01T12:00:00", "pinned": false, "single": true } }, "bundles": {} },
+      "threads": [
+        { "id": "x", "date": "2026-11-02T11:30:00", "labels": ["L"] },
+        { "id": "a", "date": "2026-11-02T10:00:00", "labels": ["L"] },
+        { "id": "b", "date": "2026-11-01T18:00:00", "labels": ["L"] }
+      ],
+      "sections": [
+        { "key": "today", "entries": ["a"] },
+        { "key": "yesterday", "entries": ["b", "x"] }
+      ]
+    }
+  ]
+}

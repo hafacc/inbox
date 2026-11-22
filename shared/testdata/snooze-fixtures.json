@@ -1,0 +1,1709 @@
+{
+  "_doc": {
+    "zone": "All local date-times are America/New_York wall-clock ISO strings without an offset (earlier offset on a fall-back ambiguity). Epoch values are milliseconds.",
+    "keys": "KEY = RULE ( \"@\" HHMM | \"_h\" H ), RULE = Dn (n >= 0) | W1-4 | Wd1-7 | Wn1-7 | Dom1 | Dom15 | DomL | Mo1-3, HHMM = local wall-clock time rounded to 5 minutes, H = 0-12. Regex: ^(D(0|[1-9]\\d*)|W[1-4]|Wd[1-7]|Wn[1-7]|Dom1|Dom15|DomL|Mo[1-3])(@([01]\\d|2[0-3])[0-5][05]|_h([0-9]|1[0-2]))$ A clock key's D/W/Wd/Wn/Dom/DomL count from its first hit (the first time HHMM comes round at least 60s after the reference time), so D0 is the next HHMM, D1 the one after; Wd is the first hit on that weekday, Wn the second; Mo counts from the reference time's snooze day. Hour offsets count from the reference time's snooze day.",
+    "extract": "extractKeys(at, target): keys sorted by code unit; setId = keys joined by \"__\", or null when there are no keys.",
+    "quickCredit": "The quick-time slot (HHMM) a commit credits, or null when it credits none: a same-snooze-day commit, or a suggestion whose picked key is an hours offset.",
+    "resolve": "resolveKey(key, now) -> epochLocal, or null when it can't resolve more than 60s into the future.",
+    "labelDist": "Label day phrase for key resolved at resolvedLocal from now. dist = max(0, snoozeDay(resolved) - calendarDate(now)); weekday = ISO weekday of snoozeDay(resolved); phrase is one of today|tomorrow|inDays|inWeeks|this|next|inTwoWeeks|calendar; family is the key's date-rule family; region (timed keys only) is the time-of-day name of the resolved time.",
+    "labelOffset": "Same-day hours-offset label kind: littleWhile for up to 3 hours, muchLater beyond.",
+    "quickTimes": "quickTimes(partitions, now): each partition is a wire `tod` map; expect lists the chosen clockMinutes (minutes after local midnight) in clock order. Picked greedily with the same discount as rankDeep, by clock distance around midnight.",
+    "rank": "rank(partitions, now): each partition is a wire partition; expectKeys are the chosen rows' keys in row (time) order.",
+    "wire": "fromWire(raw) must equal normalized, and toWire(fromWire(raw)) must equal normalized. picks keeps only keys 1..20 or none with a positive integer count. A raw partition without v >= 2 was saved before clock keys counted from their first hit: each set's clock keys are resolved the old way (date rule counted from the snooze day of its t) and, if they agree on one target, the set is re-extracted from (t, target) keeping c and t; sets that land on one id merge (both decayed to the later t, summed). toWire always writes v: 2.",
+    "rankDeep": "rankDeep(partitions, now): the first 20 distinct rows in greedy selection order (a row's 1-based index is its rank). After each pick every other key's score drops by the pick's score x 2^(-|minutes apart| / 30), floored at 0; the floor still applies to the undiscounted score, and equal discounted scores go to the higher undiscounted one. Keys spent because they land at the same time as a winner take no index. expectShownKeys are the menu's rows: the first 5, in time order.",
+    "pickLog": "pickLogKey(rankDeep(partitions, now), target): the 1-based rank of the deep row whose time is target's minute, however it was picked, or none when no row is.",
+    "commit": "commit(partition, at, target, source, pickedKey) -> expect, the partition's whole sets and tod afterwards (c within a relative 1e-9, t exact); undoing it must give back partition exactly. Besides crediting its own set and quick-time slot, a commit multiplies every other set's c by 1 - 2^(-|minutes apart| / 30), taking the largest such share among the set's clock keys, each resolved at `at` and measured from the target's 5-minute slot; t is left alone. A set with a clock key landing exactly on that slot, and a set with no clock keys, keep their c. When a quick-time slot is credited every other slot's c is multiplied by 1 - 2^(-clock minutes apart / 30), the short way round midnight. Sets lose votes on every commit, whatever its source or picked key; quick-time slots only when one is credited."
+  },
+  "extract": [
+    {
+      "name": "rounding: 2h29m40s rounds to 150 min, h=3 (truncation would give h=2)",
+      "at": "2026-09-22T14:00:20",
+      "target": "2026-09-22T16:30:00",
+      "keys": ["D0@1630", "D0_h3"],
+      "setId": "D0@1630__D0_h3"
+    },
+    {
+      "name": "spring forward: Sat 10:00 to Sun 10:00 is 23h elapsed but still tomorrow same time",
+      "at": "2026-03-07T10:00:00",
+      "target": "2026-03-08T10:00:00",
+      "keys": ["D0@1000", "D1_h0", "Wd7@1000", "Wd7_h0"],
+      "setId": "D0@1000__D1_h0__Wd7@1000__Wd7_h0"
+    },
+    {
+      "name": "fall back: Sat 10:00 to Sun Nov 1 10:00 is 25h elapsed but still tomorrow same time",
+      "at": "2026-10-31T10:00:00",
+      "target": "2026-11-01T10:00:00",
+      "keys": ["D0@1000", "D1_h0", "Dom1@1000", "Wd7@1000", "Wd7_h0"],
+      "setId": "D0@1000__D1_h0__Dom1@1000__Wd7@1000__Wd7_h0"
+    },
+    {
+      "name": "Wed 15:00 to Thu 09:00: the next 09:00 and this Thursday, no offset",
+      "at": "2026-09-23T15:00:00",
+      "target": "2026-09-24T09:00:00",
+      "keys": ["D0@0900", "Wd4@0900"],
+      "setId": "D0@0900__Wd4@0900"
+    },
+    {
+      "name": "a post-midnight commit to that morning is the next 08:30, on that morning's weekday",
+      "at": "2026-09-23T00:30:00",
+      "target": "2026-09-23T08:30:00",
+      "keys": ["D0@0830", "Wd3@0830"],
+      "setId": "D0@0830__Wd3@0830"
+    },
+    {
+      "name": "an offset crossing into the next snooze day isn't learned: Wed 22:54 to Fri 08:00",
+      "at": "2026-09-23T22:54:00",
+      "target": "2026-09-25T08:00:00",
+      "keys": ["D1@0800", "Wd5@0800"],
+      "setId": "D1@0800__Wd5@0800"
+    },
+    {
+      "name": "the 05:00 day boundary is wall-clock on the spring-forward morning",
+      "at": "2026-03-07T22:00:00",
+      "target": "2026-03-08T05:30:00",
+      "keys": ["D0@0530", "Wd7@0530"],
+      "setId": "D0@0530__Wd7@0530"
+    },
+    {
+      "name": "45 days out is its own day count, counted from the next 10:00 (the offset from today)",
+      "at": "2026-09-22T10:00:00",
+      "target": "2026-11-06T10:00:00",
+      "keys": ["D44@1000", "D45_h0"],
+      "setId": "D44@1000__D45_h0"
+    },
+    {
+      "name": "8 days after the next 09:00 is a day count, not a week",
+      "at": "2026-09-12T10:00:00",
+      "target": "2026-09-21T09:00:00",
+      "keys": ["D8@0900", "Wn1@0900"],
+      "setId": "D8@0900__Wn1@0900"
+    },
+    {
+      "name": "a week counts from the next 09:00, not from today",
+      "at": "2026-09-12T10:00:00",
+      "target": "2026-09-20T09:00:00",
+      "keys": ["D7@0900", "W1@0900", "Wn7@0900"],
+      "setId": "D7@0900__W1@0900__Wn7@0900"
+    },
+    {
+      "name": "300 days out is its own day count",
+      "at": "2026-09-22T10:00:00",
+      "target": "2027-07-19T09:00:00",
+      "keys": ["D299@0900"],
+      "setId": "D299@0900"
+    },
+    {
+      "name": "09:07 rounds down to the 09:05 slot",
+      "at": "2026-09-22T10:00:00",
+      "target": "2026-09-24T09:07:00",
+      "keys": ["D1@0905", "Wd4@0905"],
+      "setId": "D1@0905__Wd4@0905"
+    },
+    {
+      "name": "09:08 rounds up to the 09:10 slot",
+      "at": "2026-09-22T10:00:00",
+      "target": "2026-09-24T09:08:00",
+      "keys": ["D1@0910", "Wd4@0910"],
+      "setId": "D1@0910__Wd4@0910"
+    },
+    {
+      "name": "04:58 clamps to 04:55 so it stays in its own snooze day",
+      "at": "2026-09-22T10:00:00",
+      "target": "2026-09-24T04:58:00",
+      "keys": ["D1@0455", "Wd3@0455"],
+      "setId": "D1@0455__Wd3@0455"
+    },
+    {
+      "name": "same-day snooze credits only later-today keys",
+      "at": "2026-09-22T14:00:00",
+      "target": "2026-09-22T20:00:00",
+      "keys": ["D0@2000", "D0_h6"],
+      "setId": "D0@2000__D0_h6"
+    },
+    {
+      "name": "same snooze day across midnight, 2.5h rounds to 3",
+      "at": "2026-09-22T23:00:00",
+      "target": "2026-09-23T01:30:00",
+      "keys": ["D0@0130", "D0_h3"],
+      "setId": "D0@0130__D0_h3"
+    },
+    {
+      "name": "22:00 to tomorrow 09:00 is the next 09:00, and tomorrow's weekday",
+      "at": "2026-09-22T22:00:00",
+      "target": "2026-09-23T09:00:00",
+      "keys": ["D0@0900", "Wd3@0900"],
+      "setId": "D0@0900__Wd3@0900"
+    },
+    {
+      "name": "08:00 to today 09:00 is the next 09:00 too",
+      "at": "2026-09-23T08:00:00",
+      "target": "2026-09-23T09:00:00",
+      "keys": ["D0@0900", "D0_h1"],
+      "setId": "D0@0900__D0_h1"
+    },
+    {
+      "name": "Thursday 08:00 to next Thursday 09:00 (the 1st) is the second Thursday 09:00",
+      "at": "2026-09-24T08:00:00",
+      "target": "2026-10-01T09:00:00",
+      "keys": [
+        "D7@0900",
+        "D7_h1",
+        "Dom1@0900",
+        "W1@0900",
+        "W1_h1",
+        "Wd4_h1",
+        "Wn4@0900"
+      ],
+      "setId": "D7@0900__D7_h1__Dom1@0900__W1@0900__W1_h1__Wd4_h1__Wn4@0900"
+    },
+    {
+      "name": "the 1st at 09:00 from the 1st at 08:00 isn't learned from a same-day snooze",
+      "at": "2026-10-01T08:00:00",
+      "target": "2026-10-01T09:00:00",
+      "keys": ["D0@0900", "D0_h1"],
+      "setId": "D0@0900__D0_h1"
+    },
+    {
+      "name": "evening to tomorrow the 1st teaches the 1st",
+      "at": "2026-09-30T21:00:00",
+      "target": "2026-10-01T09:00:00",
+      "keys": ["D0@0900", "Dom1@0900", "Wd4@0900"],
+      "setId": "D0@0900__Dom1@0900__Wd4@0900"
+    }
+  ],
+  "quickCredit": [
+    {
+      "name": "custom pick 3 days out",
+      "at": "2026-09-22T10:00:00",
+      "target": "2026-09-25T09:00:00",
+      "source": "custom",
+      "pickedKey": null,
+      "slot": "0900"
+    },
+    {
+      "name": "timed suggestion",
+      "at": "2026-09-22T10:00:00",
+      "target": "2026-09-23T09:00:00",
+      "source": "suggestion",
+      "pickedKey": "D1@0900",
+      "slot": "0900"
+    },
+    {
+      "name": "offset suggestion is relative",
+      "at": "2026-09-22T10:00:00",
+      "target": "2026-09-23T12:00:00",
+      "source": "suggestion",
+      "pickedKey": "D1_h2",
+      "slot": null
+    },
+    {
+      "name": "same-day custom pick",
+      "at": "2026-09-22T10:00:00",
+      "target": "2026-09-22T18:00:00",
+      "source": "custom",
+      "pickedKey": null,
+      "slot": null
+    },
+    {
+      "name": "same-day timed suggestion",
+      "at": "2026-09-22T10:00:00",
+      "target": "2026-09-22T20:00:00",
+      "source": "suggestion",
+      "pickedKey": "D0@2000",
+      "slot": null
+    },
+    {
+      "name": "same snooze day across midnight",
+      "at": "2026-09-22T23:00:00",
+      "target": "2026-09-23T01:30:00",
+      "source": "custom",
+      "pickedKey": null,
+      "slot": null
+    },
+    {
+      "name": "Last",
+      "at": "2026-09-22T10:00:00",
+      "target": "2026-09-24T20:30:00",
+      "source": "last",
+      "pickedKey": null,
+      "slot": "2030"
+    },
+    {
+      "name": "45-day custom pick still credits its slot",
+      "at": "2026-09-22T10:00:00",
+      "target": "2026-11-06T10:00:00",
+      "source": "custom",
+      "pickedKey": null,
+      "slot": "1000"
+    }
+  ],
+  "resolve": [
+    {
+      "name": "night 03:00 on the spring-forward night is wall-clock 03:00",
+      "now": "2026-03-07T20:00:00",
+      "key": "D0@0300",
+      "epochLocal": "2026-03-08T03:00:00"
+    },
+    {
+      "name": "a time inside the spring-forward gap shifts forward by the gap",
+      "now": "2026-03-07T20:00:00",
+      "key": "D0@0230",
+      "epochLocal": "2026-03-08T03:30:00"
+    },
+    {
+      "name": "this Thursday 09:00, resolved on a Thursday after 09:00, is a week out",
+      "now": "2026-09-24T10:00:00",
+      "key": "Wd4@0900",
+      "epochLocal": "2026-10-01T09:00:00"
+    },
+    {
+      "name": "this Thursday 09:00, resolved on a Thursday before 09:00, is today",
+      "now": "2026-09-24T07:00:00",
+      "key": "Wd4@0900",
+      "epochLocal": "2026-09-24T09:00:00"
+    },
+    {
+      "name": "the next 09:00 at 04:50 is today's",
+      "now": "2026-09-23T04:50:00",
+      "key": "D0@0900",
+      "epochLocal": "2026-09-23T09:00:00"
+    },
+    {
+      "name": "tomorrow same time across spring forward",
+      "now": "2026-03-07T10:00:00",
+      "key": "D1_h0",
+      "epochLocal": "2026-03-08T10:00:00"
+    },
+    {
+      "name": "an offset that would land on the next snooze day doesn't resolve",
+      "now": "2026-09-23T00:30:00",
+      "key": "Wd4_h8",
+      "epochLocal": null
+    },
+    {
+      "name": "a time that passed today rolls to tomorrow",
+      "now": "2026-09-22T10:00:00",
+      "key": "D0@0900",
+      "epochLocal": "2026-09-23T09:00:00"
+    },
+    {
+      "name": "the second 09:00 after 10:00 is the day after tomorrow",
+      "now": "2026-09-22T10:00:00",
+      "key": "D1@0900",
+      "epochLocal": "2026-09-24T09:00:00"
+    },
+    {
+      "name": "Sunday uses ISO weekday 7",
+      "now": "2026-09-22T10:00:00",
+      "key": "Wd7@0900",
+      "epochLocal": "2026-09-27T09:00:00"
+    },
+    {
+      "name": "tonight 1 AM is after midnight",
+      "now": "2026-09-22T22:00:00",
+      "key": "D0@0100",
+      "epochLocal": "2026-09-23T01:00:00"
+    },
+    {
+      "name": "04:55 is the last slot of the snooze day",
+      "now": "2026-09-22T22:00:00",
+      "key": "D0@0455",
+      "epochLocal": "2026-09-23T04:55:00"
+    },
+    {
+      "name": "the 1st at 09:00, before 09:00 on the 1st, is today",
+      "now": "2026-10-01T08:00:00",
+      "key": "Dom1@0900",
+      "epochLocal": "2026-10-01T09:00:00"
+    },
+    {
+      "name": "the 1st at 09:00, after 09:00 on the 1st, is next month",
+      "now": "2026-10-01T10:00:00",
+      "key": "Dom1@0900",
+      "epochLocal": "2026-11-01T09:00:00"
+    },
+    {
+      "name": "end of month on its last day, after the time, is next month's",
+      "now": "2026-09-30T22:00:00",
+      "key": "DomL@2100",
+      "epochLocal": "2026-10-31T21:00:00"
+    },
+    {
+      "name": "a month out counts from today even once the time has passed",
+      "now": "2026-09-22T10:00:00",
+      "key": "Mo1@0900",
+      "epochLocal": "2026-10-22T09:00:00"
+    }
+  ],
+  "labelDist": [
+    {
+      "name": "this Thursday on a Thursday after its time reads Next Thursday",
+      "now": "2026-09-24T10:00:00",
+      "key": "Wd4@0900",
+      "resolvedLocal": "2026-10-01T09:00:00",
+      "family": "Wd",
+      "dist": 7,
+      "weekday": 4,
+      "phrase": "next",
+      "region": "morning"
+    },
+    {
+      "name": "tomorrow's Thursday seen on Wednesday reads tomorrow",
+      "now": "2026-09-23T10:00:00",
+      "key": "Wd4@0900",
+      "resolvedLocal": "2026-09-24T09:00:00",
+      "family": "Wd",
+      "dist": 1,
+      "weekday": 4,
+      "phrase": "tomorrow",
+      "region": "morning"
+    },
+    {
+      "name": "the next 09:00 at 04:50 reads today",
+      "now": "2026-09-23T04:50:00",
+      "key": "D0@0900",
+      "resolvedLocal": "2026-09-23T09:00:00",
+      "family": "D",
+      "dist": 0,
+      "weekday": 3,
+      "phrase": "today",
+      "region": "morning"
+    },
+    {
+      "name": "a time that passed today reads tomorrow",
+      "now": "2026-09-22T10:00:00",
+      "key": "D0@0900",
+      "resolvedLocal": "2026-09-23T09:00:00",
+      "family": "D",
+      "dist": 1,
+      "weekday": 3,
+      "phrase": "tomorrow",
+      "region": "morning"
+    },
+    {
+      "name": "in a week at 04:50 counts from this morning's 09:00",
+      "now": "2026-09-23T04:50:00",
+      "key": "W1@0900",
+      "resolvedLocal": "2026-09-30T09:00:00",
+      "family": "W",
+      "dist": 7,
+      "weekday": 3,
+      "phrase": "next",
+      "region": "morning"
+    },
+    {
+      "name": "the second 09:00, two days out, reads the weekday",
+      "now": "2026-09-23T10:00:00",
+      "key": "D1@0900",
+      "resolvedLocal": "2026-09-25T09:00:00",
+      "family": "D",
+      "dist": 2,
+      "weekday": 5,
+      "phrase": "this",
+      "region": "morning"
+    },
+    {
+      "name": "a week after the next 09:00 reads Next",
+      "now": "2026-09-22T10:00:00",
+      "key": "W1@0900",
+      "resolvedLocal": "2026-09-30T09:00:00",
+      "family": "W",
+      "dist": 8,
+      "weekday": 3,
+      "phrase": "next",
+      "region": "morning"
+    },
+    {
+      "name": "offset Wd names the resolved day's weekday",
+      "now": "2026-09-23T10:00:00",
+      "key": "Wd5_h3",
+      "resolvedLocal": "2026-09-25T13:00:00",
+      "family": "Wd",
+      "dist": 2,
+      "weekday": 5,
+      "phrase": "this"
+    },
+    {
+      "name": "tonight's 01:30 at 00:30 is today",
+      "now": "2026-09-23T00:30:00",
+      "key": "D0@0130",
+      "resolvedLocal": "2026-09-23T01:30:00",
+      "family": "D",
+      "dist": 0,
+      "weekday": 2,
+      "phrase": "today",
+      "region": "night"
+    },
+    {
+      "name": "weekday after next on its own weekday, 14 days out",
+      "now": "2026-09-24T10:00:00",
+      "key": "Wn4@0900",
+      "resolvedLocal": "2026-10-08T09:00:00",
+      "family": "Wn",
+      "dist": 14,
+      "weekday": 4,
+      "phrase": "inTwoWeeks",
+      "region": "morning"
+    },
+    {
+      "name": "weekday after next, 9 days out, reads Next",
+      "now": "2026-09-22T10:00:00",
+      "key": "Wn4@0900",
+      "resolvedLocal": "2026-10-01T09:00:00",
+      "family": "Wn",
+      "dist": 9,
+      "weekday": 4,
+      "phrase": "next",
+      "region": "morning"
+    },
+    {
+      "name": "two weeks from this morning's 09:00",
+      "now": "2026-09-22T08:00:00",
+      "key": "W2@0900",
+      "resolvedLocal": "2026-10-06T09:00:00",
+      "family": "W",
+      "dist": 14,
+      "weekday": 2,
+      "phrase": "inWeeks",
+      "region": "morning"
+    },
+    {
+      "name": "tomorrow same time across spring forward",
+      "now": "2026-03-07T10:00:00",
+      "key": "D1_h0",
+      "resolvedLocal": "2026-03-08T10:00:00",
+      "family": "D",
+      "dist": 1,
+      "weekday": 7,
+      "phrase": "tomorrow"
+    },
+    {
+      "name": "day-of-month keeps its calendar phrase",
+      "now": "2026-09-22T10:00:00",
+      "key": "Dom1@0900",
+      "resolvedLocal": "2026-10-01T09:00:00",
+      "family": "Dom",
+      "dist": 9,
+      "weekday": 4,
+      "phrase": "calendar",
+      "region": "morning"
+    },
+    {
+      "name": "the 1st tomorrow reads tomorrow",
+      "now": "2026-09-30T10:00:00",
+      "key": "Dom1@0900",
+      "resolvedLocal": "2026-10-01T09:00:00",
+      "family": "Dom",
+      "dist": 1,
+      "weekday": 4,
+      "phrase": "tomorrow",
+      "region": "morning"
+    },
+    {
+      "name": "region word comes from the resolved time",
+      "now": "2026-09-22T10:00:00",
+      "key": "D1@2030",
+      "resolvedLocal": "2026-09-23T20:30:00",
+      "family": "D",
+      "dist": 1,
+      "weekday": 3,
+      "phrase": "tomorrow",
+      "region": "evening"
+    },
+    {
+      "name": "the 1st later today reads calendar",
+      "now": "2026-10-01T08:00:00",
+      "key": "Dom1@0900",
+      "resolvedLocal": "2026-10-01T09:00:00",
+      "family": "Dom",
+      "dist": 0,
+      "weekday": 4,
+      "phrase": "calendar",
+      "region": "morning"
+    }
+  ],
+  "labelOffset": [
+    {
+      "name": "3 hours is a little while",
+      "now": "2026-09-22T12:00:00",
+      "key": "D0_h3",
+      "resolvedLocal": "2026-09-22T15:00:00",
+      "phrase": "littleWhile"
+    },
+    {
+      "name": "4 hours is much later",
+      "now": "2026-09-22T12:00:00",
+      "key": "D0_h4",
+      "resolvedLocal": "2026-09-22T16:00:00",
+      "phrase": "muchLater"
+    },
+    {
+      "name": "a little while past midnight",
+      "now": "2026-09-22T22:00:00",
+      "key": "D0_h2",
+      "resolvedLocal": "2026-09-23T00:00:00",
+      "phrase": "littleWhile"
+    }
+  ],
+  "quickTimes": [
+    {
+      "name": "four clusters show in clock order",
+      "now": "2026-09-22T12:00:00",
+      "partitions": [
+        {
+          "0900": { "c": 3, "t": 1790092800000 },
+          "1300": { "c": 2, "t": 1790092800000 },
+          "2000": { "c": 1, "t": 1790092800000 },
+          "0030": { "c": 1, "t": 1790092800000 }
+        }
+      ],
+      "expect": [30, 540, 780, 1200]
+    },
+    {
+      "name": "five clusters keep the strongest four",
+      "now": "2026-09-22T12:00:00",
+      "partitions": [
+        {
+          "0700": { "c": 5, "t": 1790092800000 },
+          "0900": { "c": 4, "t": 1790092800000 },
+          "1200": { "c": 3, "t": 1790092800000 },
+          "1800": { "c": 2, "t": 1790092800000 },
+          "2200": { "c": 1, "t": 1790092800000 }
+        }
+      ],
+      "expect": [420, 540, 720, 1080]
+    },
+    {
+      "name": "5-minute neighbours are two buttons",
+      "now": "2026-09-22T12:00:00",
+      "partitions": [
+        {
+          "0900": { "c": 3, "t": 1790092800000 },
+          "0905": { "c": 3, "t": 1790092800000 }
+        }
+      ],
+      "expect": [540, 545]
+    },
+    {
+      "name": "04:55 and 05:05 are two buttons",
+      "now": "2026-09-22T12:00:00",
+      "partitions": [
+        {
+          "0455": { "c": 1, "t": 1790092800000 },
+          "0505": { "c": 2, "t": 1790092800000 }
+        }
+      ],
+      "expect": [295, 305]
+    },
+    {
+      "name": "23:50 and 00:15 are two buttons",
+      "now": "2026-09-22T12:00:00",
+      "partitions": [
+        {
+          "2350": { "c": 2, "t": 1790092800000 },
+          "0015": { "c": 1, "t": 1790092800000 }
+        }
+      ],
+      "expect": [15, 1430]
+    },
+    {
+      "name": "one commit 90 days ago is still shown",
+      "now": "2026-09-22T12:00:00",
+      "partitions": [{ "1800": { "c": 1, "t": 1782316800000 } }],
+      "expect": [1080]
+    },
+    {
+      "name": "one commit 91 days ago is gone",
+      "now": "2026-09-22T12:00:00",
+      "partitions": [{ "1800": { "c": 1, "t": 1782230400000 } }],
+      "expect": []
+    },
+    {
+      "name": "partitions sum per slot",
+      "now": "2026-09-22T12:00:00",
+      "partitions": [
+        {
+          "0800": { "c": 1, "t": 1790092800000 },
+          "0900": { "c": 0.6, "t": 1790092800000 }
+        },
+        {
+          "1000": { "c": 1, "t": 1790092800000 },
+          "0900": { "c": 0.6, "t": 1790092800000 }
+        }
+      ],
+      "expect": [480, 540, 600]
+    },
+    {
+      "name": "a weaker time next to a stronger one gives way to a distant one",
+      "now": "2026-09-22T12:00:00",
+      "partitions": [
+        {
+          "0900": { "c": 5, "t": 1790092800000 },
+          "0905": { "c": 4, "t": 1790092800000 },
+          "1200": { "c": 3, "t": 1790092800000 },
+          "1800": { "c": 2, "t": 1790092800000 },
+          "2200": { "c": 1.5, "t": 1790092800000 }
+        }
+      ],
+      "expect": [540, 720, 1080, 1320]
+    },
+    {
+      "name": "the discount wraps around midnight",
+      "now": "2026-09-22T12:00:00",
+      "partitions": [
+        {
+          "2350": { "c": 3, "t": 1790092800000 },
+          "0015": { "c": 2.5, "t": 1790092800000 },
+          "0900": { "c": 1, "t": 1790092800000 },
+          "1200": { "c": 1, "t": 1790092800000 },
+          "1500": { "c": 1, "t": 1790092800000 }
+        }
+      ],
+      "expect": [540, 720, 900, 1430]
+    }
+  ],
+  "rank": [
+    {
+      "name": "daily tomorrow 9:00 is one row",
+      "now": "2026-09-22T10:00:00",
+      "partitions": [
+        {
+          "v": 2,
+          "sets": {
+            "D0@0900__Wd3@0900": { "c": 1, "t": 1790085600000 },
+            "D0@0900__Wd4@0900": { "c": 1, "t": 1790085600000 },
+            "D0@0900__Wd5@0900": { "c": 1, "t": 1790085600000 }
+          },
+          "tod": {},
+          "lastCustom": null
+        }
+      ],
+      "expectKeys": ["D0@0900"]
+    },
+    {
+      "name": "9:00 and 9:05 are two rows",
+      "now": "2026-09-22T10:00:00",
+      "partitions": [
+        {
+          "v": 2,
+          "sets": {
+            "D1@0900": { "c": 2, "t": 1790085600000 },
+            "D1@0905": { "c": 1, "t": 1790085600000 }
+          },
+          "tod": {},
+          "lastCustom": null
+        }
+      ],
+      "expectKeys": ["D1@0900", "D1@0905"]
+    },
+    {
+      "name": "two rules landing at the same time are one row",
+      "now": "2026-09-22T10:00:00",
+      "partitions": [
+        {
+          "v": 2,
+          "sets": {
+            "D1@0900": { "c": 2, "t": 1790085600000 },
+            "D6@0900__Wd4@0900": { "c": 1, "t": 1790085600000 }
+          },
+          "tod": {},
+          "lastCustom": null
+        }
+      ],
+      "expectKeys": ["D1@0900"]
+    },
+    {
+      "name": "tomorrow 9:00 and tomorrow 20:00 are two rows",
+      "now": "2026-09-22T10:00:00",
+      "partitions": [
+        {
+          "v": 2,
+          "sets": {
+            "D0@0900": { "c": 2, "t": 1790085600000 },
+            "D1@2000": { "c": 1, "t": 1790085600000 }
+          },
+          "tod": {},
+          "lastCustom": null
+        }
+      ],
+      "expectKeys": ["D0@0900", "D1@2000"]
+    },
+    {
+      "name": "a +3h habit wins over its scattered clock times",
+      "now": "2026-09-22T12:00:00",
+      "partitions": [
+        {
+          "v": 2,
+          "sets": {
+            "D0@1300__D0_h3": { "c": 1, "t": 1790092800000 },
+            "D0@1400__D0_h3": { "c": 1, "t": 1790092800000 },
+            "D0@1500__D0_h3": { "c": 1, "t": 1790092800000 }
+          },
+          "tod": {},
+          "lastCustom": null
+        }
+      ],
+      "expectKeys": ["D0_h3"]
+    },
+    {
+      "name": "a clock time that has passed rolls to tomorrow and still wins its ties, so its offsets don't show",
+      "now": "2026-09-24T15:00:00",
+      "partitions": [
+        {
+          "v": 2,
+          "sets": {
+            "D0@1300__D0_h3": { "c": 1, "t": 1790172000000 },
+            "D0@1300__D0_h2": { "c": 1, "t": 1790175600000 },
+            "D0@1700__D0_h6": { "c": 1, "t": 1790175600000 }
+          },
+          "tod": {},
+          "lastCustom": null
+        }
+      ],
+      "expectKeys": ["D0@1700", "D0@1300"]
+    },
+    {
+      "name": "old sets saved across midnight convert, losing their crossing offsets",
+      "now": "2026-09-23T23:55:00",
+      "partitions": [
+        {
+          "sets": {
+            "D1_h9__D2@0800__Wd4_h9__Wd5@0800": { "c": 3, "t": 1790218440000 },
+            "D0@2000__D0_h11": { "c": 1, "t": 1790167500000 },
+            "D0_h11__D1@0800__Wd4@0800": { "c": 1, "t": 1790123760000 }
+          },
+          "tod": {},
+          "lastCustom": null
+        }
+      ],
+      "expectKeys": ["D0@2000", "D1@0800"]
+    },
+    {
+      "name": "a clock time beats an hour offset in a tie, even tomorrow's",
+      "now": "2026-09-23T10:00:00",
+      "partitions": [
+        {
+          "v": 2,
+          "sets": {
+            "D1@0900__D1_h2__Wd4@0900__Wd4_h2": { "c": 3, "t": 1790172000000 }
+          },
+          "tod": {},
+          "lastCustom": null
+        }
+      ],
+      "expectKeys": ["Wd4@0900"]
+    },
+    {
+      "name": "near-equal float sums tie, and tomorrow wins",
+      "now": "2026-09-22T10:00:00",
+      "partitions": [
+        {
+          "v": 2,
+          "sets": { "D0@0900": { "c": 0.1, "t": 1790085600000 } },
+          "tod": {},
+          "lastCustom": null
+        },
+        {
+          "v": 2,
+          "sets": {
+            "D0@0900": { "c": 0.2, "t": 1790085600000 },
+            "Wd3@0900": { "c": 0.3, "t": 1790085600000 }
+          },
+          "tod": {},
+          "lastCustom": null
+        }
+      ],
+      "expectKeys": ["D0@0900"]
+    },
+    {
+      "name": "separate 1h and 3h habits are two rows",
+      "now": "2026-09-22T12:00:00",
+      "partitions": [
+        {
+          "v": 2,
+          "sets": {
+            "D0@1300__D0_h1": { "c": 1, "t": 1790092800000 },
+            "D0@1305__D0_h1": { "c": 1, "t": 1790092800000 },
+            "D0@1500__D0_h3": { "c": 1, "t": 1790092800000 },
+            "D0@1510__D0_h3": { "c": 1, "t": 1790092800000 }
+          },
+          "tod": {},
+          "lastCustom": null
+        }
+      ],
+      "expectKeys": ["D0_h1", "D0_h3"]
+    },
+    {
+      "name": "an offset and a clock time from the same commits are one row",
+      "now": "2026-09-22T12:00:00",
+      "partitions": [
+        {
+          "v": 2,
+          "sets": { "D0@1500__D0_h3": { "c": 2, "t": 1790092800000 } },
+          "tod": {},
+          "lastCustom": null
+        }
+      ],
+      "expectKeys": ["D0@1500"]
+    },
+    {
+      "name": "old 7- and 14-day sets convert to the weekday they named",
+      "now": "2026-09-22T12:00:00",
+      "partitions": [
+        {
+          "sets": {
+            "D7@0900__W1@0900__Wd2@0900": { "c": 3, "t": 1790092800000 },
+            "D14@0900__W2@0900__Wn2@0900": { "c": 3, "t": 1790092800000 },
+            "D1@0900__Wd4@0900": { "c": 1, "t": 1790092800000 }
+          },
+          "tod": {},
+          "lastCustom": null
+        }
+      ],
+      "expectKeys": ["Wd4@0900", "Wd2@0900", "Wn2@0900"]
+    },
+    {
+      "name": "a weaker 19:00 near a 20:00 habit drops out of the menu",
+      "now": "2026-09-22T12:00:00",
+      "partitions": [
+        {
+          "v": 2,
+          "sets": {
+            "D0@2000": { "c": 3, "t": 1790092800000 },
+            "D0@1900": { "c": 1.8, "t": 1790092800000 },
+            "D1@0900": { "c": 1.5, "t": 1790092800000 },
+            "D2@0900": { "c": 1.4, "t": 1790092800000 },
+            "D3@0900": { "c": 1.3, "t": 1790092800000 },
+            "D4@0900": { "c": 1.2, "t": 1790092800000 }
+          },
+          "tod": {},
+          "lastCustom": null
+        }
+      ],
+      "expectKeys": ["D0@2000", "D1@0900", "D2@0900", "D3@0900", "D4@0900"]
+    }
+  ],
+  "wire": [
+    {
+      "name": "valid partition round-trips",
+      "raw": {
+        "v": 2,
+        "sets": { "D1@0900__Wd4@0900": { "c": 1.5, "t": 1790092800000 } },
+        "tod": { "0900": { "c": 2, "t": 1790092800000 } },
+        "lastCustom": { "target": 1790190000000, "at": 1790092800000 }
+      },
+      "normalized": {
+        "v": 2,
+        "sets": { "D1@0900__Wd4@0900": { "c": 1.5, "t": 1790092800000 } },
+        "tod": { "0900": { "c": 2, "t": 1790092800000 } },
+        "lastCustom": { "target": 1790190000000, "at": 1790092800000 },
+        "picks": {}
+      }
+    },
+    {
+      "name": "missing fields default and unknown fields are ignored",
+      "raw": {
+        "deviceId": "abc",
+        "lastCustom": { "target": 1790190000000, "at": 1790092800000 }
+      },
+      "normalized": {
+        "v": 2,
+        "sets": {},
+        "tod": {},
+        "lastCustom": { "target": 1790190000000, "at": 1790092800000 },
+        "picks": {}
+      }
+    },
+    {
+      "name": "bad and legacy entries are dropped",
+      "raw": {
+        "v": 2,
+        "sets": {
+          "D1@0900": { "c": "1", "t": 1790092800000 },
+          "D2@0900": { "c": null, "t": 1790092800000 },
+          "D3@0900": { "c": 2, "t": 1790092800000 },
+          "D1_morning": { "c": 1, "t": 1790092800000 },
+          "D1@0900__D1_morning": { "c": 1, "t": 1790092800000 },
+          "D4@0907": { "c": 1, "t": 1790092800000 },
+          "D07@0900": { "c": 1, "t": 1790092800000 },
+          "D0_h13": { "c": 1, "t": 1790092800000 },
+          "D0_h12": { "c": 1, "t": 1790092800000 }
+        },
+        "patterns": {
+          "D1_morning": {
+            "bins": { "b240": 1 },
+            "lb": "b240",
+            "t": 1790092800000
+          }
+        },
+        "tod": {
+          "morning": { "c": 1, "t": 1790092800000 },
+          "2400": { "c": 1, "t": 1790092800000 },
+          "0907": { "c": 1, "t": 1790092800000 },
+          "0900": { "c": "1", "t": 1790092800000 },
+          "1000": { "c": 1 },
+          "2130": { "c": 1, "t": 1790092800000 }
+        },
+        "lastCustom": { "target": 1790190000000 }
+      },
+      "normalized": {
+        "v": 2,
+        "sets": {
+          "D3@0900": { "c": 2, "t": 1790092800000 },
+          "D0_h12": { "c": 1, "t": 1790092800000 }
+        },
+        "tod": { "2130": { "c": 1, "t": 1790092800000 } },
+        "lastCustom": null,
+        "picks": {}
+      }
+    },
+    {
+      "name": "pick counts keep valid keys and positive integers only",
+      "raw": {
+        "v": 2,
+        "sets": {},
+        "tod": {},
+        "lastCustom": null,
+        "picks": {
+          "1": 3,
+          "20": 1,
+          "7": 2,
+          "none": 7,
+          "21": 1,
+          "0": 1,
+          "01": 1,
+          "m1": 1,
+          "x": 1,
+          "2": 1.5,
+          "3": -1,
+          "4": 0,
+          "5": "2",
+          "6": null
+        }
+      },
+      "normalized": {
+        "v": 2,
+        "sets": {},
+        "tod": {},
+        "lastCustom": null,
+        "picks": { "1": 3, "20": 1, "7": 2, "none": 7 }
+      }
+    },
+    {
+      "name": "an old evening snooze to tomorrow 08:00 becomes the next 08:00",
+      "raw": {
+        "sets": { "D1@0800__Wd4@0800": { "c": 3, "t": 1790211600000 } }
+      },
+      "normalized": {
+        "v": 2,
+        "sets": { "D0@0800__Wd4@0800": { "c": 3, "t": 1790211600000 } },
+        "tod": {},
+        "lastCustom": null,
+        "picks": {}
+      }
+    },
+    {
+      "name": "an old morning snooze to tomorrow 09:00 stays the second 09:00",
+      "raw": {
+        "sets": {
+          "D1@0900__D1_h2__Wd4@0900__Wd4_h2": { "c": 2, "t": 1790161200000 }
+        }
+      },
+      "normalized": {
+        "v": 2,
+        "sets": {
+          "D1@0900__D1_h2__Wd4@0900__Wd4_h2": { "c": 2, "t": 1790161200000 }
+        },
+        "tod": {},
+        "lastCustom": null,
+        "picks": {}
+      }
+    },
+    {
+      "name": "an old weekly set converts to a day count from the next 09:00",
+      "raw": {
+        "sets": {
+          "D7@0900__Dom1@0900__W1@0900__Wd4@0900": {
+            "c": 4,
+            "t": 1790258400000
+          }
+        }
+      },
+      "normalized": {
+        "v": 2,
+        "sets": {
+          "D6@0900__Dom1@0900__Wd4@0900": { "c": 4, "t": 1790258400000 }
+        },
+        "tod": {},
+        "lastCustom": null,
+        "picks": {}
+      }
+    },
+    {
+      "name": "old sets landing on one new set merge, decayed to the later commit",
+      "raw": {
+        "sets": {
+          "D1_h9__D2@0800__Wd4_h9__Wd5@0800": { "c": 1, "t": 1790218440000 },
+          "D2@0800__Wd5@0800": { "c": 2, "t": 1788404040000 }
+        }
+      },
+      "normalized": {
+        "v": 2,
+        "sets": { "D1@0800__Wd5@0800": { "c": 2, "t": 1790218440000 } },
+        "tod": {},
+        "lastCustom": null,
+        "picks": {}
+      }
+    },
+    {
+      "name": "an old set whose clock keys disagree is kept as saved",
+      "raw": {
+        "sets": { "D1@0900__Wd4@0900": { "c": 1, "t": 1790092800000 } }
+      },
+      "normalized": {
+        "v": 2,
+        "sets": { "D1@0900__Wd4@0900": { "c": 1, "t": 1790092800000 } },
+        "tod": {},
+        "lastCustom": null,
+        "picks": {}
+      }
+    },
+    {
+      "name": "a v2 partition isn't converted again",
+      "raw": {
+        "v": 2,
+        "sets": { "D1@0800__Wd4@0800": { "c": 3, "t": 1790211600000 } }
+      },
+      "normalized": {
+        "v": 2,
+        "sets": { "D1@0800__Wd4@0800": { "c": 3, "t": 1790211600000 } },
+        "tod": {},
+        "lastCustom": null,
+        "picks": {}
+      }
+    }
+  ],
+  "rankDeep": [
+    {
+      "name": "same-time keys take no index, and tomorrow 09:00 gives way near tomorrow 10:00",
+      "now": "2026-09-22T12:00:00",
+      "partitions": [
+        {
+          "v": 2,
+          "sets": {
+            "D0@1000": { "c": 10, "t": 1790092800000 },
+            "D1@0900__Wd3@0900": { "c": 8, "t": 1790092800000 },
+            "D1@2000": { "c": 6, "t": 1790092800000 },
+            "D0@1500__D0_h3": { "c": 5.5, "t": 1790092800000 },
+            "Wd5@0900": { "c": 4, "t": 1790092800000 },
+            "D2@0900": { "c": 3, "t": 1790092800000 },
+            "D3@0800": { "c": 2, "t": 1790092800000 },
+            "D4@0800": { "c": 1.8, "t": 1790092800000 },
+            "D5@0800": { "c": 1.6, "t": 1790092800000 },
+            "D6@0800": { "c": 1.4, "t": 1790092800000 },
+            "D7@0800": { "c": 1.2, "t": 1790092800000 }
+          },
+          "tod": {},
+          "lastCustom": null
+        }
+      ],
+      "expectKeys": [
+        "D0@1000",
+        "D1@0900",
+        "D1@2000",
+        "D0@1500",
+        "Wd5@0900",
+        "D3@0800",
+        "D4@0800",
+        "D5@0800",
+        "D6@0800",
+        "D7@0800"
+      ],
+      "expectShownKeys": [
+        "D0@1500",
+        "D0@1000",
+        "D1@2000",
+        "D1@0900",
+        "Wd5@0900"
+      ]
+    },
+    {
+      "name": "ranking stops at 20 rows",
+      "now": "2026-09-22T12:00:00",
+      "partitions": [
+        {
+          "v": 2,
+          "sets": {
+            "D1@0900": { "c": 29, "t": 1790092800000 },
+            "D2@0900": { "c": 28, "t": 1790092800000 },
+            "D3@0900": { "c": 27, "t": 1790092800000 },
+            "D4@0900": { "c": 26, "t": 1790092800000 },
+            "D5@0900": { "c": 25, "t": 1790092800000 },
+            "D6@0900": { "c": 24, "t": 1790092800000 },
+            "D7@0900": { "c": 23, "t": 1790092800000 },
+            "D8@0900": { "c": 22, "t": 1790092800000 },
+            "D9@0900": { "c": 21, "t": 1790092800000 },
+            "D10@0900": { "c": 20, "t": 1790092800000 },
+            "D11@0900": { "c": 19, "t": 1790092800000 },
+            "D12@0900": { "c": 18, "t": 1790092800000 },
+            "D13@0900": { "c": 17, "t": 1790092800000 },
+            "D14@0900": { "c": 16, "t": 1790092800000 },
+            "D15@0900": { "c": 15, "t": 1790092800000 },
+            "D16@0900": { "c": 14, "t": 1790092800000 },
+            "D17@0900": { "c": 13, "t": 1790092800000 },
+            "D18@0900": { "c": 12, "t": 1790092800000 },
+            "D19@0900": { "c": 11, "t": 1790092800000 },
+            "D20@0900": { "c": 10, "t": 1790092800000 },
+            "D21@0900": { "c": 9, "t": 1790092800000 },
+            "D22@0900": { "c": 8, "t": 1790092800000 },
+            "D23@0900": { "c": 7, "t": 1790092800000 },
+            "D24@0900": { "c": 6, "t": 1790092800000 },
+            "D25@0900": { "c": 5, "t": 1790092800000 }
+          },
+          "tod": {},
+          "lastCustom": null
+        }
+      ],
+      "expectKeys": [
+        "D1@0900",
+        "D2@0900",
+        "D3@0900",
+        "D4@0900",
+        "D5@0900",
+        "D6@0900",
+        "D7@0900",
+        "D8@0900",
+        "D9@0900",
+        "D10@0900",
+        "D11@0900",
+        "D12@0900",
+        "D13@0900",
+        "D14@0900",
+        "D15@0900",
+        "D16@0900",
+        "D17@0900",
+        "D18@0900",
+        "D19@0900",
+        "D20@0900"
+      ],
+      "expectShownKeys": [
+        "D1@0900",
+        "D2@0900",
+        "D3@0900",
+        "D4@0900",
+        "D5@0900"
+      ]
+    },
+    {
+      "name": "a weaker 19:00 near a 20:00 habit gives way to a distant time",
+      "now": "2026-09-22T12:00:00",
+      "partitions": [
+        {
+          "v": 2,
+          "sets": {
+            "D0@2000": { "c": 3, "t": 1790092800000 },
+            "D0@1900": { "c": 2, "t": 1790092800000 },
+            "D1@0900": { "c": 1.5, "t": 1790092800000 }
+          },
+          "tod": {},
+          "lastCustom": null
+        }
+      ],
+      "expectKeys": ["D0@2000", "D1@0900", "D0@1900"],
+      "expectShownKeys": ["D0@1900", "D0@2000", "D1@0900"]
+    },
+    {
+      "name": "discounts from every pick add up",
+      "now": "2026-09-22T12:00:00",
+      "partitions": [
+        {
+          "v": 2,
+          "sets": {
+            "D0@1900": { "c": 3, "t": 1790092800000 },
+            "D0@2100": { "c": 3, "t": 1790092800000 },
+            "D0@2000": { "c": 2.9, "t": 1790092800000 },
+            "D1@0900": { "c": 1.5, "t": 1790092800000 }
+          },
+          "tod": {},
+          "lastCustom": null
+        }
+      ],
+      "expectKeys": ["D0@1900", "D0@2100", "D1@0900", "D0@2000"],
+      "expectShownKeys": ["D0@1900", "D0@2000", "D0@2100", "D1@0900"]
+    },
+    {
+      "name": "equal discounted scores go to the higher undiscounted one",
+      "now": "2026-09-22T12:00:00",
+      "partitions": [
+        {
+          "v": 2,
+          "sets": {
+            "D0@2000": { "c": 5, "t": 1790092800000 },
+            "D0@1955": { "c": 1, "t": 1790092800000 },
+            "D0@2005": { "c": 2, "t": 1790092800000 }
+          },
+          "tod": {},
+          "lastCustom": null
+        }
+      ],
+      "expectKeys": ["D0@2000", "D0@2005", "D0@1955"],
+      "expectShownKeys": ["D0@1955", "D0@2000", "D0@2005"]
+    },
+    {
+      "name": "a key discounted to nothing still fills a row while it's over the floor",
+      "now": "2026-09-22T12:00:00",
+      "partitions": [
+        {
+          "v": 2,
+          "sets": {
+            "D0@2000": { "c": 3, "t": 1790092800000 },
+            "D0@2005": { "c": 0.06, "t": 1790092800000 }
+          },
+          "tod": {},
+          "lastCustom": null
+        }
+      ],
+      "expectKeys": ["D0@2000", "D0@2005"],
+      "expectShownKeys": ["D0@2000", "D0@2005"]
+    },
+    {
+      "name": "the discount reaches across midnight",
+      "now": "2026-09-22T12:00:00",
+      "partitions": [
+        {
+          "v": 2,
+          "sets": {
+            "D0@2330": { "c": 3, "t": 1790092800000 },
+            "D0@0010": { "c": 1, "t": 1790092800000 },
+            "D1@0900": { "c": 0.6, "t": 1790092800000 }
+          },
+          "tod": {},
+          "lastCustom": null
+        }
+      ],
+      "expectKeys": ["D0@2330", "D1@0900", "D0@0010"],
+      "expectShownKeys": ["D0@2330", "D0@0010", "D1@0900"]
+    },
+    {
+      "name": "an hour offset near a picked time is discounted too",
+      "now": "2026-09-22T12:30:00",
+      "partitions": [
+        {
+          "v": 2,
+          "sets": {
+            "D0@1400__D0_h2": { "c": 1, "t": 1790092800000 },
+            "D0@1410__D0_h2": { "c": 1, "t": 1790092800000 },
+            "D0@1420__D0_h2": { "c": 1, "t": 1790092800000 },
+            "D0@1440": { "c": 3.5, "t": 1790092800000 },
+            "D1@0900": { "c": 1, "t": 1790092800000 }
+          },
+          "tod": {},
+          "lastCustom": null
+        }
+      ],
+      "expectKeys": ["D0@1440", "D1@0900", "D0_h2"],
+      "expectShownKeys": ["D0_h2", "D0@1440", "D1@0900"]
+    }
+  ],
+  "pickLog": [
+    {
+      "name": "the top row",
+      "now": "2026-09-22T12:00:00",
+      "partitions": [
+        {
+          "v": 2,
+          "sets": {
+            "D0@1000": { "c": 10, "t": 1790092800000 },
+            "D1@0900__Wd3@0900": { "c": 8, "t": 1790092800000 },
+            "D1@2000": { "c": 6, "t": 1790092800000 },
+            "D0@1500__D0_h3": { "c": 5.5, "t": 1790092800000 },
+            "Wd5@0900": { "c": 4, "t": 1790092800000 },
+            "D2@0900": { "c": 3, "t": 1790092800000 },
+            "D3@0800": { "c": 2, "t": 1790092800000 },
+            "D4@0800": { "c": 1.8, "t": 1790092800000 },
+            "D5@0800": { "c": 1.6, "t": 1790092800000 },
+            "D6@0800": { "c": 1.4, "t": 1790092800000 },
+            "D7@0800": { "c": 1.2, "t": 1790092800000 }
+          },
+          "tod": {},
+          "lastCustom": null
+        }
+      ],
+      "target": "2026-09-23T10:00:00",
+      "expect": "1"
+    },
+    {
+      "name": "a shown row logs its rank",
+      "now": "2026-09-22T12:00:00",
+      "partitions": [
+        {
+          "v": 2,
+          "sets": {
+            "D0@1000": { "c": 10, "t": 1790092800000 },
+            "D1@0900__Wd3@0900": { "c": 8, "t": 1790092800000 },
+            "D1@2000": { "c": 6, "t": 1790092800000 },
+            "D0@1500__D0_h3": { "c": 5.5, "t": 1790092800000 },
+            "Wd5@0900": { "c": 4, "t": 1790092800000 },
+            "D2@0900": { "c": 3, "t": 1790092800000 },
+            "D3@0800": { "c": 2, "t": 1790092800000 },
+            "D4@0800": { "c": 1.8, "t": 1790092800000 },
+            "D5@0800": { "c": 1.6, "t": 1790092800000 },
+            "D6@0800": { "c": 1.4, "t": 1790092800000 },
+            "D7@0800": { "c": 1.2, "t": 1790092800000 }
+          },
+          "tod": {},
+          "lastCustom": null
+        }
+      ],
+      "target": "2026-09-22T15:00:00",
+      "expect": "4"
+    },
+    {
+      "name": "a row two keys land on has one rank",
+      "now": "2026-09-22T12:00:00",
+      "partitions": [
+        {
+          "v": 2,
+          "sets": {
+            "D0@1000": { "c": 10, "t": 1790092800000 },
+            "D1@0900__Wd3@0900": { "c": 8, "t": 1790092800000 },
+            "D1@2000": { "c": 6, "t": 1790092800000 },
+            "D0@1500__D0_h3": { "c": 5.5, "t": 1790092800000 },
+            "Wd5@0900": { "c": 4, "t": 1790092800000 },
+            "D2@0900": { "c": 3, "t": 1790092800000 },
+            "D3@0800": { "c": 2, "t": 1790092800000 },
+            "D4@0800": { "c": 1.8, "t": 1790092800000 },
+            "D5@0800": { "c": 1.6, "t": 1790092800000 },
+            "D6@0800": { "c": 1.4, "t": 1790092800000 },
+            "D7@0800": { "c": 1.2, "t": 1790092800000 }
+          },
+          "tod": {},
+          "lastCustom": null
+        }
+      ],
+      "target": "2026-09-25T09:00:00",
+      "expect": "5"
+    },
+    {
+      "name": "a hidden row",
+      "now": "2026-09-22T12:00:00",
+      "partitions": [
+        {
+          "v": 2,
+          "sets": {
+            "D0@1000": { "c": 10, "t": 1790092800000 },
+            "D1@0900__Wd3@0900": { "c": 8, "t": 1790092800000 },
+            "D1@2000": { "c": 6, "t": 1790092800000 },
+            "D0@1500__D0_h3": { "c": 5.5, "t": 1790092800000 },
+            "Wd5@0900": { "c": 4, "t": 1790092800000 },
+            "D2@0900": { "c": 3, "t": 1790092800000 },
+            "D3@0800": { "c": 2, "t": 1790092800000 },
+            "D4@0800": { "c": 1.8, "t": 1790092800000 },
+            "D5@0800": { "c": 1.6, "t": 1790092800000 },
+            "D6@0800": { "c": 1.4, "t": 1790092800000 },
+            "D7@0800": { "c": 1.2, "t": 1790092800000 }
+          },
+          "tod": {},
+          "lastCustom": null
+        }
+      ],
+      "target": "2026-09-29T08:00:00",
+      "expect": "9"
+    },
+    {
+      "name": "another hidden row",
+      "now": "2026-09-22T12:00:00",
+      "partitions": [
+        {
+          "v": 2,
+          "sets": {
+            "D0@1000": { "c": 10, "t": 1790092800000 },
+            "D1@0900__Wd3@0900": { "c": 8, "t": 1790092800000 },
+            "D1@2000": { "c": 6, "t": 1790092800000 },
+            "D0@1500__D0_h3": { "c": 5.5, "t": 1790092800000 },
+            "Wd5@0900": { "c": 4, "t": 1790092800000 },
+            "D2@0900": { "c": 3, "t": 1790092800000 },
+            "D3@0800": { "c": 2, "t": 1790092800000 },
+            "D4@0800": { "c": 1.8, "t": 1790092800000 },
+            "D5@0800": { "c": 1.6, "t": 1790092800000 },
+            "D6@0800": { "c": 1.4, "t": 1790092800000 },
+            "D7@0800": { "c": 1.2, "t": 1790092800000 }
+          },
+          "tod": {},
+          "lastCustom": null
+        }
+      ],
+      "target": "2026-09-27T08:00:00",
+      "expect": "7"
+    },
+    {
+      "name": "matching is to the minute",
+      "now": "2026-09-22T12:00:00",
+      "partitions": [
+        {
+          "v": 2,
+          "sets": {
+            "D0@1000": { "c": 10, "t": 1790092800000 },
+            "D1@0900__Wd3@0900": { "c": 8, "t": 1790092800000 },
+            "D1@2000": { "c": 6, "t": 1790092800000 },
+            "D0@1500__D0_h3": { "c": 5.5, "t": 1790092800000 },
+            "Wd5@0900": { "c": 4, "t": 1790092800000 },
+            "D2@0900": { "c": 3, "t": 1790092800000 },
+            "D3@0800": { "c": 2, "t": 1790092800000 },
+            "D4@0800": { "c": 1.8, "t": 1790092800000 },
+            "D5@0800": { "c": 1.6, "t": 1790092800000 },
+            "D6@0800": { "c": 1.4, "t": 1790092800000 },
+            "D7@0800": { "c": 1.2, "t": 1790092800000 }
+          },
+          "tod": {},
+          "lastCustom": null
+        }
+      ],
+      "target": "2026-09-22T15:00:30",
+      "expect": "4"
+    },
+    {
+      "name": "a time no row lands on",
+      "now": "2026-09-22T12:00:00",
+      "partitions": [
+        {
+          "v": 2,
+          "sets": {
+            "D0@1000": { "c": 10, "t": 1790092800000 },
+            "D1@0900__Wd3@0900": { "c": 8, "t": 1790092800000 },
+            "D1@2000": { "c": 6, "t": 1790092800000 },
+            "D0@1500__D0_h3": { "c": 5.5, "t": 1790092800000 },
+            "Wd5@0900": { "c": 4, "t": 1790092800000 },
+            "D2@0900": { "c": 3, "t": 1790092800000 },
+            "D3@0800": { "c": 2, "t": 1790092800000 },
+            "D4@0800": { "c": 1.8, "t": 1790092800000 },
+            "D5@0800": { "c": 1.6, "t": 1790092800000 },
+            "D6@0800": { "c": 1.4, "t": 1790092800000 },
+            "D7@0800": { "c": 1.2, "t": 1790092800000 }
+          },
+          "tod": {},
+          "lastCustom": null
+        }
+      ],
+      "target": "2026-09-23T09:30:00",
+      "expect": "none"
+    },
+    {
+      "name": "a time that passed today has no rank (its row is tomorrow's)",
+      "now": "2026-09-22T12:00:00",
+      "partitions": [
+        {
+          "v": 2,
+          "sets": {
+            "D0@1000": { "c": 10, "t": 1790092800000 },
+            "D1@0900__Wd3@0900": { "c": 8, "t": 1790092800000 },
+            "D1@2000": { "c": 6, "t": 1790092800000 },
+            "D0@1500__D0_h3": { "c": 5.5, "t": 1790092800000 },
+            "Wd5@0900": { "c": 4, "t": 1790092800000 },
+            "D2@0900": { "c": 3, "t": 1790092800000 },
+            "D3@0800": { "c": 2, "t": 1790092800000 },
+            "D4@0800": { "c": 1.8, "t": 1790092800000 },
+            "D5@0800": { "c": 1.6, "t": 1790092800000 },
+            "D6@0800": { "c": 1.4, "t": 1790092800000 },
+            "D7@0800": { "c": 1.2, "t": 1790092800000 }
+          },
+          "tod": {},
+          "lastCustom": null
+        }
+      ],
+      "target": "2026-09-22T10:00:00",
+      "expect": "none"
+    },
+    {
+      "name": "no history",
+      "now": "2026-09-22T12:00:00",
+      "partitions": [],
+      "target": "2026-09-23T09:00:00",
+      "expect": "none"
+    }
+  ],
+  "commit": [
+    {
+      "name": "a same-day custom snooze to 19:00 takes votes from sets by distance, and credits no quick time",
+      "at": "2026-09-22T17:00:00",
+      "target": "2026-09-22T19:00:00",
+      "source": "custom",
+      "pickedKey": null,
+      "partition": {
+        "v": 2,
+        "sets": {
+          "D0@1900__D0_h2": { "c": 2, "t": 1790110800000 },
+          "D0@2000": { "c": 8, "t": 1790092800000 },
+          "D0@1930": { "c": 8, "t": 1790092800000 },
+          "D0@1905": { "c": 8, "t": 1790092800000 },
+          "D0@1800": { "c": 8, "t": 1790092800000 },
+          "D1@1900": { "c": 8, "t": 1790092800000 },
+          "D0@1900": { "c": 8, "t": 1790092800000 },
+          "D0@1900__Wd2@2000": { "c": 8, "t": 1790092800000 },
+          "D0_h3": { "c": 8, "t": 1790092800000 },
+          "D0@2000__Wd3@2000": { "c": 8, "t": 1790092800000 },
+          "D1@1830__Wd2@1830": { "c": 8, "t": 1790092800000 }
+        },
+        "tod": {
+          "2000": { "c": 8, "t": 1790092800000 },
+          "1900": { "c": 8, "t": 1790092800000 }
+        },
+        "lastCustom": null
+      },
+      "expect": {
+        "sets": {
+          "D0@1900__D0_h2": { "c": 3, "t": 1790110800000 },
+          "D0@2000": { "c": 6, "t": 1790092800000 },
+          "D0@1930": { "c": 4, "t": 1790092800000 },
+          "D0@1905": { "c": 0.8728102548772858, "t": 1790092800000 },
+          "D0@1800": { "c": 6, "t": 1790092800000 },
+          "D1@1900": { "c": 7.999999999999972, "t": 1790092800000 },
+          "D0@1900": { "c": 8, "t": 1790092800000 },
+          "D0@1900__Wd2@2000": { "c": 8, "t": 1790092800000 },
+          "D0_h3": { "c": 8, "t": 1790092800000 },
+          "D0@2000__Wd3@2000": { "c": 6, "t": 1790092800000 },
+          "D1@1830__Wd2@1830": { "c": 4, "t": 1790092800000 }
+        },
+        "tod": {
+          "2000": { "c": 8, "t": 1790092800000 },
+          "1900": { "c": 8, "t": 1790092800000 }
+        }
+      }
+    },
+    {
+      "name": "a clock-time suggestion pick takes votes too",
+      "at": "2026-09-22T17:00:00",
+      "target": "2026-09-22T19:00:00",
+      "source": "suggestion",
+      "pickedKey": "D0@1900",
+      "partition": {
+        "v": 2,
+        "sets": {
+          "D0@2000": { "c": 8, "t": 1790092800000 }
+        },
+        "tod": {},
+        "lastCustom": null
+      },
+      "expect": {
+        "sets": {
+          "D0@1900__D0_h2": { "c": 1, "t": 1790110800000 },
+          "D0@2000": { "c": 6, "t": 1790092800000 }
+        },
+        "tod": {}
+      }
+    },
+    {
+      "name": "an in-N-hours suggestion pick takes votes like any other",
+      "at": "2026-09-22T17:00:00",
+      "target": "2026-09-22T19:00:00",
+      "source": "suggestion",
+      "pickedKey": "D0_h2",
+      "partition": {
+        "v": 2,
+        "sets": {
+          "D0@2000": { "c": 8, "t": 1790092800000 },
+          "D0@1930": { "c": 8, "t": 1790092800000 }
+        },
+        "tod": {},
+        "lastCustom": null
+      },
+      "expect": {
+        "sets": {
+          "D0@1900__D0_h2": { "c": 1, "t": 1790110800000 },
+          "D0@2000": { "c": 6, "t": 1790092800000 },
+          "D0@1930": { "c": 4, "t": 1790092800000 }
+        },
+        "tod": {}
+      }
+    },
+    {
+      "name": "an in-N-hours pick onto tomorrow takes votes from sets but touches no quick time",
+      "at": "2026-09-22T17:00:00",
+      "target": "2026-09-23T19:00:00",
+      "source": "suggestion",
+      "pickedKey": "D1_h2",
+      "partition": {
+        "v": 2,
+        "sets": {
+          "D1@2000": { "c": 8, "t": 1790092800000 }
+        },
+        "tod": {
+          "2000": { "c": 8, "t": 1790092800000 }
+        },
+        "lastCustom": null
+      },
+      "expect": {
+        "sets": {
+          "D1@1900__D1_h2__Wd3@1900__Wd3_h2": { "c": 1, "t": 1790110800000 },
+          "D1@2000": { "c": 6, "t": 1790092800000 }
+        },
+        "tod": {
+          "2000": { "c": 8, "t": 1790092800000 }
+        }
+      }
+    },
+    {
+      "name": "distance is to where a key resolves: at 21:00 the next 20:00 is tomorrow's, an hour after tomorrow 19:00",
+      "at": "2026-09-22T21:00:00",
+      "target": "2026-09-23T19:00:00",
+      "source": "custom",
+      "pickedKey": null,
+      "partition": {
+        "v": 2,
+        "sets": {
+          "D0@2000": { "c": 8, "t": 1790092800000 },
+          "D1@2000": { "c": 8, "t": 1790092800000 }
+        },
+        "tod": {
+          "1900": { "c": 2, "t": 1790125200000 },
+          "2000": { "c": 8, "t": 1790092800000 },
+          "1930": { "c": 8, "t": 1790092800000 },
+          "1905": { "c": 8, "t": 1790092800000 }
+        },
+        "lastCustom": null
+      },
+      "expect": {
+        "sets": {
+          "D0@1900__Wd3@1900": { "c": 1, "t": 1790125200000 },
+          "D0@2000": { "c": 6, "t": 1790092800000 },
+          "D1@2000": { "c": 7.999999999999993, "t": 1790092800000 }
+        },
+        "tod": {
+          "1900": { "c": 3, "t": 1790125200000 },
+          "2000": { "c": 6, "t": 1790092800000 },
+          "1930": { "c": 4, "t": 1790092800000 },
+          "1905": { "c": 0.8728102548772858, "t": 1790092800000 }
+        }
+      }
+    },
+    {
+      "name": "across midnight: 23:50 and 00:15 are 25 minutes apart, for sets and quick times",
+      "at": "2026-09-22T10:00:00",
+      "target": "2026-09-23T23:50:00",
+      "source": "custom",
+      "pickedKey": null,
+      "partition": {
+        "v": 2,
+        "sets": {
+          "D1@0015": { "c": 8, "t": 1790092800000 }
+        },
+        "tod": {
+          "0015": { "c": 8, "t": 1790092800000 },
+          "1150": { "c": 8, "t": 1790092800000 }
+        },
+        "lastCustom": null
+      },
+      "expect": {
+        "sets": {
+          "D1@2350__Wd3@2350": { "c": 1, "t": 1790085600000 },
+          "D1@0015": { "c": 3.510151806762508, "t": 1790092800000 }
+        },
+        "tod": {
+          "2350": { "c": 1, "t": 1790085600000 },
+          "0015": { "c": 3.510151806762508, "t": 1790092800000 },
+          "1150": { "c": 7.999999523162842, "t": 1790092800000 }
+        }
+      }
+    }
+  ]
+}

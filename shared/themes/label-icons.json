@@ -1,0 +1,262 @@
+{
+  "_doc": "Icons a user label or bundle can show in place of its colored circle (users/{uid}/labelPrefs/{labelId}.icon). Web draws `lucide`, Android Material Icons Outlined `material`; firestore.rules lists the same ids. Gmail's four categories can't be renamed, colored or given an icon: `categories` are their fixed icons and `categoryTones` their fixed colors (label tones in themes.json). `primary` is Gmail's Primary category, offered only in the label menu's Category choice: it is never bundled or listed, so it isn't among `categories`.",
+  "icons": [
+    {
+      "id": "tag",
+      "name": "Tag",
+      "lucide": "tag",
+      "material": "LocalOffer"
+    },
+    {
+      "id": "users",
+      "name": "People",
+      "lucide": "users",
+      "material": "Group"
+    },
+    {
+      "id": "bell",
+      "name": "Bell",
+      "lucide": "bell",
+      "material": "Notifications"
+    },
+    {
+      "id": "message-square",
+      "name": "Conversation",
+      "lucide": "message-square",
+      "material": "Forum"
+    },
+    {
+      "id": "info",
+      "name": "Info",
+      "lucide": "info",
+      "material": "Info"
+    },
+    {
+      "id": "inbox",
+      "name": "Inbox",
+      "lucide": "inbox",
+      "material": "Inbox"
+    },
+    {
+      "id": "star",
+      "name": "Star",
+      "lucide": "star",
+      "material": "StarOutline"
+    },
+    {
+      "id": "heart",
+      "name": "Heart",
+      "lucide": "heart",
+      "material": "FavoriteBorder"
+    },
+    {
+      "id": "briefcase",
+      "name": "Work",
+      "lucide": "briefcase",
+      "material": "WorkOutline"
+    },
+    {
+      "id": "home",
+      "name": "Home",
+      "lucide": "house",
+      "material": "Home"
+    },
+    {
+      "id": "receipt",
+      "name": "Receipt",
+      "lucide": "receipt",
+      "material": "Receipt"
+    },
+    {
+      "id": "shopping-bag",
+      "name": "Shopping",
+      "lucide": "shopping-bag",
+      "material": "ShoppingBag"
+    },
+    {
+      "id": "credit-card",
+      "name": "Card",
+      "lucide": "credit-card",
+      "material": "CreditCard"
+    },
+    {
+      "id": "landmark",
+      "name": "Bank",
+      "lucide": "landmark",
+      "material": "AccountBalance"
+    },
+    {
+      "id": "plane",
+      "name": "Travel",
+      "lucide": "plane",
+      "material": "Flight"
+    },
+    {
+      "id": "car",
+      "name": "Car",
+      "lucide": "car",
+      "material": "DirectionsCar"
+    },
+    {
+      "id": "truck",
+      "name": "Delivery",
+      "lucide": "truck",
+      "material": "LocalShipping"
+    },
+    {
+      "id": "package",
+      "name": "Package",
+      "lucide": "package",
+      "material": "Inventory2"
+    },
+    {
+      "id": "calendar",
+      "name": "Calendar",
+      "lucide": "calendar",
+      "material": "CalendarToday"
+    },
+    {
+      "id": "book",
+      "name": "Book",
+      "lucide": "book-open",
+      "material": "MenuBook"
+    },
+    {
+      "id": "graduation-cap",
+      "name": "School",
+      "lucide": "graduation-cap",
+      "material": "School"
+    },
+    {
+      "id": "code",
+      "name": "Code",
+      "lucide": "code",
+      "material": "Code"
+    },
+    {
+      "id": "newspaper",
+      "name": "News",
+      "lucide": "newspaper",
+      "material": "Newspaper"
+    },
+    {
+      "id": "file-text",
+      "name": "Document",
+      "lucide": "file-text",
+      "material": "Description"
+    },
+    {
+      "id": "folder",
+      "name": "Folder",
+      "lucide": "folder",
+      "material": "FolderOpen"
+    },
+    {
+      "id": "music",
+      "name": "Music",
+      "lucide": "music",
+      "material": "MusicNote"
+    },
+    {
+      "id": "camera",
+      "name": "Photos",
+      "lucide": "camera",
+      "material": "PhotoCamera"
+    },
+    {
+      "id": "gift",
+      "name": "Gift",
+      "lucide": "gift",
+      "material": "CardGiftcard"
+    },
+    {
+      "id": "utensils",
+      "name": "Food",
+      "lucide": "utensils",
+      "material": "Restaurant"
+    },
+    {
+      "id": "coffee",
+      "name": "Coffee",
+      "lucide": "coffee",
+      "material": "LocalCafe"
+    },
+    {
+      "id": "dumbbell",
+      "name": "Fitness",
+      "lucide": "dumbbell",
+      "material": "FitnessCenter"
+    },
+    {
+      "id": "stethoscope",
+      "name": "Health",
+      "lucide": "stethoscope",
+      "material": "MedicalServices"
+    },
+    {
+      "id": "gamepad",
+      "name": "Games",
+      "lucide": "gamepad-2",
+      "material": "SportsEsports"
+    },
+    {
+      "id": "baby",
+      "name": "Kids",
+      "lucide": "baby",
+      "material": "ChildCare"
+    },
+    {
+      "id": "paw",
+      "name": "Pets",
+      "lucide": "paw-print",
+      "material": "Pets"
+    },
+    {
+      "id": "leaf",
+      "name": "Nature",
+      "lucide": "leaf",
+      "material": "Eco"
+    },
+    {
+      "id": "globe",
+      "name": "World",
+      "lucide": "globe",
+      "material": "Public"
+    },
+    {
+      "id": "lock",
+      "name": "Private",
+      "lucide": "lock",
+      "material": "Lock"
+    },
+    {
+      "id": "flag",
+      "name": "Flag",
+      "lucide": "flag",
+      "material": "Flag"
+    },
+    {
+      "id": "sparkles",
+      "name": "Sparkles",
+      "lucide": "sparkles",
+      "material": "AutoAwesome"
+    }
+  ],
+  "categories": {
+    "CATEGORY_PROMOTIONS": "tag",
+    "CATEGORY_SOCIAL": "users",
+    "CATEGORY_UPDATES": "info",
+    "CATEGORY_FORUMS": "message-square"
+  },
+  "categoryTones": {
+    "CATEGORY_PROMOTIONS": "orange",
+    "CATEGORY_SOCIAL": "blue",
+    "CATEGORY_UPDATES": "purple",
+    "CATEGORY_FORUMS": "teal"
+  },
+  "primary": {
+    "id": "CATEGORY_PERSONAL",
+    "icon": "inbox",
+    "tone": "red"
+  }
+}

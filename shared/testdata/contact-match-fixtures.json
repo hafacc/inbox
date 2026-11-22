@@ -1,0 +1,333 @@
+{
+ "_doc": "Recipient suggestions (shared/src/contact-match.ts, Android :core contacts/Contacts.kt). `merge`: mergeBook(entries). `words`: contactWords(text). `search`: searchContacts(book, query, exclude ?? [], limit ?? 6), as addresses in order.",
+ "merge": [
+  {
+   "name": "a saved contact wins over an other contact with the same address, filling its name",
+   "entries": [
+    {
+     "name": "",
+     "email": "ana@x.example.net",
+     "photo": null,
+     "source": "connections"
+    },
+    {
+     "name": "Ana Lopez",
+     "email": "ANA@x.example.net",
+     "photo": null,
+     "source": "other"
+    },
+    {
+     "name": "",
+     "email": "zed@x.example.net",
+     "photo": null,
+     "source": "other"
+    }
+   ],
+   "expect": [
+    {
+     "name": "Ana Lopez",
+     "email": "ana@x.example.net",
+     "photo": null,
+     "source": "connections"
+    },
+    {
+     "name": "",
+     "email": "zed@x.example.net",
+     "photo": null,
+     "source": "other"
+    }
+   ]
+  },
+  {
+   "name": "a missing photo is filled; a name already there is kept",
+   "entries": [
+    {
+     "name": "Ana",
+     "email": "ana@x.example.net",
+     "photo": null,
+     "source": "connections"
+    },
+    {
+     "name": "Ana Lopez",
+     "email": "ana@x.example.net",
+     "photo": "https://p/a.jpg",
+     "source": "other"
+    }
+   ],
+   "expect": [
+    {
+     "name": "Ana",
+     "email": "ana@x.example.net",
+     "photo": "https://p/a.jpg",
+     "source": "connections"
+    }
+   ]
+  },
+  {
+   "name": "nothing to fill keeps the first",
+   "entries": [
+    {
+     "name": "Ana",
+     "email": "ana@x.example.net",
+     "photo": "https://p/1.jpg",
+     "source": "connections"
+    },
+    {
+     "name": "Other Ana",
+     "email": " ana@x.example.net ",
+     "photo": "https://p/2.jpg",
+     "source": "other"
+    }
+   ],
+   "expect": [
+    {
+     "name": "Ana",
+     "email": "ana@x.example.net",
+     "photo": "https://p/1.jpg",
+     "source": "connections"
+    }
+   ]
+  }
+ ],
+ "words": [
+  {
+   "text": "Maya Chen",
+   "expect": [
+    "maya",
+    "chen"
+   ]
+  },
+  {
+   "text": "maya.chen@gmail.example.com",
+   "expect": [
+    "maya",
+    "chen",
+    "gmail",
+    "example",
+    "com"
+   ]
+  },
+  {
+   "text": "Chen, Li",
+   "expect": [
+    "chen",
+    "li"
+   ]
+  },
+  {
+   "text": "Seán O'Brien",
+   "expect": [
+    "sean",
+    "o",
+    "brien"
+   ]
+  },
+  {
+   "text": "zed+news@x.example.net",
+   "expect": [
+    "zed",
+    "news",
+    "x",
+    "example",
+    "net"
+   ]
+  },
+  {
+   "text": "  ",
+   "expect": []
+  },
+  {
+   "text": "Ann-Marie (work)",
+   "expect": [
+    "ann",
+    "marie",
+    "work"
+   ]
+  }
+ ],
+ "book": [
+  {
+   "name": "Maya Chen",
+   "email": "maya.chen@gmail.example.com",
+   "photo": null,
+   "source": "connections"
+  },
+  {
+   "name": "Mark",
+   "email": "mark@x.example.net",
+   "photo": null,
+   "source": "other"
+  },
+  {
+   "name": "Ada",
+   "email": "mada@x.example.net",
+   "photo": null,
+   "source": "connections"
+  },
+  {
+   "name": "Emma",
+   "email": "emma@x.example.net",
+   "photo": null,
+   "source": "connections"
+  },
+  {
+   "name": "José Rivera",
+   "email": "jr@rivera.example.net",
+   "photo": null,
+   "source": "connections"
+  },
+  {
+   "name": "",
+   "email": "maria@x.example.net",
+   "photo": null,
+   "source": "other"
+  },
+  {
+   "name": "Chen, Li",
+   "email": "li@chen.example.org",
+   "photo": null,
+   "source": "connections"
+  },
+  {
+   "name": "Seán O'Brien",
+   "email": "sean.obrien@ie.example.org",
+   "photo": null,
+   "source": "other"
+  },
+  {
+   "name": "",
+   "email": "zed+news@x.example.net",
+   "photo": null,
+   "source": "connections"
+  }
+ ],
+ "search": [
+  {
+   "name": "a name start",
+   "query": "ma",
+   "expect": [
+    "maya.chen@gmail.example.com",
+    "mark@x.example.net",
+    "mada@x.example.net",
+    "maria@x.example.net"
+   ]
+  },
+  {
+   "name": "two words in either order",
+   "query": "chen maya",
+   "expect": [
+    "maya.chen@gmail.example.com"
+   ]
+  },
+  {
+   "name": "word starts of name and address",
+   "query": "ma ch",
+   "expect": [
+    "maya.chen@gmail.example.com"
+   ]
+  },
+  {
+   "name": "a word inside the address",
+   "query": "gmail",
+   "expect": [
+    "maya.chen@gmail.example.com"
+   ]
+  },
+  {
+   "name": "the middle of a word doesn't match",
+   "query": "aya",
+   "expect": []
+  },
+  {
+   "name": "accents don't matter in the contact",
+   "query": "jose",
+   "expect": [
+    "jr@rivera.example.net"
+   ]
+  },
+  {
+   "name": "accents don't matter in the query",
+   "query": "rivéra",
+   "expect": [
+    "jr@rivera.example.net"
+   ]
+  },
+  {
+   "name": "a name written last, first",
+   "query": "li chen",
+   "expect": [
+    "li@chen.example.org"
+   ]
+  },
+  {
+   "name": "an apostrophe splits words",
+   "query": "brien",
+   "expect": [
+    "sean.obrien@ie.example.org"
+   ]
+  },
+  {
+   "name": "a whole address",
+   "query": "mark@x.example.net",
+   "expect": [
+    "mark@x.example.net"
+   ]
+  },
+  {
+   "name": "plus splits an address",
+   "query": "news",
+   "expect": [
+    "zed+news@x.example.net"
+   ]
+  },
+  {
+   "name": "case doesn't matter",
+   "query": "MAYA",
+   "expect": [
+    "maya.chen@gmail.example.com"
+   ]
+  },
+  {
+   "name": "blank finds nothing",
+   "query": "   ",
+   "expect": []
+  },
+  {
+   "name": "punctuation alone finds nothing",
+   "query": ".@",
+   "expect": []
+  },
+  {
+   "name": "chosen addresses are left out, any case",
+   "query": "ma",
+   "exclude": [
+    "MAYA.chen@gmail.example.com",
+    " mark@x.example.net"
+   ],
+   "expect": [
+    "mada@x.example.net",
+    "maria@x.example.net"
+   ]
+  },
+  {
+   "name": "at most the limit",
+   "query": "x",
+   "limit": 2,
+   "expect": [
+    "mada@x.example.net",
+    "emma@x.example.net"
+   ]
+  },
+  {
+   "name": "ties go by name, then address",
+   "query": "x.example.net",
+   "expect": [
+    "mada@x.example.net",
+    "emma@x.example.net",
+    "zed+news@x.example.net",
+    "mark@x.example.net",
+    "maria@x.example.net"
+   ]
+  }
+ ]
+}

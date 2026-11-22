@@ -1,0 +1,434 @@
+{
+  "_doc": {
+    "about": "The composer's rich text (shared/src/compose/rich.ts, Android :core Rich.kt) and what typing markdown turns into in each editor (web: Tiptap, Android: Compose Rich Editor). Blocks are one per line: paragraph, heading (level), bullet, ordered (number), quote (each with runs: text, marks in the order bold, italic, strike, code, and href for links) or code (text with LF lines).",
+    "markdown": "markdownToRich(markdown) is `blocks`; richToHtml(blocks) is `html` (compared after normalizeHtml); richToMarkdown(blocks) is `text`, the plain-text part. Both editors load each `markdown` and hand back the same blocks.",
+    "write": "richToMarkdown(blocks) is `text`, and markdownToRich(text) is `reread`: what the editors hold that markdown can't say as is.",
+    "typing": "`typed` typed into an empty editor, a key at a time, \"\\n\" as Enter; richToHtml of what the editor holds is `html` and richToMarkdown is `text`. `*bold*` takes one star and `_italic_` underscores; the rest are each library's own markdown shortcuts."
+  },
+  "markdown": [
+    {
+      "name": "lines join with <br>, blank lines kept",
+      "markdown": "Hello *world*\nsecond line\n\nNew paragraph",
+      "blocks": [
+        {"kind": "paragraph", "runs": [{"text": "Hello "}, {"text": "world", "marks": ["bold"]}]},
+        {"kind": "paragraph", "runs": [{"text": "second line"}]},
+        {"kind": "paragraph", "runs": []},
+        {"kind": "paragraph", "runs": [{"text": "New paragraph"}]}
+      ],
+      "html": "Hello <b>world</b><br>second line<br><br>New paragraph",
+      "text": "Hello *world*\nsecond line\n\nNew paragraph"
+    },
+    {
+      "name": "latr's bold and italic",
+      "markdown": "*bold*, _italic_ and *_both_*",
+      "blocks": [
+        {"kind": "paragraph", "runs": [{"text": "bold", "marks": ["bold"]}, {"text": ", "}, {"text": "italic", "marks": ["italic"]}, {"text": " and "}, {"text": "both", "marks": ["bold", "italic"]}]}
+      ],
+      "html": "<b>bold</b>, <i>italic</i> and <b><i>both</i></b>",
+      "text": "*bold*, _italic_ and *_both_*"
+    },
+    {
+      "name": "a star or underscore inside a word stays",
+      "markdown": "2*3*4 and snake_case_name",
+      "blocks": [
+        {"kind": "paragraph", "runs": [{"text": "2*3*4 and snake_case_name"}]}
+      ],
+      "html": "2*3*4 and snake_case_name",
+      "text": "2*3*4 and snake_case_name"
+    },
+    {
+      "name": "two stars stay text",
+      "markdown": "**not bold**",
+      "blocks": [
+        {"kind": "paragraph", "runs": [{"text": "**not bold**"}]}
+      ],
+      "html": "**not bold**",
+      "text": "**not bold**"
+    },
+    {
+      "name": "inline code keeps markers inside it",
+      "markdown": "run `a *b* c` now",
+      "blocks": [
+        {"kind": "paragraph", "runs": [{"text": "run "}, {"text": "a *b* c", "marks": ["code"]}, {"text": " now"}]}
+      ],
+      "html": "run <code>a *b* c</code> now",
+      "text": "run `a *b* c` now"
+    },
+    {
+      "name": "strikethrough",
+      "markdown": "~~old~~ plan",
+      "blocks": [
+        {"kind": "paragraph", "runs": [{"text": "old", "marks": ["strike"]}, {"text": " plan"}]}
+      ],
+      "html": "<s>old</s> plan",
+      "text": "~~old~~ plan"
+    },
+    {
+      "name": "link with styled text",
+      "markdown": "see [*the* docs](https://hafa.cc/docs) here",
+      "blocks": [
+        {"kind": "paragraph", "runs": [{"text": "see "}, {"text": "the", "marks": ["bold"], "href": "https://hafa.cc/docs"}, {"text": " docs", "href": "https://hafa.cc/docs"}, {"text": " here"}]}
+      ],
+      "html": "see <a href=\"https://hafa.cc/docs\"><b>the</b> docs</a> here",
+      "text": "see [*the* docs](https://hafa.cc/docs) here"
+    },
+    {
+      "name": "bare URLs and www link when sent",
+      "markdown": "at https://hafa.cc/a?b=1, or www.hafa.cc.",
+      "blocks": [
+        {"kind": "paragraph", "runs": [{"text": "at https://hafa.cc/a?b=1, or www.hafa.cc."}]}
+      ],
+      "html": "at <a href=\"https://hafa.cc/a?b=1\">https://hafa.cc/a?b=1</a>, or <a href=\"http://www.hafa.cc\">www.hafa.cc</a>.",
+      "text": "at https://hafa.cc/a?b=1, or www.hafa.cc."
+    },
+    {
+      "name": "inline image",
+      "markdown": "![logo](cid:logo@inbox) here",
+      "blocks": [
+        {"kind": "paragraph", "runs": [{"text": "![logo](cid:logo@inbox) here"}]}
+      ],
+      "html": "<img src=\"cid:logo@inbox\" alt=\"logo\"> here",
+      "text": "![logo](cid:logo@inbox) here"
+    },
+    {
+      "name": "headings",
+      "markdown": "# One\n## Two\n###### Six\n####### seven",
+      "blocks": [
+        {"kind": "heading", "level": 1, "runs": [{"text": "One"}]},
+        {"kind": "heading", "level": 2, "runs": [{"text": "Two"}]},
+        {"kind": "heading", "level": 6, "runs": [{"text": "Six"}]},
+        {"kind": "paragraph", "runs": [{"text": "####### seven"}]}
+      ],
+      "html": "<h1>One</h1><h2>Two</h2><h6>Six</h6>####### seven",
+      "text": "# One\n## Two\n###### Six\n####### seven"
+    },
+    {
+      "name": "bullets of each marker share one list",
+      "markdown": "- a\n* b\n+ c",
+      "blocks": [
+        {"kind": "bullet", "runs": [{"text": "a"}]},
+        {"kind": "bullet", "runs": [{"text": "b"}]},
+        {"kind": "bullet", "runs": [{"text": "c"}]}
+      ],
+      "html": "<ul><li>a</li><li>b</li><li>c</li></ul>",
+      "text": "- a\n- b\n- c"
+    },
+    {
+      "name": "numbered list from 3",
+      "markdown": "3. c\n4. d",
+      "blocks": [
+        {"kind": "ordered", "number": 3, "runs": [{"text": "c"}]},
+        {"kind": "ordered", "number": 4, "runs": [{"text": "d"}]}
+      ],
+      "html": "<ol start=\"3\"><li>c</li><li>d</li></ol>",
+      "text": "3. c\n4. d"
+    },
+    {
+      "name": "a list then text",
+      "markdown": "1. one\ntext",
+      "blocks": [
+        {"kind": "ordered", "number": 1, "runs": [{"text": "one"}]},
+        {"kind": "paragraph", "runs": [{"text": "text"}]}
+      ],
+      "html": "<ol><li>one</li></ol>text",
+      "text": "1. one\ntext"
+    },
+    {
+      "name": "quote lines share one quote; a bare > is an empty line",
+      "markdown": "> first\n>\n> *third*",
+      "blocks": [
+        {"kind": "quote", "runs": [{"text": "first"}]},
+        {"kind": "quote", "runs": []},
+        {"kind": "quote", "runs": [{"text": "third", "marks": ["bold"]}]}
+      ],
+      "html": "<blockquote>first<br><br><b>third</b></blockquote>",
+      "text": "> first\n>\n> *third*"
+    },
+    {
+      "name": "code block keeps its text as is",
+      "markdown": "```\nlet a = *b*;\n  <tag>\n```\nafter",
+      "blocks": [
+        {"kind": "code", "text": "let a = *b*;\n  <tag>"},
+        {"kind": "paragraph", "runs": [{"text": "after"}]}
+      ],
+      "html": "<pre><code>let a = *b*;\n  &lt;tag&gt;</code></pre>after",
+      "text": "```\nlet a = *b*;\n  <tag>\n```\nafter"
+    },
+    {
+      "name": "unclosed code block runs to the end",
+      "markdown": "```\nx\ny",
+      "blocks": [
+        {"kind": "code", "text": "x\ny"}
+      ],
+      "html": "<pre><code>x\ny</code></pre>",
+      "text": "```\nx\ny\n```"
+    },
+    {
+      "name": "empty code block",
+      "markdown": "```\n```",
+      "blocks": [
+        {"kind": "code", "text": ""}
+      ],
+      "html": "<pre><code></code></pre>",
+      "text": "```\n\n```"
+    },
+    {
+      "name": "blocks in a row",
+      "markdown": "# T\n- a\n> q\n```\nc\n```\ntext",
+      "blocks": [
+        {"kind": "heading", "level": 1, "runs": [{"text": "T"}]},
+        {"kind": "bullet", "runs": [{"text": "a"}]},
+        {"kind": "quote", "runs": [{"text": "q"}]},
+        {"kind": "code", "text": "c"},
+        {"kind": "paragraph", "runs": [{"text": "text"}]}
+      ],
+      "html": "<h1>T</h1><ul><li>a</li></ul><blockquote>q</blockquote><pre><code>c</code></pre>text",
+      "text": "# T\n- a\n> q\n```\nc\n```\ntext"
+    },
+    {
+      "name": "HTML characters are escaped",
+      "markdown": "a < b & \"c\" > d",
+      "blocks": [
+        {"kind": "paragraph", "runs": [{"text": "a < b & \"c\" > d"}]}
+      ],
+      "html": "a &lt; b &amp; &quot;c&quot; &gt; d",
+      "text": "a < b & \"c\" > d"
+    },
+    {
+      "name": "styles in a list item and a quote",
+      "markdown": "- *b* _i_\n> ~~s~~ `c`",
+      "blocks": [
+        {"kind": "bullet", "runs": [{"text": "b", "marks": ["bold"]}, {"text": " "}, {"text": "i", "marks": ["italic"]}]},
+        {"kind": "quote", "runs": [{"text": "s", "marks": ["strike"]}, {"text": " "}, {"text": "c", "marks": ["code"]}]}
+      ],
+      "html": "<ul><li><b>b</b> <i>i</i></li></ul><blockquote><s>s</s> <code>c</code></blockquote>",
+      "text": "- *b* _i_\n> ~~s~~ `c`"
+    },
+    {
+      "name": "a star or underscore next to a letter outside it stays text",
+      "markdown": "*a b*c, x*y*z and _a_b",
+      "blocks": [{"kind": "paragraph", "runs": [{"text": "*a b*c, x*y*z and _a_b"}]}],
+      "html": "*a b*c, x*y*z and _a_b",
+      "text": "*a b*c, x*y*z and _a_b"
+    },
+    {
+      "name": "markers need text right inside them",
+      "markdown": "a * b * c and _ d _",
+      "blocks": [{"kind": "paragraph", "runs": [{"text": "a * b * c and _ d _"}]}],
+      "html": "a * b * c and _ d _",
+      "text": "a * b * c and _ d _"
+    },
+    {
+      "name": "punctuation before a marker",
+      "markdown": "(*a*) \"_b_\"",
+      "blocks": [{"kind": "paragraph", "runs": [{"text": "("}, {"text": "a", "marks": ["bold"]}, {"text": ") \""}, {"text": "b", "marks": ["italic"]}, {"text": "\""}]}],
+      "html": "(<b>a</b>) &quot;<i>b</i>&quot;",
+      "text": "(*a*) \"_b_\""
+    },
+    {
+      "name": "a link address with parentheses",
+      "markdown": "see [Foo](https://en.wikipedia.org/wiki/Foo_(bar)) ok",
+      "blocks": [{"kind": "paragraph", "runs": [{"text": "see "}, {"text": "Foo", "href": "https://en.wikipedia.org/wiki/Foo_(bar)"}, {"text": " ok"}]}],
+      "html": "see <a href=\"https://en.wikipedia.org/wiki/Foo_(bar)\">Foo</a> ok",
+      "text": "see [Foo](https://en.wikipedia.org/wiki/Foo_(bar)) ok"
+    },
+    {
+      "name": "blank lines at the ends are left out of the HTML",
+      "markdown": "\n  \nHi\n\n\t\n",
+      "blocks": [
+        {"kind": "paragraph", "runs": []},
+        {"kind": "paragraph", "runs": [{"text": "  "}]},
+        {"kind": "paragraph", "runs": [{"text": "Hi"}]},
+        {"kind": "paragraph", "runs": []},
+        {"kind": "paragraph", "runs": [{"text": "\t"}]},
+        {"kind": "paragraph", "runs": []}
+      ],
+      "html": "Hi",
+      "text": "\n  \nHi\n\n\t\n"
+    }
+  ],
+  "write": [
+    {
+      "name": "a link address with a space or a lone parenthesis is percent-encoded",
+      "blocks": [{"kind": "paragraph", "runs": [{"text": "a", "href": "https://x.test/a b"}, {"text": " "}, {"text": "b", "href": "https://x.test/(b"}]}],
+      "text": "[a](https://x.test/a%20b) [b](https://x.test/%28b)",
+      "reread": [{"kind": "paragraph", "runs": [{"text": "a", "href": "https://x.test/a%20b"}, {"text": " "}, {"text": "b", "href": "https://x.test/%28b"}]}]
+    },
+    {
+      "name": "a link address with balanced parentheses is kept",
+      "blocks": [{"kind": "paragraph", "runs": [{"text": "a", "href": "https://x.test/a_(b)"}]}],
+      "text": "[a](https://x.test/a_(b))",
+      "reread": [{"kind": "paragraph", "runs": [{"text": "a", "href": "https://x.test/a_(b)"}]}]
+    },
+    {
+      "name": "parentheses two deep are percent-encoded",
+      "blocks": [{"kind": "paragraph", "runs": [{"text": "a", "href": "https://x.test/((b))"}]}],
+      "text": "[a](https://x.test/%28%28b%29%29)",
+      "reread": [{"kind": "paragraph", "runs": [{"text": "a", "href": "https://x.test/%28%28b%29%29"}]}]
+    }
+  ],
+  "typing": [
+    {
+      "name": "bold takes one star",
+      "typed": "hi *bold* there",
+      "html": "hi <b>bold</b> there",
+      "text": "hi *bold* there"
+    },
+    {
+      "name": "italic takes underscores",
+      "typed": "_it_ x",
+      "html": "<i>it</i> x",
+      "text": "_it_ x"
+    },
+    {
+      "name": "a star inside a word stays",
+      "typed": "2*3*4",
+      "html": "2*3*4",
+      "text": "2*3*4"
+    },
+    {
+      "name": "two stars stay text",
+      "typed": "**two** x",
+      "html": "**two** x",
+      "text": "**two** x"
+    },
+    {
+      "name": "a letter right after the closing star takes the style back off, as markdown reads it",
+      "typed": "*a b*c",
+      "html": "*a b*c",
+      "text": "*a b*c"
+    },
+    {
+      "name": "a digit right after the closing underscore takes the style back off",
+      "typed": "_a_1 x",
+      "html": "_a_1 x",
+      "text": "_a_1 x"
+    },
+    {
+      "name": "stars with spaces inside stay text",
+      "typed": "a * b * c",
+      "html": "a * b * c",
+      "text": "a * b * c"
+    },
+    {
+      "name": "bold after punctuation",
+      "typed": "(*a*) x",
+      "html": "(<b>a</b>) x",
+      "text": "(*a*) x"
+    },
+    {
+      "name": "star bullet: Enter continues, Enter on an empty item ends the list",
+      "typed": "* item\nnext\n\nafter",
+      "html": "<ul><li>item</li><li>next</li></ul>after",
+      "text": "- item\n- next\nafter"
+    },
+    {
+      "name": "dash bullet",
+      "typed": "- a\nb",
+      "html": "<ul><li>a</li><li>b</li></ul>",
+      "text": "- a\n- b"
+    },
+    {
+      "name": "plus bullet",
+      "typed": "+ plus",
+      "html": "<ul><li>plus</li></ul>",
+      "text": "- plus"
+    },
+    {
+      "name": "a star with spaces mid-line is not a list",
+      "typed": "a * b",
+      "html": "a * b",
+      "text": "a * b"
+    },
+    {
+      "name": "numbered list: Enter continues, Enter on an empty item ends it",
+      "typed": "1. one\ntwo\n\nend",
+      "html": "<ol><li>one</li><li>two</li></ol>end",
+      "text": "1. one\n2. two\nend"
+    },
+    {
+      "name": "numbered from 3",
+      "typed": "3. c\nd",
+      "html": "<ol start=\"3\"><li>c</li><li>d</li></ol>",
+      "text": "3. c\n4. d"
+    },
+    {
+      "name": "heading: Enter goes back to text",
+      "typed": "# Title\nbody",
+      "html": "<h1>Title</h1>body",
+      "text": "# Title\nbody"
+    },
+    {
+      "name": "smaller heading",
+      "typed": "### Small",
+      "html": "<h3>Small</h3>",
+      "text": "### Small"
+    },
+    {
+      "name": "quote: Enter continues, Enter on an empty line ends it",
+      "typed": "> quoted\nmore\n\nout",
+      "html": "<blockquote>quoted<br>more</blockquote>out",
+      "text": "> quoted\n> more\nout"
+    },
+    {
+      "name": "inline code",
+      "typed": "use `code` now",
+      "html": "use <code>code</code> now",
+      "text": "use `code` now"
+    },
+    {
+      "name": "inline code right after a letter",
+      "typed": "a`b` c",
+      "html": "a<code>b</code> c",
+      "text": "a`b` c"
+    },
+    {
+      "name": "markers inside inline code stay",
+      "typed": "`*a*` b",
+      "html": "<code>*a*</code> b",
+      "text": "`*a*` b"
+    },
+    {
+      "name": "strikethrough",
+      "typed": "~~gone~~ x",
+      "html": "<s>gone</s> x",
+      "text": "~~gone~~ x"
+    },
+    {
+      "name": "code block: backticks and a space start it, a third Enter on empty lines leaves it",
+      "typed": "``` let a;\nb\n\n\nafter",
+      "html": "<pre><code>let a;\nb</code></pre>after",
+      "text": "```\nlet a;\nb\n```\nafter"
+    },
+    {
+      "name": "list and style markers in a code block stay",
+      "typed": "``` - a\n1. *b*",
+      "html": "<pre><code>- a\n1. *b*</code></pre>",
+      "text": "```\n- a\n1. *b*\n```"
+    },
+    {
+      "name": "link",
+      "typed": "see [docs](https://hafa.cc) ok",
+      "html": "see <a href=\"https://hafa.cc\">docs</a> ok",
+      "text": "see [docs](https://hafa.cc) ok"
+    },
+    {
+      "name": "a bare URL stays text and becomes a link when sent",
+      "typed": "go to https://hafa.cc now",
+      "html": "go to <a href=\"https://hafa.cc\">https://hafa.cc</a> now",
+      "text": "go to https://hafa.cc now"
+    },
+    {
+      "name": "styles inside a list item",
+      "typed": "* *b* x",
+      "html": "<ul><li><b>b</b> x</li></ul>",
+      "text": "- *b* x"
+    },
+    {
+      "name": "every inline style",
+      "typed": "x *a* _b_ ~~c~~ `d`",
+      "html": "x <b>a</b> <i>b</i> <s>c</s> <code>d</code>",
+      "text": "x *a* _b_ ~~c~~ `d`"
+    }
+  ]
+}

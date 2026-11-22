@@ -1,0 +1,2557 @@
+{
+  "_doc": {
+    "about": "latr's todo logic (latr web/src/lib/utils/todo.ts and the edits app-state.svelte.ts makes), generated from latr's own code. Run by shared/src/todos/todo.spec.ts and Android :core TodoFixturesTest.",
+    "todos": "Every todo here, in and out, is `base` with the listed fields replaced. Times are epoch milliseconds; snoozeUntil and occurrence are local YYYY-MM-DDTHH:mm:ss read in `zone`.",
+    "read": "readTodo(id, data, now): a stored doc as the apps read it; missing times read as `now`, malformed fields as latr reads them, and a snoozeUntil or occurrence not in the full local form as null.",
+    "fields": "todoFields(todo): what a write stores, before the store adds serverModifiedAt.",
+    "filters": "The lists a todo shows in at `now`; snoozed is derived from snoozeUntil and state.",
+    "keys": "ownKey (position, else 13-digit modifiedAt + idKey) and activeKey (a snoozeUntil's time in front of ownKey).",
+    "sort": "sortForFilter: Snoozed by snooze time, then every list by its key newest first, then id. `todos` are the ones the filter shows.",
+    "edits": "text: withText; snooze: withSnoozed(todo, until, now); pin: withPinToggled; done: withDone(todo, now, newId), with `spawned` the next copy or null; reactivate: withReactivated; repeat: withRepeat(todo, draft, now); delete: withDeleted."
+  },
+  "zone": "America/New_York",
+  "base": {
+    "id": "a",
+    "text": "Buy *milk* #home",
+    "state": "ACTIVE",
+    "createdAt": 1794400000000,
+    "modifiedAt": 1794400000000,
+    "snoozeUntil": null,
+    "pinned": false,
+    "position": null,
+    "deleted": false,
+    "repeat": null,
+    "repeatSpawned": false,
+    "occurrence": null
+  },
+  "read": [
+    {
+      "name": "a full doc",
+      "id": "full",
+      "data": {
+        "text": "Call *mom*",
+        "state": "DONE",
+        "createdAt": 1794000000000,
+        "modifiedAt": 1794400000000,
+        "snoozeUntil": "2026-11-13T08:00:00",
+        "pinned": true,
+        "position": "1794450000000z",
+        "deleted": false,
+        "repeat": {
+          "every": 1,
+          "unit": "week",
+          "weekday": 1,
+          "monthDay": 1,
+          "at": "07:00",
+          "anchor": "2026-11-09"
+        },
+        "repeatSpawned": true,
+        "occurrence": "2026-11-09T07:00:00"
+      },
+      "now": 1794492000000,
+      "todo": {
+        "id": "full",
+        "text": "Call *mom*",
+        "state": "DONE",
+        "createdAt": 1794000000000,
+        "modifiedAt": 1794400000000,
+        "snoozeUntil": "2026-11-13T08:00:00",
+        "pinned": true,
+        "position": "1794450000000z",
+        "deleted": false,
+        "repeat": {
+          "every": 1,
+          "unit": "week",
+          "weekday": 1,
+          "monthDay": 1,
+          "at": "07:00",
+          "anchor": "2026-11-09"
+        },
+        "repeatSpawned": true,
+        "occurrence": "2026-11-09T07:00:00"
+      }
+    },
+    {
+      "name": "missing fields take defaults and now",
+      "id": "bare",
+      "data": {},
+      "now": 1794492000000,
+      "todo": {
+        "id": "bare",
+        "text": "",
+        "state": "ACTIVE",
+        "createdAt": 1794492000000,
+        "modifiedAt": 1794492000000,
+        "snoozeUntil": null,
+        "pinned": false,
+        "position": null,
+        "deleted": false,
+        "repeat": null,
+        "repeatSpawned": false,
+        "occurrence": null
+      }
+    },
+    {
+      "name": "a bare tombstone",
+      "id": "gone",
+      "data": {
+        "deleted": true,
+        "text": "",
+        "modifiedAt": 1794000000000
+      },
+      "now": 1794492000000,
+      "todo": {
+        "id": "gone",
+        "text": "",
+        "state": "ACTIVE",
+        "createdAt": 1794492000000,
+        "modifiedAt": 1794000000000,
+        "snoozeUntil": null,
+        "pinned": false,
+        "position": null,
+        "deleted": true,
+        "repeat": null,
+        "repeatSpawned": false,
+        "occurrence": null
+      }
+    },
+    {
+      "name": "latr's old SNOOZED state reads as active",
+      "id": "old",
+      "data": {
+        "state": "SNOOZED",
+        "snoozeUntil": "2026-11-13T08:00:00"
+      },
+      "now": 1794492000000,
+      "todo": {
+        "id": "old",
+        "text": "",
+        "state": "ACTIVE",
+        "createdAt": 1794492000000,
+        "modifiedAt": 1794492000000,
+        "snoozeUntil": "2026-11-13T08:00:00",
+        "pinned": false,
+        "position": null,
+        "deleted": false,
+        "repeat": null,
+        "repeatSpawned": false,
+        "occurrence": null
+      }
+    },
+    {
+      "name": "an unknown state reads as active",
+      "id": "odd",
+      "data": {
+        "state": "BOGUS"
+      },
+      "now": 1794492000000,
+      "todo": {
+        "id": "odd",
+        "text": "",
+        "state": "ACTIVE",
+        "createdAt": 1794492000000,
+        "modifiedAt": 1794492000000,
+        "snoozeUntil": null,
+        "pinned": false,
+        "position": null,
+        "deleted": false,
+        "repeat": null,
+        "repeatSpawned": false,
+        "occurrence": null
+      }
+    },
+    {
+      "name": "deleted only when true",
+      "id": "d",
+      "data": {
+        "deleted": "true",
+        "pinned": 1,
+        "repeatSpawned": "yes"
+      },
+      "now": 1794492000000,
+      "todo": {
+        "id": "d",
+        "text": "",
+        "state": "ACTIVE",
+        "createdAt": 1794492000000,
+        "modifiedAt": 1794492000000,
+        "snoozeUntil": null,
+        "pinned": false,
+        "position": null,
+        "deleted": false,
+        "repeat": null,
+        "repeatSpawned": false,
+        "occurrence": null
+      }
+    },
+    {
+      "name": "a snoozeUntil without seconds is not read",
+      "id": "s",
+      "data": {
+        "snoozeUntil": "2026-11-13T08:00"
+      },
+      "now": 1794492000000,
+      "todo": {
+        "id": "s",
+        "text": "",
+        "state": "ACTIVE",
+        "createdAt": 1794492000000,
+        "modifiedAt": 1794492000000,
+        "snoozeUntil": null,
+        "pinned": false,
+        "position": null,
+        "deleted": false,
+        "repeat": null,
+        "repeatSpawned": false,
+        "occurrence": null
+      }
+    },
+    {
+      "name": "an occurrence with a zone is not read",
+      "id": "o",
+      "data": {
+        "occurrence": "2026-11-09T07:00:00Z"
+      },
+      "now": 1794492000000,
+      "todo": {
+        "id": "o",
+        "text": "",
+        "state": "ACTIVE",
+        "createdAt": 1794492000000,
+        "modifiedAt": 1794492000000,
+        "snoozeUntil": null,
+        "pinned": false,
+        "position": null,
+        "deleted": false,
+        "repeat": null,
+        "repeatSpawned": false,
+        "occurrence": null
+      }
+    },
+    {
+      "name": "a malformed position orders by time",
+      "id": "p",
+      "data": {
+        "position": "abc"
+      },
+      "now": 1794492000000,
+      "todo": {
+        "id": "p",
+        "text": "",
+        "state": "ACTIVE",
+        "createdAt": 1794492000000,
+        "modifiedAt": 1794492000000,
+        "snoozeUntil": null,
+        "pinned": false,
+        "position": null,
+        "deleted": false,
+        "repeat": null,
+        "repeatSpawned": false,
+        "occurrence": null
+      }
+    },
+    {
+      "name": "a malformed repeat is a one-off",
+      "id": "r",
+      "data": {
+        "repeat": {
+          "every": 9,
+          "unit": "week",
+          "weekday": 1,
+          "monthDay": 1,
+          "at": "07:00",
+          "anchor": "2026-11-09"
+        }
+      },
+      "now": 1794492000000,
+      "todo": {
+        "id": "r",
+        "text": "",
+        "state": "ACTIVE",
+        "createdAt": 1794492000000,
+        "modifiedAt": 1794492000000,
+        "snoozeUntil": null,
+        "pinned": false,
+        "position": null,
+        "deleted": false,
+        "repeat": null,
+        "repeatSpawned": false,
+        "occurrence": null
+      }
+    },
+    {
+      "name": "text that isn't a string reads as empty",
+      "id": "t",
+      "data": {
+        "text": 5
+      },
+      "now": 1794492000000,
+      "todo": {
+        "id": "t",
+        "text": "",
+        "state": "ACTIVE",
+        "createdAt": 1794492000000,
+        "modifiedAt": 1794492000000,
+        "snoozeUntil": null,
+        "pinned": false,
+        "position": null,
+        "deleted": false,
+        "repeat": null,
+        "repeatSpawned": false,
+        "occurrence": null
+      }
+    }
+  ],
+  "fields": [
+    {
+      "name": "everything but the id",
+      "todo": {
+        "id": "x",
+        "pinned": true,
+        "repeat": {
+          "every": 1,
+          "unit": "week",
+          "weekday": 1,
+          "monthDay": 1,
+          "at": "07:00",
+          "anchor": "2026-11-09"
+        },
+        "occurrence": "2026-11-16T07:00:00"
+      },
+      "fields": {
+        "text": "Buy *milk* #home",
+        "state": "ACTIVE",
+        "createdAt": 1794400000000,
+        "modifiedAt": 1794400000000,
+        "snoozeUntil": null,
+        "pinned": true,
+        "position": null,
+        "deleted": false,
+        "repeat": {
+          "every": 1,
+          "unit": "week",
+          "weekday": 1,
+          "monthDay": 1,
+          "at": "07:00",
+          "anchor": "2026-11-09"
+        },
+        "repeatSpawned": false,
+        "occurrence": "2026-11-16T07:00:00"
+      }
+    }
+  ],
+  "filters": [
+    {
+      "name": "plain active",
+      "todo": {},
+      "now": 1794492000000,
+      "filters": [
+        "ACTIVE",
+        "ALL"
+      ]
+    },
+    {
+      "name": "done",
+      "todo": {
+        "state": "DONE",
+        "modifiedAt": 1794488400000
+      },
+      "now": 1794492000000,
+      "filters": [
+        "DONE",
+        "ALL"
+      ]
+    },
+    {
+      "name": "snoozed until later today",
+      "todo": {
+        "snoozeUntil": "2026-11-12T12:00:00"
+      },
+      "now": 1794492000000,
+      "filters": [
+        "SNOOZED",
+        "ALL"
+      ]
+    },
+    {
+      "name": "snoozed until exactly now has woken",
+      "todo": {
+        "snoozeUntil": "2026-11-12T09:00:00"
+      },
+      "now": 1794492000000,
+      "filters": [
+        "ACTIVE",
+        "ALL"
+      ]
+    },
+    {
+      "name": "woke from a snooze an hour ago",
+      "todo": {
+        "snoozeUntil": "2026-11-12T08:00:00",
+        "modifiedAt": 1794405600000
+      },
+      "now": 1794492000000,
+      "filters": [
+        "ACTIVE",
+        "ALL"
+      ]
+    },
+    {
+      "name": "done with a future snoozeUntil is done, not snoozed",
+      "todo": {
+        "state": "DONE",
+        "snoozeUntil": "2026-11-13T09:00:00"
+      },
+      "now": 1794492000000,
+      "filters": [
+        "DONE",
+        "ALL"
+      ]
+    },
+    {
+      "name": "pinned",
+      "todo": {
+        "pinned": true
+      },
+      "now": 1794492000000,
+      "filters": [
+        "ACTIVE",
+        "ALL"
+      ]
+    },
+    {
+      "name": "pinned and snoozed",
+      "todo": {
+        "pinned": true,
+        "snoozeUntil": "2026-11-13T09:00:00"
+      },
+      "now": 1794492000000,
+      "filters": [
+        "SNOOZED",
+        "ALL"
+      ]
+    },
+    {
+      "name": "moved",
+      "todo": {
+        "position": "1794450000000i0f8fad5bz",
+        "modifiedAt": 1794319200000
+      },
+      "now": 1794492000000,
+      "filters": [
+        "ACTIVE",
+        "ALL"
+      ]
+    },
+    {
+      "name": "moved and woken",
+      "todo": {
+        "position": "1794450000000i0f8fad5bz",
+        "snoozeUntil": "2026-11-12T07:00:00"
+      },
+      "now": 1794492000000,
+      "filters": [
+        "ACTIVE",
+        "ALL"
+      ]
+    },
+    {
+      "name": "repeating copy waiting for its occurrence",
+      "todo": {
+        "repeat": {
+          "every": 1,
+          "unit": "week",
+          "weekday": 1,
+          "monthDay": 1,
+          "at": "07:00",
+          "anchor": "2026-11-09"
+        },
+        "snoozeUntil": "2026-11-16T07:00:00",
+        "occurrence": "2026-11-16T07:00:00"
+      },
+      "now": 1794492000000,
+      "filters": [
+        "SNOOZED",
+        "ALL"
+      ]
+    },
+    {
+      "name": "repeating, already spawned",
+      "todo": {
+        "repeat": {
+          "every": 1,
+          "unit": "week",
+          "weekday": 1,
+          "monthDay": 1,
+          "at": "07:00",
+          "anchor": "2026-11-09"
+        },
+        "repeatSpawned": true,
+        "occurrence": "2026-11-09T07:00:00"
+      },
+      "now": 1794492000000,
+      "filters": [
+        "ACTIVE",
+        "ALL"
+      ]
+    },
+    {
+      "name": "repeating with an occurrence ahead of now",
+      "todo": {
+        "repeat": {
+          "every": 2,
+          "unit": "month",
+          "weekday": 1,
+          "monthDay": -1,
+          "at": "18:30",
+          "anchor": "2026-10-31"
+        },
+        "occurrence": "2026-12-31T18:30:00"
+      },
+      "now": 1794492000000,
+      "filters": [
+        "ACTIVE",
+        "ALL"
+      ]
+    },
+    {
+      "name": "deleted",
+      "todo": {
+        "deleted": true,
+        "text": ""
+      },
+      "now": 1794492000000,
+      "filters": [
+        "ACTIVE",
+        "ALL"
+      ]
+    }
+  ],
+  "keys": [
+    {
+      "name": "plain active",
+      "todo": {},
+      "ownKey": "1794400000000az",
+      "activeKey": "1794400000000az"
+    },
+    {
+      "name": "done",
+      "todo": {
+        "state": "DONE",
+        "modifiedAt": 1794488400000
+      },
+      "ownKey": "1794488400000az",
+      "activeKey": "1794488400000az"
+    },
+    {
+      "name": "snoozed until later today",
+      "todo": {
+        "snoozeUntil": "2026-11-12T12:00:00"
+      },
+      "ownKey": "1794400000000az",
+      "activeKey": "17945028000001794400000000az"
+    },
+    {
+      "name": "snoozed until exactly now has woken",
+      "todo": {
+        "snoozeUntil": "2026-11-12T09:00:00"
+      },
+      "ownKey": "1794400000000az",
+      "activeKey": "17944920000001794400000000az"
+    },
+    {
+      "name": "woke from a snooze an hour ago",
+      "todo": {
+        "snoozeUntil": "2026-11-12T08:00:00",
+        "modifiedAt": 1794405600000
+      },
+      "ownKey": "1794405600000az",
+      "activeKey": "17944884000001794405600000az"
+    },
+    {
+      "name": "done with a future snoozeUntil is done, not snoozed",
+      "todo": {
+        "state": "DONE",
+        "snoozeUntil": "2026-11-13T09:00:00"
+      },
+      "ownKey": "1794400000000az",
+      "activeKey": "17945784000001794400000000az"
+    },
+    {
+      "name": "pinned",
+      "todo": {
+        "pinned": true
+      },
+      "ownKey": "1794400000000az",
+      "activeKey": "1794400000000az"
+    },
+    {
+      "name": "pinned and snoozed",
+      "todo": {
+        "pinned": true,
+        "snoozeUntil": "2026-11-13T09:00:00"
+      },
+      "ownKey": "1794400000000az",
+      "activeKey": "17945784000001794400000000az"
+    },
+    {
+      "name": "moved",
+      "todo": {
+        "position": "1794450000000i0f8fad5bz",
+        "modifiedAt": 1794319200000
+      },
+      "ownKey": "1794450000000i0f8fad5bz",
+      "activeKey": "1794450000000i0f8fad5bz"
+    },
+    {
+      "name": "moved and woken",
+      "todo": {
+        "position": "1794450000000i0f8fad5bz",
+        "snoozeUntil": "2026-11-12T07:00:00"
+      },
+      "ownKey": "1794450000000i0f8fad5bz",
+      "activeKey": "17944848000001794450000000i0f8fad5bz"
+    },
+    {
+      "name": "repeating copy waiting for its occurrence",
+      "todo": {
+        "repeat": {
+          "every": 1,
+          "unit": "week",
+          "weekday": 1,
+          "monthDay": 1,
+          "at": "07:00",
+          "anchor": "2026-11-09"
+        },
+        "snoozeUntil": "2026-11-16T07:00:00",
+        "occurrence": "2026-11-16T07:00:00"
+      },
+      "ownKey": "1794400000000az",
+      "activeKey": "17948304000001794400000000az"
+    },
+    {
+      "name": "repeating, already spawned",
+      "todo": {
+        "repeat": {
+          "every": 1,
+          "unit": "week",
+          "weekday": 1,
+          "monthDay": 1,
+          "at": "07:00",
+          "anchor": "2026-11-09"
+        },
+        "repeatSpawned": true,
+        "occurrence": "2026-11-09T07:00:00"
+      },
+      "ownKey": "1794400000000az",
+      "activeKey": "1794400000000az"
+    },
+    {
+      "name": "repeating with an occurrence ahead of now",
+      "todo": {
+        "repeat": {
+          "every": 2,
+          "unit": "month",
+          "weekday": 1,
+          "monthDay": -1,
+          "at": "18:30",
+          "anchor": "2026-10-31"
+        },
+        "occurrence": "2026-12-31T18:30:00"
+      },
+      "ownKey": "1794400000000az",
+      "activeKey": "1794400000000az"
+    },
+    {
+      "name": "deleted",
+      "todo": {
+        "deleted": true,
+        "text": ""
+      },
+      "ownKey": "1794400000000az",
+      "activeKey": "1794400000000az"
+    }
+  ],
+  "sort": [
+    {
+      "name": "ACTIVE",
+      "filter": "ACTIVE",
+      "now": 1794492000000,
+      "todos": [
+        {
+          "id": "old",
+          "modifiedAt": 1794232800000
+        },
+        {
+          "id": "new",
+          "modifiedAt": 1794488400000
+        },
+        {
+          "id": "woke",
+          "modifiedAt": 1794060000000,
+          "snoozeUntil": "2026-11-12T07:00:00"
+        },
+        {
+          "id": "woke-too",
+          "modifiedAt": 1794146400000,
+          "snoozeUntil": "2026-11-12T07:00:00"
+        },
+        {
+          "id": "moved",
+          "modifiedAt": 1794492000000,
+          "position": "1794319200000mz"
+        },
+        {
+          "id": "pinned",
+          "modifiedAt": 1793973600000,
+          "pinned": true
+        },
+        {
+          "id": "tie-b",
+          "modifiedAt": 1793887200000,
+          "position": "1794000000000z"
+        },
+        {
+          "id": "tie-a",
+          "modifiedAt": 1793887200000,
+          "position": "1794000000000z"
+        }
+      ],
+      "ids": [
+        "new",
+        "woke-too",
+        "woke",
+        "moved",
+        "old",
+        "tie-a",
+        "tie-b",
+        "pinned"
+      ]
+    },
+    {
+      "name": "SNOOZED",
+      "filter": "SNOOZED",
+      "now": 1794492000000,
+      "todos": [
+        {
+          "id": "snoozed-late",
+          "snoozeUntil": "2026-11-14T09:00:00"
+        },
+        {
+          "id": "snoozed-soon-b",
+          "modifiedAt": 1794484800000,
+          "snoozeUntil": "2026-11-12T10:00:00"
+        },
+        {
+          "id": "snoozed-soon-a",
+          "modifiedAt": 1794481200000,
+          "snoozeUntil": "2026-11-12T10:00:00"
+        }
+      ],
+      "ids": [
+        "snoozed-soon-b",
+        "snoozed-soon-a",
+        "snoozed-late"
+      ]
+    },
+    {
+      "name": "DONE",
+      "filter": "DONE",
+      "now": 1794492000000,
+      "todos": [
+        {
+          "id": "done-old",
+          "state": "DONE",
+          "modifiedAt": 1794319200000
+        },
+        {
+          "id": "done-new",
+          "state": "DONE",
+          "modifiedAt": 1794490200000
+        }
+      ],
+      "ids": [
+        "done-new",
+        "done-old"
+      ]
+    },
+    {
+      "name": "ALL",
+      "filter": "ALL",
+      "now": 1794492000000,
+      "todos": [
+        {
+          "id": "old",
+          "modifiedAt": 1794232800000
+        },
+        {
+          "id": "new",
+          "modifiedAt": 1794488400000
+        },
+        {
+          "id": "woke",
+          "modifiedAt": 1794060000000,
+          "snoozeUntil": "2026-11-12T07:00:00"
+        },
+        {
+          "id": "woke-too",
+          "modifiedAt": 1794146400000,
+          "snoozeUntil": "2026-11-12T07:00:00"
+        },
+        {
+          "id": "moved",
+          "modifiedAt": 1794492000000,
+          "position": "1794319200000mz"
+        },
+        {
+          "id": "pinned",
+          "modifiedAt": 1793973600000,
+          "pinned": true
+        },
+        {
+          "id": "snoozed-late",
+          "snoozeUntil": "2026-11-14T09:00:00"
+        },
+        {
+          "id": "snoozed-soon-b",
+          "modifiedAt": 1794484800000,
+          "snoozeUntil": "2026-11-12T10:00:00"
+        },
+        {
+          "id": "snoozed-soon-a",
+          "modifiedAt": 1794481200000,
+          "snoozeUntil": "2026-11-12T10:00:00"
+        },
+        {
+          "id": "done-old",
+          "state": "DONE",
+          "modifiedAt": 1794319200000
+        },
+        {
+          "id": "done-new",
+          "state": "DONE",
+          "modifiedAt": 1794490200000
+        },
+        {
+          "id": "tie-b",
+          "modifiedAt": 1793887200000,
+          "position": "1794000000000z"
+        },
+        {
+          "id": "tie-a",
+          "modifiedAt": 1793887200000,
+          "position": "1794000000000z"
+        }
+      ],
+      "ids": [
+        "done-new",
+        "new",
+        "snoozed-soon-b",
+        "snoozed-soon-a",
+        "snoozed-late",
+        "moved",
+        "done-old",
+        "old",
+        "woke-too",
+        "woke",
+        "tie-a",
+        "tie-b",
+        "pinned"
+      ]
+    }
+  ],
+  "edits": [
+    {
+      "name": "text: plain active",
+      "edit": "text",
+      "todo": {},
+      "now": 1794492000000,
+      "text": "Buy oat milk",
+      "out": {
+        "text": "Buy oat milk"
+      }
+    },
+    {
+      "name": "text: done",
+      "edit": "text",
+      "todo": {
+        "state": "DONE",
+        "modifiedAt": 1794488400000
+      },
+      "now": 1794492000000,
+      "text": "Buy oat milk",
+      "out": {
+        "text": "Buy oat milk",
+        "state": "DONE",
+        "modifiedAt": 1794488400000
+      }
+    },
+    {
+      "name": "text: snoozed until later today",
+      "edit": "text",
+      "todo": {
+        "snoozeUntil": "2026-11-12T12:00:00"
+      },
+      "now": 1794492000000,
+      "text": "Buy oat milk",
+      "out": {
+        "text": "Buy oat milk",
+        "snoozeUntil": "2026-11-12T12:00:00"
+      }
+    },
+    {
+      "name": "text: snoozed until exactly now has woken",
+      "edit": "text",
+      "todo": {
+        "snoozeUntil": "2026-11-12T09:00:00"
+      },
+      "now": 1794492000000,
+      "text": "Buy oat milk",
+      "out": {
+        "text": "Buy oat milk",
+        "modifiedAt": 1794492000000
+      }
+    },
+    {
+      "name": "text: woke from a snooze an hour ago",
+      "edit": "text",
+      "todo": {
+        "snoozeUntil": "2026-11-12T08:00:00",
+        "modifiedAt": 1794405600000
+      },
+      "now": 1794492000000,
+      "text": "Buy oat milk",
+      "out": {
+        "text": "Buy oat milk",
+        "modifiedAt": 1794488400000
+      }
+    },
+    {
+      "name": "text: done with a future snoozeUntil is done, not snoozed",
+      "edit": "text",
+      "todo": {
+        "state": "DONE",
+        "snoozeUntil": "2026-11-13T09:00:00"
+      },
+      "now": 1794492000000,
+      "text": "Buy oat milk",
+      "out": {
+        "text": "Buy oat milk",
+        "state": "DONE",
+        "snoozeUntil": "2026-11-13T09:00:00"
+      }
+    },
+    {
+      "name": "text: pinned",
+      "edit": "text",
+      "todo": {
+        "pinned": true
+      },
+      "now": 1794492000000,
+      "text": "Buy oat milk",
+      "out": {
+        "text": "Buy oat milk",
+        "pinned": true
+      }
+    },
+    {
+      "name": "text: pinned and snoozed",
+      "edit": "text",
+      "todo": {
+        "pinned": true,
+        "snoozeUntil": "2026-11-13T09:00:00"
+      },
+      "now": 1794492000000,
+      "text": "Buy oat milk",
+      "out": {
+        "text": "Buy oat milk",
+        "snoozeUntil": "2026-11-13T09:00:00",
+        "pinned": true
+      }
+    },
+    {
+      "name": "text: moved",
+      "edit": "text",
+      "todo": {
+        "position": "1794450000000i0f8fad5bz",
+        "modifiedAt": 1794319200000
+      },
+      "now": 1794492000000,
+      "text": "Buy oat milk",
+      "out": {
+        "text": "Buy oat milk",
+        "modifiedAt": 1794319200000,
+        "position": "1794450000000i0f8fad5bz"
+      }
+    },
+    {
+      "name": "text: moved and woken",
+      "edit": "text",
+      "todo": {
+        "position": "1794450000000i0f8fad5bz",
+        "snoozeUntil": "2026-11-12T07:00:00"
+      },
+      "now": 1794492000000,
+      "text": "Buy oat milk",
+      "out": {
+        "text": "Buy oat milk",
+        "modifiedAt": 1794484800000
+      }
+    },
+    {
+      "name": "text: repeating copy waiting for its occurrence",
+      "edit": "text",
+      "todo": {
+        "repeat": {
+          "every": 1,
+          "unit": "week",
+          "weekday": 1,
+          "monthDay": 1,
+          "at": "07:00",
+          "anchor": "2026-11-09"
+        },
+        "snoozeUntil": "2026-11-16T07:00:00",
+        "occurrence": "2026-11-16T07:00:00"
+      },
+      "now": 1794492000000,
+      "text": "Buy oat milk",
+      "out": {
+        "text": "Buy oat milk",
+        "snoozeUntil": "2026-11-16T07:00:00",
+        "repeat": {
+          "every": 1,
+          "unit": "week",
+          "weekday": 1,
+          "monthDay": 1,
+          "at": "07:00",
+          "anchor": "2026-11-09"
+        },
+        "occurrence": "2026-11-16T07:00:00"
+      }
+    },
+    {
+      "name": "text: repeating, already spawned",
+      "edit": "text",
+      "todo": {
+        "repeat": {
+          "every": 1,
+          "unit": "week",
+          "weekday": 1,
+          "monthDay": 1,
+          "at": "07:00",
+          "anchor": "2026-11-09"
+        },
+        "repeatSpawned": true,
+        "occurrence": "2026-11-09T07:00:00"
+      },
+      "now": 1794492000000,
+      "text": "Buy oat milk",
+      "out": {
+        "text": "Buy oat milk",
+        "repeat": {
+          "every": 1,
+          "unit": "week",
+          "weekday": 1,
+          "monthDay": 1,
+          "at": "07:00",
+          "anchor": "2026-11-09"
+        },
+        "repeatSpawned": true,
+        "occurrence": "2026-11-09T07:00:00"
+      }
+    },
+    {
+      "name": "text: repeating with an occurrence ahead of now",
+      "edit": "text",
+      "todo": {
+        "repeat": {
+          "every": 2,
+          "unit": "month",
+          "weekday": 1,
+          "monthDay": -1,
+          "at": "18:30",
+          "anchor": "2026-10-31"
+        },
+        "occurrence": "2026-12-31T18:30:00"
+      },
+      "now": 1794492000000,
+      "text": "Buy oat milk",
+      "out": {
+        "text": "Buy oat milk",
+        "repeat": {
+          "every": 2,
+          "unit": "month",
+          "weekday": 1,
+          "monthDay": -1,
+          "at": "18:30",
+          "anchor": "2026-10-31"
+        },
+        "occurrence": "2026-12-31T18:30:00"
+      }
+    },
+    {
+      "name": "snooze: plain active",
+      "edit": "snooze",
+      "todo": {},
+      "now": 1794492000000,
+      "until": 1794578400000,
+      "out": {
+        "modifiedAt": 1794492000000,
+        "snoozeUntil": "2026-11-13T09:00:00"
+      }
+    },
+    {
+      "name": "snooze: snoozed until later today",
+      "edit": "snooze",
+      "todo": {
+        "snoozeUntil": "2026-11-12T12:00:00"
+      },
+      "now": 1794492000000,
+      "until": 1794578400000,
+      "out": {
+        "modifiedAt": 1794492000000,
+        "snoozeUntil": "2026-11-13T09:00:00"
+      }
+    },
+    {
+      "name": "snooze: snoozed until exactly now has woken",
+      "edit": "snooze",
+      "todo": {
+        "snoozeUntil": "2026-11-12T09:00:00"
+      },
+      "now": 1794492000000,
+      "until": 1794578400000,
+      "out": {
+        "modifiedAt": 1794492000000,
+        "snoozeUntil": "2026-11-13T09:00:00"
+      }
+    },
+    {
+      "name": "snooze: woke from a snooze an hour ago",
+      "edit": "snooze",
+      "todo": {
+        "snoozeUntil": "2026-11-12T08:00:00",
+        "modifiedAt": 1794405600000
+      },
+      "now": 1794492000000,
+      "until": 1794578400000,
+      "out": {
+        "modifiedAt": 1794492000000,
+        "snoozeUntil": "2026-11-13T09:00:00"
+      }
+    },
+    {
+      "name": "snooze: pinned",
+      "edit": "snooze",
+      "todo": {
+        "pinned": true
+      },
+      "now": 1794492000000,
+      "until": 1794578400000,
+      "out": {
+        "modifiedAt": 1794492000000,
+        "snoozeUntil": "2026-11-13T09:00:00",
+        "pinned": true
+      }
+    },
+    {
+      "name": "snooze: pinned and snoozed",
+      "edit": "snooze",
+      "todo": {
+        "pinned": true,
+        "snoozeUntil": "2026-11-13T09:00:00"
+      },
+      "now": 1794492000000,
+      "until": 1794578400000,
+      "out": {
+        "modifiedAt": 1794492000000,
+        "snoozeUntil": "2026-11-13T09:00:00",
+        "pinned": true
+      }
+    },
+    {
+      "name": "snooze: moved",
+      "edit": "snooze",
+      "todo": {
+        "position": "1794450000000i0f8fad5bz",
+        "modifiedAt": 1794319200000
+      },
+      "now": 1794492000000,
+      "until": 1794578400000,
+      "out": {
+        "modifiedAt": 1794492000000,
+        "snoozeUntil": "2026-11-13T09:00:00"
+      }
+    },
+    {
+      "name": "snooze: moved and woken",
+      "edit": "snooze",
+      "todo": {
+        "position": "1794450000000i0f8fad5bz",
+        "snoozeUntil": "2026-11-12T07:00:00"
+      },
+      "now": 1794492000000,
+      "until": 1794578400000,
+      "out": {
+        "modifiedAt": 1794492000000,
+        "snoozeUntil": "2026-11-13T09:00:00"
+      }
+    },
+    {
+      "name": "snooze: repeating copy waiting for its occurrence",
+      "edit": "snooze",
+      "todo": {
+        "repeat": {
+          "every": 1,
+          "unit": "week",
+          "weekday": 1,
+          "monthDay": 1,
+          "at": "07:00",
+          "anchor": "2026-11-09"
+        },
+        "snoozeUntil": "2026-11-16T07:00:00",
+        "occurrence": "2026-11-16T07:00:00"
+      },
+      "now": 1794492000000,
+      "until": 1794578400000,
+      "out": {
+        "modifiedAt": 1794492000000,
+        "snoozeUntil": "2026-11-13T09:00:00",
+        "repeat": {
+          "every": 1,
+          "unit": "week",
+          "weekday": 1,
+          "monthDay": 1,
+          "at": "07:00",
+          "anchor": "2026-11-09"
+        },
+        "occurrence": "2026-11-16T07:00:00"
+      }
+    },
+    {
+      "name": "snooze: repeating, already spawned",
+      "edit": "snooze",
+      "todo": {
+        "repeat": {
+          "every": 1,
+          "unit": "week",
+          "weekday": 1,
+          "monthDay": 1,
+          "at": "07:00",
+          "anchor": "2026-11-09"
+        },
+        "repeatSpawned": true,
+        "occurrence": "2026-11-09T07:00:00"
+      },
+      "now": 1794492000000,
+      "until": 1794578400000,
+      "out": {
+        "modifiedAt": 1794492000000,
+        "snoozeUntil": "2026-11-13T09:00:00",
+        "repeat": {
+          "every": 1,
+          "unit": "week",
+          "weekday": 1,
+          "monthDay": 1,
+          "at": "07:00",
+          "anchor": "2026-11-09"
+        },
+        "repeatSpawned": true,
+        "occurrence": "2026-11-09T07:00:00"
+      }
+    },
+    {
+      "name": "snooze: repeating with an occurrence ahead of now",
+      "edit": "snooze",
+      "todo": {
+        "repeat": {
+          "every": 2,
+          "unit": "month",
+          "weekday": 1,
+          "monthDay": -1,
+          "at": "18:30",
+          "anchor": "2026-10-31"
+        },
+        "occurrence": "2026-12-31T18:30:00"
+      },
+      "now": 1794492000000,
+      "until": 1794578400000,
+      "out": {
+        "modifiedAt": 1794492000000,
+        "snoozeUntil": "2026-11-13T09:00:00",
+        "repeat": {
+          "every": 2,
+          "unit": "month",
+          "weekday": 1,
+          "monthDay": -1,
+          "at": "18:30",
+          "anchor": "2026-10-31"
+        },
+        "occurrence": "2026-12-31T18:30:00"
+      }
+    },
+    {
+      "name": "pin: plain active",
+      "edit": "pin",
+      "todo": {},
+      "now": 1794492000000,
+      "out": {
+        "modifiedAt": 1794492000000,
+        "pinned": true
+      }
+    },
+    {
+      "name": "pin: done",
+      "edit": "pin",
+      "todo": {
+        "state": "DONE",
+        "modifiedAt": 1794488400000
+      },
+      "now": 1794492000000,
+      "out": {
+        "state": "DONE",
+        "modifiedAt": 1794492000000,
+        "pinned": true
+      }
+    },
+    {
+      "name": "pin: snoozed until later today",
+      "edit": "pin",
+      "todo": {
+        "snoozeUntil": "2026-11-12T12:00:00"
+      },
+      "now": 1794492000000,
+      "out": {
+        "modifiedAt": 1794492000000,
+        "snoozeUntil": "2026-11-12T12:00:00",
+        "pinned": true
+      }
+    },
+    {
+      "name": "pin: snoozed until exactly now has woken",
+      "edit": "pin",
+      "todo": {
+        "snoozeUntil": "2026-11-12T09:00:00"
+      },
+      "now": 1794492000000,
+      "out": {
+        "modifiedAt": 1794492000000,
+        "pinned": true
+      }
+    },
+    {
+      "name": "pin: woke from a snooze an hour ago",
+      "edit": "pin",
+      "todo": {
+        "snoozeUntil": "2026-11-12T08:00:00",
+        "modifiedAt": 1794405600000
+      },
+      "now": 1794492000000,
+      "out": {
+        "modifiedAt": 1794492000000,
+        "pinned": true
+      }
+    },
+    {
+      "name": "pin: done with a future snoozeUntil is done, not snoozed",
+      "edit": "pin",
+      "todo": {
+        "state": "DONE",
+        "snoozeUntil": "2026-11-13T09:00:00"
+      },
+      "now": 1794492000000,
+      "out": {
+        "state": "DONE",
+        "modifiedAt": 1794492000000,
+        "snoozeUntil": "2026-11-13T09:00:00",
+        "pinned": true
+      }
+    },
+    {
+      "name": "pin: pinned",
+      "edit": "pin",
+      "todo": {
+        "pinned": true
+      },
+      "now": 1794492000000,
+      "out": {
+        "modifiedAt": 1794492000000
+      }
+    },
+    {
+      "name": "pin: pinned and snoozed",
+      "edit": "pin",
+      "todo": {
+        "pinned": true,
+        "snoozeUntil": "2026-11-13T09:00:00"
+      },
+      "now": 1794492000000,
+      "out": {
+        "modifiedAt": 1794492000000,
+        "snoozeUntil": "2026-11-13T09:00:00"
+      }
+    },
+    {
+      "name": "pin: moved",
+      "edit": "pin",
+      "todo": {
+        "position": "1794450000000i0f8fad5bz",
+        "modifiedAt": 1794319200000
+      },
+      "now": 1794492000000,
+      "out": {
+        "modifiedAt": 1794492000000,
+        "pinned": true
+      }
+    },
+    {
+      "name": "pin: moved and woken",
+      "edit": "pin",
+      "todo": {
+        "position": "1794450000000i0f8fad5bz",
+        "snoozeUntil": "2026-11-12T07:00:00"
+      },
+      "now": 1794492000000,
+      "out": {
+        "modifiedAt": 1794492000000,
+        "pinned": true
+      }
+    },
+    {
+      "name": "pin: repeating copy waiting for its occurrence",
+      "edit": "pin",
+      "todo": {
+        "repeat": {
+          "every": 1,
+          "unit": "week",
+          "weekday": 1,
+          "monthDay": 1,
+          "at": "07:00",
+          "anchor": "2026-11-09"
+        },
+        "snoozeUntil": "2026-11-16T07:00:00",
+        "occurrence": "2026-11-16T07:00:00"
+      },
+      "now": 1794492000000,
+      "out": {
+        "modifiedAt": 1794492000000,
+        "snoozeUntil": "2026-11-16T07:00:00",
+        "pinned": true,
+        "repeat": {
+          "every": 1,
+          "unit": "week",
+          "weekday": 1,
+          "monthDay": 1,
+          "at": "07:00",
+          "anchor": "2026-11-09"
+        },
+        "occurrence": "2026-11-16T07:00:00"
+      }
+    },
+    {
+      "name": "pin: repeating, already spawned",
+      "edit": "pin",
+      "todo": {
+        "repeat": {
+          "every": 1,
+          "unit": "week",
+          "weekday": 1,
+          "monthDay": 1,
+          "at": "07:00",
+          "anchor": "2026-11-09"
+        },
+        "repeatSpawned": true,
+        "occurrence": "2026-11-09T07:00:00"
+      },
+      "now": 1794492000000,
+      "out": {
+        "modifiedAt": 1794492000000,
+        "pinned": true,
+        "repeat": {
+          "every": 1,
+          "unit": "week",
+          "weekday": 1,
+          "monthDay": 1,
+          "at": "07:00",
+          "anchor": "2026-11-09"
+        },
+        "repeatSpawned": true,
+        "occurrence": "2026-11-09T07:00:00"
+      }
+    },
+    {
+      "name": "pin: repeating with an occurrence ahead of now",
+      "edit": "pin",
+      "todo": {
+        "repeat": {
+          "every": 2,
+          "unit": "month",
+          "weekday": 1,
+          "monthDay": -1,
+          "at": "18:30",
+          "anchor": "2026-10-31"
+        },
+        "occurrence": "2026-12-31T18:30:00"
+      },
+      "now": 1794492000000,
+      "out": {
+        "modifiedAt": 1794492000000,
+        "pinned": true,
+        "repeat": {
+          "every": 2,
+          "unit": "month",
+          "weekday": 1,
+          "monthDay": -1,
+          "at": "18:30",
+          "anchor": "2026-10-31"
+        },
+        "occurrence": "2026-12-31T18:30:00"
+      }
+    },
+    {
+      "name": "done: plain active",
+      "edit": "done",
+      "todo": {},
+      "now": 1794492000000,
+      "newId": "next-id",
+      "out": {
+        "state": "DONE",
+        "modifiedAt": 1794492000000
+      },
+      "spawned": null
+    },
+    {
+      "name": "done: snoozed until later today",
+      "edit": "done",
+      "todo": {
+        "snoozeUntil": "2026-11-12T12:00:00"
+      },
+      "now": 1794492000000,
+      "newId": "next-id",
+      "out": {
+        "state": "DONE",
+        "modifiedAt": 1794492000000
+      },
+      "spawned": null
+    },
+    {
+      "name": "done: snoozed until exactly now has woken",
+      "edit": "done",
+      "todo": {
+        "snoozeUntil": "2026-11-12T09:00:00"
+      },
+      "now": 1794492000000,
+      "newId": "next-id",
+      "out": {
+        "state": "DONE",
+        "modifiedAt": 1794492000000
+      },
+      "spawned": null
+    },
+    {
+      "name": "done: woke from a snooze an hour ago",
+      "edit": "done",
+      "todo": {
+        "snoozeUntil": "2026-11-12T08:00:00",
+        "modifiedAt": 1794405600000
+      },
+      "now": 1794492000000,
+      "newId": "next-id",
+      "out": {
+        "state": "DONE",
+        "modifiedAt": 1794492000000
+      },
+      "spawned": null
+    },
+    {
+      "name": "done: pinned",
+      "edit": "done",
+      "todo": {
+        "pinned": true
+      },
+      "now": 1794492000000,
+      "newId": "next-id",
+      "out": {
+        "state": "DONE",
+        "modifiedAt": 1794492000000,
+        "pinned": true
+      },
+      "spawned": null
+    },
+    {
+      "name": "done: pinned and snoozed",
+      "edit": "done",
+      "todo": {
+        "pinned": true,
+        "snoozeUntil": "2026-11-13T09:00:00"
+      },
+      "now": 1794492000000,
+      "newId": "next-id",
+      "out": {
+        "state": "DONE",
+        "modifiedAt": 1794492000000,
+        "pinned": true
+      },
+      "spawned": null
+    },
+    {
+      "name": "done: moved",
+      "edit": "done",
+      "todo": {
+        "position": "1794450000000i0f8fad5bz",
+        "modifiedAt": 1794319200000
+      },
+      "now": 1794492000000,
+      "newId": "next-id",
+      "out": {
+        "state": "DONE",
+        "modifiedAt": 1794492000000
+      },
+      "spawned": null
+    },
+    {
+      "name": "done: moved and woken",
+      "edit": "done",
+      "todo": {
+        "position": "1794450000000i0f8fad5bz",
+        "snoozeUntil": "2026-11-12T07:00:00"
+      },
+      "now": 1794492000000,
+      "newId": "next-id",
+      "out": {
+        "state": "DONE",
+        "modifiedAt": 1794492000000
+      },
+      "spawned": null
+    },
+    {
+      "name": "done: repeating copy waiting for its occurrence",
+      "edit": "done",
+      "todo": {
+        "repeat": {
+          "every": 1,
+          "unit": "week",
+          "weekday": 1,
+          "monthDay": 1,
+          "at": "07:00",
+          "anchor": "2026-11-09"
+        },
+        "snoozeUntil": "2026-11-16T07:00:00",
+        "occurrence": "2026-11-16T07:00:00"
+      },
+      "now": 1794492000000,
+      "newId": "next-id",
+      "out": {
+        "state": "DONE",
+        "modifiedAt": 1794492000000,
+        "repeat": {
+          "every": 1,
+          "unit": "week",
+          "weekday": 1,
+          "monthDay": 1,
+          "at": "07:00",
+          "anchor": "2026-11-09"
+        },
+        "repeatSpawned": true,
+        "occurrence": "2026-11-16T07:00:00"
+      },
+      "spawned": {
+        "id": "next-id",
+        "createdAt": 1794492000000,
+        "modifiedAt": 1794492000000,
+        "snoozeUntil": "2026-11-23T07:00:00",
+        "repeat": {
+          "every": 1,
+          "unit": "week",
+          "weekday": 1,
+          "monthDay": 1,
+          "at": "07:00",
+          "anchor": "2026-11-09"
+        },
+        "occurrence": "2026-11-23T07:00:00"
+      }
+    },
+    {
+      "name": "done: repeating, already spawned",
+      "edit": "done",
+      "todo": {
+        "repeat": {
+          "every": 1,
+          "unit": "week",
+          "weekday": 1,
+          "monthDay": 1,
+          "at": "07:00",
+          "anchor": "2026-11-09"
+        },
+        "repeatSpawned": true,
+        "occurrence": "2026-11-09T07:00:00"
+      },
+      "now": 1794492000000,
+      "newId": "next-id",
+      "out": {
+        "state": "DONE",
+        "modifiedAt": 1794492000000,
+        "repeat": {
+          "every": 1,
+          "unit": "week",
+          "weekday": 1,
+          "monthDay": 1,
+          "at": "07:00",
+          "anchor": "2026-11-09"
+        },
+        "repeatSpawned": true,
+        "occurrence": "2026-11-09T07:00:00"
+      },
+      "spawned": null
+    },
+    {
+      "name": "done: repeating with an occurrence ahead of now",
+      "edit": "done",
+      "todo": {
+        "repeat": {
+          "every": 2,
+          "unit": "month",
+          "weekday": 1,
+          "monthDay": -1,
+          "at": "18:30",
+          "anchor": "2026-10-31"
+        },
+        "occurrence": "2026-12-31T18:30:00"
+      },
+      "now": 1794492000000,
+      "newId": "next-id",
+      "out": {
+        "state": "DONE",
+        "modifiedAt": 1794492000000,
+        "repeat": {
+          "every": 2,
+          "unit": "month",
+          "weekday": 1,
+          "monthDay": -1,
+          "at": "18:30",
+          "anchor": "2026-10-31"
+        },
+        "repeatSpawned": true,
+        "occurrence": "2026-12-31T18:30:00"
+      },
+      "spawned": {
+        "id": "next-id",
+        "createdAt": 1794492000000,
+        "modifiedAt": 1794492000000,
+        "snoozeUntil": "2027-02-28T18:30:00",
+        "repeat": {
+          "every": 2,
+          "unit": "month",
+          "weekday": 1,
+          "monthDay": -1,
+          "at": "18:30",
+          "anchor": "2026-10-31"
+        },
+        "occurrence": "2027-02-28T18:30:00"
+      }
+    },
+    {
+      "name": "done: weekly, done before its time today",
+      "edit": "done",
+      "todo": {
+        "repeat": {
+          "every": 1,
+          "unit": "week",
+          "weekday": 4,
+          "monthDay": 1,
+          "at": "07:00",
+          "anchor": "2026-11-09"
+        },
+        "occurrence": null
+      },
+      "now": 1794492000000,
+      "newId": "next-id",
+      "out": {
+        "state": "DONE",
+        "modifiedAt": 1794492000000,
+        "repeat": {
+          "every": 1,
+          "unit": "week",
+          "weekday": 4,
+          "monthDay": 1,
+          "at": "07:00",
+          "anchor": "2026-11-09"
+        },
+        "repeatSpawned": true
+      },
+      "spawned": {
+        "id": "next-id",
+        "createdAt": 1794492000000,
+        "modifiedAt": 1794492000000,
+        "snoozeUntil": "2026-11-19T07:00:00",
+        "repeat": {
+          "every": 1,
+          "unit": "week",
+          "weekday": 4,
+          "monthDay": 1,
+          "at": "07:00",
+          "anchor": "2026-11-09"
+        },
+        "occurrence": "2026-11-19T07:00:00"
+      }
+    },
+    {
+      "name": "done: weekly, done late skips missed weeks",
+      "edit": "done",
+      "todo": {
+        "repeat": {
+          "every": 1,
+          "unit": "week",
+          "weekday": 1,
+          "monthDay": 1,
+          "at": "07:00",
+          "anchor": "2026-11-09"
+        },
+        "occurrence": "2026-10-26T07:00:00",
+        "snoozeUntil": "2026-10-26T07:00:00"
+      },
+      "now": 1794492000000,
+      "newId": "next-id",
+      "out": {
+        "state": "DONE",
+        "modifiedAt": 1794492000000,
+        "repeat": {
+          "every": 1,
+          "unit": "week",
+          "weekday": 1,
+          "monthDay": 1,
+          "at": "07:00",
+          "anchor": "2026-11-09"
+        },
+        "repeatSpawned": true,
+        "occurrence": "2026-10-26T07:00:00"
+      },
+      "spawned": {
+        "id": "next-id",
+        "createdAt": 1794492000000,
+        "modifiedAt": 1794492000000,
+        "snoozeUntil": "2026-11-16T07:00:00",
+        "repeat": {
+          "every": 1,
+          "unit": "week",
+          "weekday": 1,
+          "monthDay": 1,
+          "at": "07:00",
+          "anchor": "2026-11-09"
+        },
+        "occurrence": "2026-11-16T07:00:00"
+      }
+    },
+    {
+      "name": "done: every 3 days",
+      "edit": "done",
+      "todo": {
+        "repeat": {
+          "every": 3,
+          "unit": "day",
+          "weekday": 1,
+          "monthDay": 1,
+          "at": "07:00",
+          "anchor": "2026-11-01"
+        },
+        "pinned": true
+      },
+      "now": 1794492000000,
+      "newId": "next-id",
+      "out": {
+        "state": "DONE",
+        "modifiedAt": 1794492000000,
+        "pinned": true,
+        "repeat": {
+          "every": 3,
+          "unit": "day",
+          "weekday": 1,
+          "monthDay": 1,
+          "at": "07:00",
+          "anchor": "2026-11-01"
+        },
+        "repeatSpawned": true
+      },
+      "spawned": {
+        "id": "next-id",
+        "createdAt": 1794492000000,
+        "modifiedAt": 1794492000000,
+        "snoozeUntil": "2026-11-13T07:00:00",
+        "pinned": true,
+        "repeat": {
+          "every": 3,
+          "unit": "day",
+          "weekday": 1,
+          "monthDay": 1,
+          "at": "07:00",
+          "anchor": "2026-11-01"
+        },
+        "occurrence": "2026-11-13T07:00:00"
+      }
+    },
+    {
+      "name": "done: last day of the month, every 2 months",
+      "edit": "done",
+      "todo": {
+        "repeat": {
+          "every": 2,
+          "unit": "month",
+          "weekday": 1,
+          "monthDay": -1,
+          "at": "18:30",
+          "anchor": "2026-10-31"
+        }
+      },
+      "now": 1794492000000,
+      "newId": "next-id",
+      "out": {
+        "state": "DONE",
+        "modifiedAt": 1794492000000,
+        "repeat": {
+          "every": 2,
+          "unit": "month",
+          "weekday": 1,
+          "monthDay": -1,
+          "at": "18:30",
+          "anchor": "2026-10-31"
+        },
+        "repeatSpawned": true
+      },
+      "spawned": {
+        "id": "next-id",
+        "createdAt": 1794492000000,
+        "modifiedAt": 1794492000000,
+        "snoozeUntil": "2026-12-31T18:30:00",
+        "repeat": {
+          "every": 2,
+          "unit": "month",
+          "weekday": 1,
+          "monthDay": -1,
+          "at": "18:30",
+          "anchor": "2026-10-31"
+        },
+        "occurrence": "2026-12-31T18:30:00"
+      }
+    },
+    {
+      "name": "done: the 31st every month",
+      "edit": "done",
+      "todo": {
+        "repeat": {
+          "every": 1,
+          "unit": "month",
+          "weekday": 1,
+          "monthDay": 31,
+          "at": "18:30",
+          "anchor": "2026-10-31"
+        }
+      },
+      "now": 1794492000000,
+      "newId": "next-id",
+      "out": {
+        "state": "DONE",
+        "modifiedAt": 1794492000000,
+        "repeat": {
+          "every": 1,
+          "unit": "month",
+          "weekday": 1,
+          "monthDay": 31,
+          "at": "18:30",
+          "anchor": "2026-10-31"
+        },
+        "repeatSpawned": true
+      },
+      "spawned": {
+        "id": "next-id",
+        "createdAt": 1794492000000,
+        "modifiedAt": 1794492000000,
+        "snoozeUntil": "2026-11-30T18:30:00",
+        "repeat": {
+          "every": 1,
+          "unit": "month",
+          "weekday": 1,
+          "monthDay": 31,
+          "at": "18:30",
+          "anchor": "2026-10-31"
+        },
+        "occurrence": "2026-11-30T18:30:00"
+      }
+    },
+    {
+      "name": "reactivate: plain active",
+      "edit": "reactivate",
+      "todo": {},
+      "now": 1794492000000,
+      "out": {
+        "modifiedAt": 1794492000000
+      }
+    },
+    {
+      "name": "reactivate: done",
+      "edit": "reactivate",
+      "todo": {
+        "state": "DONE",
+        "modifiedAt": 1794488400000
+      },
+      "now": 1794492000000,
+      "out": {
+        "modifiedAt": 1794492000000
+      }
+    },
+    {
+      "name": "reactivate: snoozed until later today",
+      "edit": "reactivate",
+      "todo": {
+        "snoozeUntil": "2026-11-12T12:00:00"
+      },
+      "now": 1794492000000,
+      "out": {
+        "modifiedAt": 1794492000000
+      }
+    },
+    {
+      "name": "reactivate: snoozed until exactly now has woken",
+      "edit": "reactivate",
+      "todo": {
+        "snoozeUntil": "2026-11-12T09:00:00"
+      },
+      "now": 1794492000000,
+      "out": {
+        "modifiedAt": 1794492000000
+      }
+    },
+    {
+      "name": "reactivate: woke from a snooze an hour ago",
+      "edit": "reactivate",
+      "todo": {
+        "snoozeUntil": "2026-11-12T08:00:00",
+        "modifiedAt": 1794405600000
+      },
+      "now": 1794492000000,
+      "out": {
+        "modifiedAt": 1794492000000
+      }
+    },
+    {
+      "name": "reactivate: done with a future snoozeUntil is done, not snoozed",
+      "edit": "reactivate",
+      "todo": {
+        "state": "DONE",
+        "snoozeUntil": "2026-11-13T09:00:00"
+      },
+      "now": 1794492000000,
+      "out": {
+        "modifiedAt": 1794492000000
+      }
+    },
+    {
+      "name": "reactivate: pinned",
+      "edit": "reactivate",
+      "todo": {
+        "pinned": true
+      },
+      "now": 1794492000000,
+      "out": {
+        "modifiedAt": 1794492000000,
+        "pinned": true
+      }
+    },
+    {
+      "name": "reactivate: pinned and snoozed",
+      "edit": "reactivate",
+      "todo": {
+        "pinned": true,
+        "snoozeUntil": "2026-11-13T09:00:00"
+      },
+      "now": 1794492000000,
+      "out": {
+        "modifiedAt": 1794492000000,
+        "pinned": true
+      }
+    },
+    {
+      "name": "reactivate: moved",
+      "edit": "reactivate",
+      "todo": {
+        "position": "1794450000000i0f8fad5bz",
+        "modifiedAt": 1794319200000
+      },
+      "now": 1794492000000,
+      "out": {
+        "modifiedAt": 1794492000000
+      }
+    },
+    {
+      "name": "reactivate: moved and woken",
+      "edit": "reactivate",
+      "todo": {
+        "position": "1794450000000i0f8fad5bz",
+        "snoozeUntil": "2026-11-12T07:00:00"
+      },
+      "now": 1794492000000,
+      "out": {
+        "modifiedAt": 1794492000000
+      }
+    },
+    {
+      "name": "reactivate: repeating copy waiting for its occurrence",
+      "edit": "reactivate",
+      "todo": {
+        "repeat": {
+          "every": 1,
+          "unit": "week",
+          "weekday": 1,
+          "monthDay": 1,
+          "at": "07:00",
+          "anchor": "2026-11-09"
+        },
+        "snoozeUntil": "2026-11-16T07:00:00",
+        "occurrence": "2026-11-16T07:00:00"
+      },
+      "now": 1794492000000,
+      "out": {
+        "modifiedAt": 1794492000000
+      }
+    },
+    {
+      "name": "reactivate: repeating, already spawned",
+      "edit": "reactivate",
+      "todo": {
+        "repeat": {
+          "every": 1,
+          "unit": "week",
+          "weekday": 1,
+          "monthDay": 1,
+          "at": "07:00",
+          "anchor": "2026-11-09"
+        },
+        "repeatSpawned": true,
+        "occurrence": "2026-11-09T07:00:00"
+      },
+      "now": 1794492000000,
+      "out": {
+        "modifiedAt": 1794492000000,
+        "repeat": {
+          "every": 1,
+          "unit": "week",
+          "weekday": 1,
+          "monthDay": 1,
+          "at": "07:00",
+          "anchor": "2026-11-09"
+        },
+        "repeatSpawned": true,
+        "occurrence": "2026-11-09T07:00:00"
+      }
+    },
+    {
+      "name": "reactivate: repeating with an occurrence ahead of now",
+      "edit": "reactivate",
+      "todo": {
+        "repeat": {
+          "every": 2,
+          "unit": "month",
+          "weekday": 1,
+          "monthDay": -1,
+          "at": "18:30",
+          "anchor": "2026-10-31"
+        },
+        "occurrence": "2026-12-31T18:30:00"
+      },
+      "now": 1794492000000,
+      "out": {
+        "modifiedAt": 1794492000000,
+        "repeat": {
+          "every": 2,
+          "unit": "month",
+          "weekday": 1,
+          "monthDay": -1,
+          "at": "18:30",
+          "anchor": "2026-10-31"
+        },
+        "occurrence": "2026-12-31T18:30:00"
+      }
+    },
+    {
+      "name": "repeat: every Monday",
+      "edit": "repeat",
+      "todo": {
+        "snoozeUntil": "2026-11-12T10:00:00",
+        "position": "1794450000000z"
+      },
+      "now": 1794492000000,
+      "draft": {
+        "every": 1,
+        "unit": "week",
+        "weekday": 1,
+        "monthDay": 1,
+        "at": "07:00"
+      },
+      "out": {
+        "snoozeUntil": "2026-11-12T10:00:00",
+        "position": "1794450000000z",
+        "repeat": {
+          "every": 1,
+          "unit": "week",
+          "weekday": 1,
+          "monthDay": 1,
+          "at": "07:00",
+          "anchor": "2026-11-16"
+        }
+      }
+    },
+    {
+      "name": "repeat: every Thursday, later today",
+      "edit": "repeat",
+      "todo": {
+        "snoozeUntil": "2026-11-12T10:00:00",
+        "position": "1794450000000z"
+      },
+      "now": 1794492000000,
+      "draft": {
+        "every": 2,
+        "unit": "week",
+        "weekday": 4,
+        "monthDay": 1,
+        "at": "10:00"
+      },
+      "out": {
+        "snoozeUntil": "2026-11-12T10:00:00",
+        "position": "1794450000000z",
+        "repeat": {
+          "every": 2,
+          "unit": "week",
+          "weekday": 4,
+          "monthDay": 1,
+          "at": "10:00",
+          "anchor": "2026-11-12"
+        }
+      }
+    },
+    {
+      "name": "repeat: every day, time passed today",
+      "edit": "repeat",
+      "todo": {
+        "snoozeUntil": "2026-11-12T10:00:00",
+        "position": "1794450000000z"
+      },
+      "now": 1794492000000,
+      "draft": {
+        "every": 1,
+        "unit": "day",
+        "weekday": 1,
+        "monthDay": 1,
+        "at": "08:00"
+      },
+      "out": {
+        "snoozeUntil": "2026-11-12T10:00:00",
+        "position": "1794450000000z",
+        "repeat": {
+          "every": 1,
+          "unit": "day",
+          "weekday": 1,
+          "monthDay": 1,
+          "at": "08:00",
+          "anchor": "2026-11-13"
+        }
+      }
+    },
+    {
+      "name": "repeat: the last day every 3 months",
+      "edit": "repeat",
+      "todo": {
+        "snoozeUntil": "2026-11-12T10:00:00",
+        "position": "1794450000000z"
+      },
+      "now": 1794492000000,
+      "draft": {
+        "every": 3,
+        "unit": "month",
+        "weekday": 1,
+        "monthDay": -1,
+        "at": "12:00"
+      },
+      "out": {
+        "snoozeUntil": "2026-11-12T10:00:00",
+        "position": "1794450000000z",
+        "repeat": {
+          "every": 3,
+          "unit": "month",
+          "weekday": 1,
+          "monthDay": -1,
+          "at": "12:00",
+          "anchor": "2026-11-30"
+        }
+      }
+    },
+    {
+      "name": "delete: plain active",
+      "edit": "delete",
+      "todo": {},
+      "now": 1794492000000,
+      "out": {
+        "text": "",
+        "modifiedAt": 1794492000000,
+        "deleted": true
+      }
+    },
+    {
+      "name": "delete: done",
+      "edit": "delete",
+      "todo": {
+        "state": "DONE",
+        "modifiedAt": 1794488400000
+      },
+      "now": 1794492000000,
+      "out": {
+        "text": "",
+        "state": "DONE",
+        "modifiedAt": 1794492000000,
+        "deleted": true
+      }
+    },
+    {
+      "name": "delete: snoozed until later today",
+      "edit": "delete",
+      "todo": {
+        "snoozeUntil": "2026-11-12T12:00:00"
+      },
+      "now": 1794492000000,
+      "out": {
+        "text": "",
+        "modifiedAt": 1794492000000,
+        "snoozeUntil": "2026-11-12T12:00:00",
+        "deleted": true
+      }
+    },
+    {
+      "name": "delete: snoozed until exactly now has woken",
+      "edit": "delete",
+      "todo": {
+        "snoozeUntil": "2026-11-12T09:00:00"
+      },
+      "now": 1794492000000,
+      "out": {
+        "text": "",
+        "modifiedAt": 1794492000000,
+        "snoozeUntil": "2026-11-12T09:00:00",
+        "deleted": true
+      }
+    },
+    {
+      "name": "delete: woke from a snooze an hour ago",
+      "edit": "delete",
+      "todo": {
+        "snoozeUntil": "2026-11-12T08:00:00",
+        "modifiedAt": 1794405600000
+      },
+      "now": 1794492000000,
+      "out": {
+        "text": "",
+        "modifiedAt": 1794492000000,
+        "snoozeUntil": "2026-11-12T08:00:00",
+        "deleted": true
+      }
+    },
+    {
+      "name": "delete: done with a future snoozeUntil is done, not snoozed",
+      "edit": "delete",
+      "todo": {
+        "state": "DONE",
+        "snoozeUntil": "2026-11-13T09:00:00"
+      },
+      "now": 1794492000000,
+      "out": {
+        "text": "",
+        "state": "DONE",
+        "modifiedAt": 1794492000000,
+        "snoozeUntil": "2026-11-13T09:00:00",
+        "deleted": true
+      }
+    },
+    {
+      "name": "delete: pinned",
+      "edit": "delete",
+      "todo": {
+        "pinned": true
+      },
+      "now": 1794492000000,
+      "out": {
+        "text": "",
+        "modifiedAt": 1794492000000,
+        "pinned": true,
+        "deleted": true
+      }
+    },
+    {
+      "name": "delete: pinned and snoozed",
+      "edit": "delete",
+      "todo": {
+        "pinned": true,
+        "snoozeUntil": "2026-11-13T09:00:00"
+      },
+      "now": 1794492000000,
+      "out": {
+        "text": "",
+        "modifiedAt": 1794492000000,
+        "snoozeUntil": "2026-11-13T09:00:00",
+        "pinned": true,
+        "deleted": true
+      }
+    },
+    {
+      "name": "delete: moved",
+      "edit": "delete",
+      "todo": {
+        "position": "1794450000000i0f8fad5bz",
+        "modifiedAt": 1794319200000
+      },
+      "now": 1794492000000,
+      "out": {
+        "text": "",
+        "modifiedAt": 1794492000000,
+        "position": "1794450000000i0f8fad5bz",
+        "deleted": true
+      }
+    },
+    {
+      "name": "delete: moved and woken",
+      "edit": "delete",
+      "todo": {
+        "position": "1794450000000i0f8fad5bz",
+        "snoozeUntil": "2026-11-12T07:00:00"
+      },
+      "now": 1794492000000,
+      "out": {
+        "text": "",
+        "modifiedAt": 1794492000000,
+        "snoozeUntil": "2026-11-12T07:00:00",
+        "position": "1794450000000i0f8fad5bz",
+        "deleted": true
+      }
+    },
+    {
+      "name": "delete: repeating copy waiting for its occurrence",
+      "edit": "delete",
+      "todo": {
+        "repeat": {
+          "every": 1,
+          "unit": "week",
+          "weekday": 1,
+          "monthDay": 1,
+          "at": "07:00",
+          "anchor": "2026-11-09"
+        },
+        "snoozeUntil": "2026-11-16T07:00:00",
+        "occurrence": "2026-11-16T07:00:00"
+      },
+      "now": 1794492000000,
+      "out": {
+        "text": "",
+        "modifiedAt": 1794492000000,
+        "snoozeUntil": "2026-11-16T07:00:00",
+        "deleted": true,
+        "repeat": {
+          "every": 1,
+          "unit": "week",
+          "weekday": 1,
+          "monthDay": 1,
+          "at": "07:00",
+          "anchor": "2026-11-09"
+        },
+        "occurrence": "2026-11-16T07:00:00"
+      }
+    },
+    {
+      "name": "delete: repeating, already spawned",
+      "edit": "delete",
+      "todo": {
+        "repeat": {
+          "every": 1,
+          "unit": "week",
+          "weekday": 1,
+          "monthDay": 1,
+          "at": "07:00",
+          "anchor": "2026-11-09"
+        },
+        "repeatSpawned": true,
+        "occurrence": "2026-11-09T07:00:00"
+      },
+      "now": 1794492000000,
+      "out": {
+        "text": "",
+        "modifiedAt": 1794492000000,
+        "deleted": true,
+        "repeat": {
+          "every": 1,
+          "unit": "week",
+          "weekday": 1,
+          "monthDay": 1,
+          "at": "07:00",
+          "anchor": "2026-11-09"
+        },
+        "repeatSpawned": true,
+        "occurrence": "2026-11-09T07:00:00"
+      }
+    },
+    {
+      "name": "delete: repeating with an occurrence ahead of now",
+      "edit": "delete",
+      "todo": {
+        "repeat": {
+          "every": 2,
+          "unit": "month",
+          "weekday": 1,
+          "monthDay": -1,
+          "at": "18:30",
+          "anchor": "2026-10-31"
+        },
+        "occurrence": "2026-12-31T18:30:00"
+      },
+      "now": 1794492000000,
+      "out": {
+        "text": "",
+        "modifiedAt": 1794492000000,
+        "deleted": true,
+        "repeat": {
+          "every": 2,
+          "unit": "month",
+          "weekday": 1,
+          "monthDay": -1,
+          "at": "18:30",
+          "anchor": "2026-10-31"
+        },
+        "occurrence": "2026-12-31T18:30:00"
+      }
+    }
+  ],
+  "listDates": [
+    {
+      "name": "an open todo sorts by its own place",
+      "todo": {},
+      "listDate": 1794400000000
+    },
+    {
+      "name": "a snoozed or woken todo sorts by its wake time",
+      "todo": {
+        "snoozeUntil": "2026-11-12T12:00:00"
+      },
+      "listDate": 1794502800000
+    },
+    {
+      "name": "a done todo sorts by its own place, not a snooze it had",
+      "todo": {
+        "state": "DONE",
+        "modifiedAt": 1794488400000,
+        "snoozeUntil": "2026-11-13T09:00:00"
+      },
+      "listDate": 1794488400000
+    },
+    {
+      "name": "a moved todo sorts by its place",
+      "todo": {
+        "position": "1794450000000i0f8fad5bz"
+      },
+      "listDate": 1794450000000
+    }
+  ]
+}

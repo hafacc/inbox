@@ -1,0 +1,29 @@
+{
+  "name": "inbox",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "shared",
+    "web",
+    "functions",
+    "firebase",
+    "workers/*"
+  ],
+  "scripts": {
+    "dev": "bun run --filter @inbox/web dev",
+    "test": "bun run --filter '*' test",
+    "fmt": "biome format --write && biome check --write",
+    "lint": "bun run --filter '*' typecheck && biome check --error-on-warnings && eslint"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.6.7",
+    "@types/bun": "^1.4.4",
+    "eslint": "^10.15.0",
+    "eslint-plugin-jsdoc": "^65.4.7",
+    "svelte-eslint-parser": "^1.10.1",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.72.2"
+  },
+  "packageManager": "bun@1.4.2"
+}

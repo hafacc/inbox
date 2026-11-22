@@ -1,0 +1,12 @@
+{
+  "_doc": "The question sign-out asks first (shared/src/sign-out.ts, Android :core SignOut.kt). `warning`: signOutWarning(changes, drafts), where changes are label changes on threads plus label and filter edits queued on the device, and drafts are drafts or sends not yet in Gmail and thrown-away drafts whose delete hasn't reached it; null signs out at once.",
+  "warning": [
+    { "name": "nothing waiting", "changes": 0, "drafts": 0, "expect": null },
+    { "name": "one change", "changes": 1, "drafts": 0, "expect": "1 change hasn't synced yet. Signing out deletes it from this device." },
+    { "name": "changes", "changes": 3, "drafts": 0, "expect": "3 changes haven't synced yet. Signing out deletes them from this device." },
+    { "name": "one draft", "changes": 0, "drafts": 1, "expect": "1 draft hasn't synced yet. Signing out deletes it from this device." },
+    { "name": "drafts", "changes": 0, "drafts": 2, "expect": "2 drafts haven't synced yet. Signing out deletes them from this device." },
+    { "name": "both", "changes": 2, "drafts": 1, "expect": "2 changes and 1 draft haven't synced yet. Signing out deletes them from this device." },
+    { "name": "one of each", "changes": 1, "drafts": 1, "expect": "1 change and 1 draft haven't synced yet. Signing out deletes them from this device." }
+  ]
+}

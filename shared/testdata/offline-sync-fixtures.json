@@ -1,0 +1,192 @@
+{
+  "mode": [
+    {
+      "name": "a filled copy with an id syncs from it",
+      "historyId": "100",
+      "filled": true,
+      "expect": "incremental"
+    },
+    {
+      "name": "the first fill rebuilds",
+      "historyId": null,
+      "filled": false,
+      "expect": "rebuild"
+    },
+    {
+      "name": "a fill cut short rebuilds",
+      "historyId": "100",
+      "filled": false,
+      "expect": "rebuild"
+    },
+    {
+      "name": "no id rebuilds",
+      "historyId": null,
+      "filled": true,
+      "expect": "rebuild"
+    }
+  ],
+  "history": [
+    {
+      "name": "every page back applies",
+      "read": "complete",
+      "expect": "apply"
+    },
+    {
+      "name": "an id too old rebuilds",
+      "read": "expired",
+      "expect": "rebuild"
+    },
+    {
+      "name": "a failed page stops until the next sync",
+      "read": "failed",
+      "expect": "stop"
+    }
+  ],
+  "after": [
+    {
+      "name": "a whole sync moves the id on",
+      "before": {
+        "historyId": "100",
+        "filled": true
+      },
+      "run": {
+        "mode": "incremental",
+        "listed": true,
+        "read": true,
+        "reached": "180"
+      },
+      "expect": {
+        "historyId": "180",
+        "filled": true
+      }
+    },
+    {
+      "name": "a failed read keeps the id",
+      "before": {
+        "historyId": "100",
+        "filled": true
+      },
+      "run": {
+        "mode": "incremental",
+        "listed": true,
+        "read": false,
+        "reached": "180"
+      },
+      "expect": {
+        "historyId": "100",
+        "filled": true
+      }
+    },
+    {
+      "name": "a history cut short keeps the id",
+      "before": {
+        "historyId": "100",
+        "filled": true
+      },
+      "run": {
+        "mode": "incremental",
+        "listed": false,
+        "read": true,
+        "reached": null
+      },
+      "expect": {
+        "historyId": "100",
+        "filled": true
+      }
+    },
+    {
+      "name": "a whole rebuild fills the copy",
+      "before": {
+        "historyId": null,
+        "filled": false
+      },
+      "run": {
+        "mode": "rebuild",
+        "listed": true,
+        "read": true,
+        "reached": "500"
+      },
+      "expect": {
+        "historyId": "500",
+        "filled": true
+      }
+    },
+    {
+      "name": "a rebuild without the profile's id changes nothing",
+      "before": {
+        "historyId": null,
+        "filled": false
+      },
+      "run": {
+        "mode": "rebuild",
+        "listed": true,
+        "read": true,
+        "reached": null
+      },
+      "expect": {
+        "historyId": null,
+        "filled": false
+      }
+    },
+    {
+      "name": "a first fill cut short stays unfilled",
+      "before": {
+        "historyId": null,
+        "filled": false
+      },
+      "run": {
+        "mode": "rebuild",
+        "listed": true,
+        "read": false,
+        "reached": "500"
+      },
+      "expect": {
+        "historyId": null,
+        "filled": false
+      }
+    },
+    {
+      "name": "a rebuild after an expired id cut short keeps the old id",
+      "before": {
+        "historyId": "100",
+        "filled": true
+      },
+      "run": {
+        "mode": "rebuild",
+        "listed": false,
+        "read": true,
+        "reached": "500"
+      },
+      "expect": {
+        "historyId": "100",
+        "filled": true
+      }
+    }
+  ],
+  "dropsUnlisted": [
+    {
+      "name": "a rebuild that listed everything drops the rest",
+      "run": {
+        "mode": "rebuild",
+        "listed": true
+      },
+      "expect": true
+    },
+    {
+      "name": "a rebuild cut short drops nothing",
+      "run": {
+        "mode": "rebuild",
+        "listed": false
+      },
+      "expect": false
+    },
+    {
+      "name": "history never drops unlisted threads",
+      "run": {
+        "mode": "incremental",
+        "listed": true
+      },
+      "expect": false
+    }
+  ]
+}

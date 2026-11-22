@@ -1,0 +1,597 @@
+{
+  "_doc": "A send now that is on screen and online when its undo window ends goes from the device (shared/src/direct-send.ts, Android :core DirectSend.kt). `decision`: directSendDecision(input) (times in epoch ms; lateMs is DIRECT_SEND_LATE_MS, handoverMaxMs DIRECT_HANDOVER_MAX_MS, sendTimeoutMs DIRECT_SEND_TIMEOUT_MS: how long the device waits for drafts.send before leaving the send to the server) — \"send\" when the device sends it itself, otherwise why the server's task does. `route`: isGmailRoute(from, sendAs, resendDomain) is true (\"send\") only for the Gmail address or an alias Gmail verified, never for resendDomain. `sender`: draftSender(headers) is the one From header's single plain mailbox, lower-cased, or null for anything the device leaves to the server. `failure`: directSendFailure(error) after the device's own drafts.send failed: \"rejected\" for a refusal the server would fail at once, \"leave\" for anything the server's takeover settles.",
+  "lateMs": 30000,
+  "handoverMaxMs": 60000,
+  "sendTimeoutMs": 30000,
+  "clientFields": [
+    "draftId",
+    "from",
+    "status",
+    "sendAt",
+    "chosenAt",
+    "threadId"
+  ],
+  "decision": [
+    {
+      "name": "a send now at its time, from Gmail, goes from the device",
+      "input": {
+        "sendNow": true,
+        "docs": 1,
+        "online": true,
+        "gmailRoute": true,
+        "wroteSendAt": 1000000,
+        "doc": {
+          "status": "waiting",
+          "sendAt": 1000000,
+          "fields": [
+            "draftId",
+            "from",
+            "status",
+            "sendAt",
+            "chosenAt",
+            "threadId"
+          ]
+        },
+        "now": 1000000
+      },
+      "expect": "send"
+    },
+    {
+      "name": "a few seconds late still goes",
+      "input": {
+        "sendNow": true,
+        "docs": 1,
+        "online": true,
+        "gmailRoute": true,
+        "wroteSendAt": 1000000,
+        "doc": {
+          "status": "waiting",
+          "sendAt": 1000000,
+          "fields": [
+            "draftId",
+            "from",
+            "status",
+            "sendAt",
+            "chosenAt",
+            "threadId"
+          ]
+        },
+        "now": 1030000
+      },
+      "expect": "send"
+    },
+    {
+      "name": "past the late limit the server has it",
+      "input": {
+        "sendNow": true,
+        "docs": 1,
+        "online": true,
+        "gmailRoute": true,
+        "wroteSendAt": 1000000,
+        "doc": {
+          "status": "waiting",
+          "sendAt": 1000000,
+          "fields": [
+            "draftId",
+            "from",
+            "status",
+            "sendAt",
+            "chosenAt",
+            "threadId"
+          ]
+        },
+        "now": 1030001
+      },
+      "expect": "late"
+    },
+    {
+      "name": "before its time by this clock it waits",
+      "input": {
+        "sendNow": true,
+        "docs": 1,
+        "online": true,
+        "gmailRoute": true,
+        "wroteSendAt": 1000000,
+        "doc": {
+          "status": "waiting",
+          "sendAt": 1000000,
+          "fields": [
+            "draftId",
+            "from",
+            "status",
+            "sendAt",
+            "chosenAt",
+            "threadId"
+          ]
+        },
+        "now": 999999
+      },
+      "expect": "early"
+    },
+    {
+      "name": "a scheduled send is the server's",
+      "input": {
+        "sendNow": false,
+        "docs": 1,
+        "online": true,
+        "gmailRoute": true,
+        "wroteSendAt": 1000000,
+        "doc": {
+          "status": "waiting",
+          "sendAt": 1000000,
+          "fields": [
+            "draftId",
+            "from",
+            "status",
+            "sendAt",
+            "chosenAt",
+            "threadId"
+          ]
+        },
+        "now": 1000000
+      },
+      "expect": "scheduled"
+    },
+    {
+      "name": "an encrypted send with Bcc copies is the server's",
+      "input": {
+        "sendNow": true,
+        "docs": 2,
+        "online": true,
+        "gmailRoute": true,
+        "wroteSendAt": 1000000,
+        "doc": {
+          "status": "waiting",
+          "sendAt": 1000000,
+          "fields": [
+            "draftId",
+            "from",
+            "status",
+            "sendAt",
+            "chosenAt",
+            "threadId"
+          ]
+        },
+        "now": 1000000
+      },
+      "expect": "copies"
+    },
+    {
+      "name": "offline it is the server's",
+      "input": {
+        "sendNow": true,
+        "docs": 1,
+        "online": false,
+        "gmailRoute": true,
+        "wroteSendAt": 1000000,
+        "doc": {
+          "status": "waiting",
+          "sendAt": 1000000,
+          "fields": [
+            "draftId",
+            "from",
+            "status",
+            "sendAt",
+            "chosenAt",
+            "threadId"
+          ]
+        },
+        "now": 1000000
+      },
+      "expect": "offline"
+    },
+    {
+      "name": "from @hafa.cc or an unverified alias it is the server's",
+      "input": {
+        "sendNow": true,
+        "docs": 1,
+        "online": true,
+        "gmailRoute": false,
+        "wroteSendAt": 1000000,
+        "doc": {
+          "status": "waiting",
+          "sendAt": 1000000,
+          "fields": [
+            "draftId",
+            "from",
+            "status",
+            "sendAt",
+            "chosenAt",
+            "threadId"
+          ]
+        },
+        "now": 1000000
+      },
+      "expect": "not-gmail"
+    },
+    {
+      "name": "an undone send has no doc",
+      "input": {
+        "sendNow": true,
+        "docs": 1,
+        "online": true,
+        "gmailRoute": true,
+        "wroteSendAt": 1000000,
+        "doc": null,
+        "now": 1000000
+      },
+      "expect": "no-doc"
+    },
+    {
+      "name": "one the server already claimed",
+      "input": {
+        "sendNow": true,
+        "docs": 1,
+        "online": true,
+        "gmailRoute": true,
+        "wroteSendAt": 1000000,
+        "doc": {
+          "status": "sending",
+          "sendAt": 1000000,
+          "fields": [
+            "draftId",
+            "from",
+            "status",
+            "sendAt",
+            "chosenAt",
+            "threadId"
+          ]
+        },
+        "now": 1000000
+      },
+      "expect": "taken"
+    },
+    {
+      "name": "one already sent",
+      "input": {
+        "sendNow": true,
+        "docs": 1,
+        "online": true,
+        "gmailRoute": true,
+        "wroteSendAt": 1000000,
+        "doc": {
+          "status": "sent",
+          "sendAt": 1000000,
+          "fields": [
+            "draftId",
+            "from",
+            "status",
+            "sendAt",
+            "chosenAt",
+            "threadId"
+          ]
+        },
+        "now": 1000000
+      },
+      "expect": "taken"
+    },
+    {
+      "name": "rescheduled since this device wrote it",
+      "input": {
+        "sendNow": true,
+        "docs": 1,
+        "online": true,
+        "gmailRoute": true,
+        "wroteSendAt": 1000000,
+        "doc": {
+          "status": "waiting",
+          "sendAt": 2000000,
+          "fields": [
+            "draftId",
+            "from",
+            "status",
+            "sendAt",
+            "chosenAt",
+            "threadId"
+          ]
+        },
+        "now": 1000000
+      },
+      "expect": "moved"
+    },
+    {
+      "name": "a doc carrying the server's attempt record",
+      "input": {
+        "sendNow": true,
+        "docs": 1,
+        "online": true,
+        "gmailRoute": true,
+        "wroteSendAt": 1000000,
+        "doc": {
+          "status": "waiting",
+          "sendAt": 1000000,
+          "fields": [
+            "draftId",
+            "from",
+            "status",
+            "sendAt",
+            "chosenAt",
+            "threadId",
+            "via",
+            "draftMessageId"
+          ]
+        },
+        "now": 1000000
+      },
+      "expect": "server-record"
+    },
+    {
+      "name": "a doc without the optional fields still goes",
+      "input": {
+        "sendNow": true,
+        "docs": 1,
+        "online": true,
+        "gmailRoute": true,
+        "wroteSendAt": 1000000,
+        "doc": {
+          "status": "waiting",
+          "sendAt": 1000000,
+          "fields": [
+            "draftId",
+            "from",
+            "status",
+            "sendAt"
+          ]
+        },
+        "now": 1000000
+      },
+      "expect": "send"
+    }
+  ],
+  "resendDomain": "hafa.cc",
+  "sendAs": [
+    {
+      "sendAsEmail": "ana@gmail.example.com",
+      "isPrimary": true
+    },
+    {
+      "sendAsEmail": "Ana@Work.example",
+      "verificationStatus": "accepted"
+    },
+    {
+      "sendAsEmail": "ana@pending.example",
+      "verificationStatus": "pending"
+    },
+    {
+      "sendAsEmail": "test@hafa.cc",
+      "verificationStatus": "accepted"
+    }
+  ],
+  "route": [
+    {
+      "name": "the Gmail address",
+      "from": "ana@gmail.example.com",
+      "expect": "send"
+    },
+    {
+      "name": "case and spaces don't matter",
+      "from": "  Ana@Gmail.example.com ",
+      "expect": "send"
+    },
+    {
+      "name": "a verified alias",
+      "from": "ana@work.example",
+      "expect": "send"
+    },
+    {
+      "name": "an alias Gmail hasn't verified",
+      "from": "ana@pending.example",
+      "expect": "server"
+    },
+    {
+      "name": "an address Gmail doesn't know",
+      "from": "ana@other.example",
+      "expect": "server"
+    },
+    {
+      "name": "@hafa.cc goes through Resend even when Gmail lists it",
+      "from": "test@hafa.cc",
+      "expect": "server"
+    }
+  ],
+  "sender": [
+    {
+      "name": "a named mailbox",
+      "headers": [
+        {
+          "name": "From",
+          "value": "Ana Lee <Ana@Gmail.example.com>"
+        }
+      ],
+      "expect": "ana@gmail.example.com"
+    },
+    {
+      "name": "a bare address",
+      "headers": [
+        {
+          "name": "From",
+          "value": "ana@gmail.example.com"
+        }
+      ],
+      "expect": "ana@gmail.example.com"
+    },
+    {
+      "name": "a quoted name with a comma and an at sign",
+      "headers": [
+        {
+          "name": "From",
+          "value": "\"Lee, Ana @ home\" <ana@gmail.example.com>"
+        }
+      ],
+      "expect": "ana@gmail.example.com"
+    },
+    {
+      "name": "an encoded name",
+      "headers": [
+        {
+          "name": "From",
+          "value": "=?UTF-8?Q?Ana_L=C3=A9e?= <ana@gmail.example.com>"
+        }
+      ],
+      "expect": "ana@gmail.example.com"
+    },
+    {
+      "name": "the header name in any case",
+      "headers": [
+        {
+          "name": "FROM",
+          "value": "ana@gmail.example.com"
+        }
+      ],
+      "expect": "ana@gmail.example.com"
+    },
+    {
+      "name": "no From",
+      "headers": [
+        {
+          "name": "To",
+          "value": "bob@example.com"
+        }
+      ],
+      "expect": null
+    },
+    {
+      "name": "two From headers",
+      "headers": [
+        {
+          "name": "From",
+          "value": "ana@gmail.example.com"
+        },
+        {
+          "name": "From",
+          "value": "ana@gmail.example.com"
+        }
+      ],
+      "expect": null
+    },
+    {
+      "name": "two mailboxes",
+      "headers": [
+        {
+          "name": "From",
+          "value": "ana@gmail.example.com, bob@example.com"
+        }
+      ],
+      "expect": null
+    },
+    {
+      "name": "a second address in the name",
+      "headers": [
+        {
+          "name": "From",
+          "value": "bob@example.com <ana@gmail.example.com>"
+        }
+      ],
+      "expect": null
+    },
+    {
+      "name": "a group",
+      "headers": [
+        {
+          "name": "From",
+          "value": "friends: <ana@gmail.example.com>;"
+        }
+      ],
+      "expect": null
+    },
+    {
+      "name": "a comment",
+      "headers": [
+        {
+          "name": "From",
+          "value": "ana@gmail.example.com (Ana)"
+        }
+      ],
+      "expect": null
+    },
+    {
+      "name": "an unquoted comma in the name",
+      "headers": [
+        {
+          "name": "From",
+          "value": "Lee, Ana <ana@gmail.example.com>"
+        }
+      ],
+      "expect": null
+    }
+  ],
+  "failure": [
+    {
+      "name": "no answer",
+      "error": null,
+      "expect": "leave"
+    },
+    {
+      "name": "a bad request is a refusal",
+      "error": {
+        "status": 400,
+        "reason": "invalidArgument"
+      },
+      "expect": "rejected"
+    },
+    {
+      "name": "a forbidden send is a refusal",
+      "error": {
+        "status": 403,
+        "reason": "forbidden"
+      },
+      "expect": "rejected"
+    },
+    {
+      "name": "too large",
+      "error": {
+        "status": 413,
+        "reason": null
+      },
+      "expect": "rejected"
+    },
+    {
+      "name": "a 403 rate limit passes",
+      "error": {
+        "status": 403,
+        "reason": "userRateLimitExceeded"
+      },
+      "expect": "leave"
+    },
+    {
+      "name": "a 429 passes",
+      "error": {
+        "status": 429,
+        "reason": null
+      },
+      "expect": "leave"
+    },
+    {
+      "name": "an expired token passes",
+      "error": {
+        "status": 401,
+        "reason": null
+      },
+      "expect": "leave"
+    },
+    {
+      "name": "a timeout passes",
+      "error": {
+        "status": 408,
+        "reason": "timeout"
+      },
+      "expect": "leave"
+    },
+    {
+      "name": "a draft gone is the server's to look up",
+      "error": {
+        "status": 404,
+        "reason": "notFound"
+      },
+      "expect": "leave"
+    },
+    {
+      "name": "a server error passes",
+      "error": {
+        "status": 503,
+        "reason": null
+      },
+      "expect": "leave"
+    }
+  ]
+}

@@ -1,0 +1,271 @@
+{
+  "_doc": "withQueued(row, queue): each change in queue for the row's thread, in replay order (by seq, whatever order queue lists them in; web breaks ties between tabs by id), removes its remove labels then adds its add labels (labels sorted); unread turns true when a change adds UNREAD, false when it removes UNREAD (adding wins when it does both), else stays. Changes for other threads are ignored.",
+  "cases": [
+    {
+      "name": "no queued change leaves the row",
+      "row": {
+        "id": "t1",
+        "labelIds": [
+          "INBOX",
+          "UNREAD"
+        ],
+        "unread": true
+      },
+      "queue": [
+        {
+          "id": "c1",
+          "seq": 1,
+          "threadId": "t2",
+          "add": [],
+          "remove": [
+            "INBOX"
+          ]
+        }
+      ],
+      "expect": {
+        "id": "t1",
+        "labelIds": [
+          "INBOX",
+          "UNREAD"
+        ],
+        "unread": true
+      }
+    },
+    {
+      "name": "a queued archive stays archived",
+      "row": {
+        "id": "t1",
+        "labelIds": [
+          "CATEGORY_PERSONAL",
+          "INBOX"
+        ],
+        "unread": false
+      },
+      "queue": [
+        {
+          "id": "c1",
+          "seq": 1,
+          "threadId": "t1",
+          "add": [],
+          "remove": [
+            "INBOX"
+          ]
+        }
+      ],
+      "expect": {
+        "id": "t1",
+        "labelIds": [
+          "CATEGORY_PERSONAL"
+        ],
+        "unread": false
+      }
+    },
+    {
+      "name": "a queued read clears the bold",
+      "row": {
+        "id": "t1",
+        "labelIds": [
+          "INBOX",
+          "UNREAD"
+        ],
+        "unread": true
+      },
+      "queue": [
+        {
+          "id": "c1",
+          "seq": 1,
+          "threadId": "t1",
+          "add": [],
+          "remove": [
+            "UNREAD"
+          ]
+        }
+      ],
+      "expect": {
+        "id": "t1",
+        "labelIds": [
+          "INBOX"
+        ],
+        "unread": false
+      }
+    },
+    {
+      "name": "changes apply in order",
+      "row": {
+        "id": "t1",
+        "labelIds": [
+          "INBOX"
+        ],
+        "unread": false
+      },
+      "queue": [
+        {
+          "id": "c1",
+          "seq": 1,
+          "threadId": "t1",
+          "add": [
+            "UNREAD",
+            "Label_1"
+          ],
+          "remove": []
+        },
+        {
+          "id": "c2",
+          "seq": 2,
+          "threadId": "t2",
+          "add": [
+            "STARRED"
+          ],
+          "remove": []
+        },
+        {
+          "id": "c3",
+          "seq": 3,
+          "threadId": "t1",
+          "add": [
+            "INBOX"
+          ],
+          "remove": [
+            "UNREAD",
+            "Label_1"
+          ]
+        }
+      ],
+      "expect": {
+        "id": "t1",
+        "labelIds": [
+          "INBOX"
+        ],
+        "unread": false
+      }
+    },
+    {
+      "name": "labels come out sorted",
+      "row": {
+        "id": "t1",
+        "labelIds": [
+          "INBOX"
+        ],
+        "unread": false
+      },
+      "queue": [
+        {
+          "id": "c1",
+          "seq": 1,
+          "threadId": "t1",
+          "add": [
+            "STARRED",
+            "IMPORTANT"
+          ],
+          "remove": []
+        }
+      ],
+      "expect": {
+        "id": "t1",
+        "labelIds": [
+          "IMPORTANT",
+          "INBOX",
+          "STARRED"
+        ],
+        "unread": false
+      }
+    },
+    {
+      "name": "adding a label wins over removing it in one change",
+      "row": {
+        "id": "t1",
+        "labelIds": [
+          "INBOX"
+        ],
+        "unread": false
+      },
+      "queue": [
+        {
+          "id": "c1",
+          "seq": 1,
+          "threadId": "t1",
+          "add": [
+            "UNREAD"
+          ],
+          "remove": [
+            "UNREAD"
+          ]
+        }
+      ],
+      "expect": {
+        "id": "t1",
+        "labelIds": [
+          "INBOX",
+          "UNREAD"
+        ],
+        "unread": true
+      }
+    },
+    {
+      "name": "a change to other labels keeps the unread flag",
+      "row": {
+        "id": "t1",
+        "labelIds": [
+          "INBOX"
+        ],
+        "unread": true
+      },
+      "queue": [
+        {
+          "id": "c1",
+          "seq": 1,
+          "threadId": "t1",
+          "add": [
+            "STARRED"
+          ],
+          "remove": []
+        }
+      ],
+      "expect": {
+        "id": "t1",
+        "labelIds": [
+          "INBOX",
+          "STARRED"
+        ],
+        "unread": true
+      }
+    },
+    {
+      "name": "changes apply in replay order, not the order listed",
+      "row": {
+        "id": "t1",
+        "labelIds": [
+          "INBOX"
+        ],
+        "unread": false
+      },
+      "queue": [
+        {
+          "id": "c2",
+          "seq": 2,
+          "threadId": "t1",
+          "add": [
+            "INBOX"
+          ],
+          "remove": []
+        },
+        {
+          "id": "c1",
+          "seq": 1,
+          "threadId": "t1",
+          "add": [],
+          "remove": [
+            "INBOX"
+          ]
+        }
+      ],
+      "expect": {
+        "id": "t1",
+        "labelIds": [
+          "INBOX"
+        ],
+        "unread": false
+      }
+    }
+  ]
+}

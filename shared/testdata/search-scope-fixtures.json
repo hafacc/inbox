@@ -1,0 +1,275 @@
+{
+  "_doc": "What a search lists (shared/src/search-scope.ts, Android :core SearchScope.kt). `scope`: searchScope(query): Gmail's query (null when Gmail lists no mail for it), whether spam and trash are asked for, which todos show (none, all, snoozed) and whether only snoozed threads show; `is:pinned` and `is:done` reach Gmail as `is:starred` and `-in:inbox`. `todos`: searchTodos(todos, query, now), the ids in order; every todo is `base` with the listed fields replaced; times are epoch milliseconds, local times read in `zone`; `labels` are the account's labels, which `label:` reads against todos' tags (labelTags). `in:inbox` keeps todos not done, `is:done` the done ones, `is:pinned`/`is:starred` the pinned ones, `is:snoozed` the snoozed ones; each negated keeps the others. `emailTodos`: searchEmailTodos(todos, query), the thread ids of the emails listed for their todo's text, in order; each todo is {threadId, text}. Whether the email is in the inbox, snoozed, pinned or done is the email's own, held to it by the list's filter, so those terms, negated or not, drop none here; a mail operator lists none.",
+  "zone": "America/New_York",
+  "labels": [
+    {"id": "L1", "name": "Read Later", "type": "user"},
+    {"id": "L2", "name": "Work/Projects", "type": "user"},
+    {"id": "CATEGORY_PROMOTIONS", "name": "CATEGORY_PROMOTIONS", "type": "system"}
+  ],
+  "base": {"id": "a", "text": "Buy *milk* #home", "state": "ACTIVE", "createdAt": 1794400000000, "modifiedAt": 1794400000000, "snoozeUntil": null, "pinned": false, "position": null, "deleted": false, "repeat": null, "repeatSpawned": false, "occurrence": null},
+  "scope": [
+    { "name": "words search mail and todos", "query": "milk", "expect": { "gmailQuery": "milk", "includeSpamTrash": false, "todos": "all", "snoozedOnly": false } },
+    { "name": "a mail operator leaves todos out", "query": "from:ana@example.com milk", "expect": { "gmailQuery": "from:ana@example.com milk", "includeSpamTrash": false, "todos": "none", "snoozedOnly": false } },
+    { "name": "is:todo alone lists todos and no mail", "query": "is:todo", "expect": { "gmailQuery": null, "includeSpamTrash": false, "todos": "all", "snoozedOnly": false } },
+    { "name": "is:todo with words runs no Gmail search", "query": "is:todo milk", "expect": { "gmailQuery": null, "includeSpamTrash": false, "todos": "all", "snoozedOnly": false } },
+    { "name": "-is:todo alone lists all mail and no todos", "query": "-is:todo", "expect": { "gmailQuery": "", "includeSpamTrash": false, "todos": "none", "snoozedOnly": false } },
+    { "name": "-is:todo with words searches mail only", "query": "-is:todo milk", "expect": { "gmailQuery": "milk", "includeSpamTrash": false, "todos": "none", "snoozedOnly": false } },
+    { "name": "is:snoozed alone comes from the device's snoozes", "query": "is:snoozed", "expect": { "gmailQuery": null, "includeSpamTrash": false, "todos": "snoozed", "snoozedOnly": true } },
+    { "name": "is:snoozed with words searches Gmail and keeps the snoozed", "query": "is:snoozed milk", "expect": { "gmailQuery": "milk", "includeSpamTrash": false, "todos": "snoozed", "snoozedOnly": true } },
+    { "name": "is:snoozed with a mail operator leaves todos out", "query": "is:snoozed from:ana", "expect": { "gmailQuery": "from:ana", "includeSpamTrash": false, "todos": "none", "snoozedOnly": true } },
+    { "name": "label: keeps todos", "query": "label:read-later", "expect": { "gmailQuery": "label:read-later", "includeSpamTrash": false, "todos": "all", "snoozedOnly": false } },
+    { "name": "label: with a mail operator leaves todos out", "query": "label:read-later from:ana", "expect": { "gmailQuery": "label:read-later from:ana", "includeSpamTrash": false, "todos": "none", "snoozedOnly": false } },
+    { "name": "in:inbox keeps todos", "query": "in:inbox", "expect": { "gmailQuery": "in:inbox", "includeSpamTrash": false, "todos": "all", "snoozedOnly": false } },
+    { "name": "-in:inbox keeps todos", "query": "-in:inbox milk", "expect": { "gmailQuery": "-in:inbox milk", "includeSpamTrash": false, "todos": "all", "snoozedOnly": false } },
+    { "name": "is:done asks Gmail for mail out of the inbox and keeps todos", "query": "is:done", "expect": { "gmailQuery": "-in:inbox", "includeSpamTrash": false, "todos": "all", "snoozedOnly": false } },
+    { "name": "-is:done asks Gmail for the inbox", "query": "-is:done milk", "expect": { "gmailQuery": "in:inbox milk", "includeSpamTrash": false, "todos": "all", "snoozedOnly": false } },
+    { "name": "is:pinned asks Gmail for starred mail and keeps todos", "query": "is:pinned", "expect": { "gmailQuery": "is:starred", "includeSpamTrash": false, "todos": "all", "snoozedOnly": false } },
+    { "name": "is:starred keeps todos", "query": "is:starred", "expect": { "gmailQuery": "is:starred", "includeSpamTrash": false, "todos": "all", "snoozedOnly": false } },
+    { "name": "-is:snoozed keeps todos", "query": "-is:snoozed milk", "expect": { "gmailQuery": "milk", "includeSpamTrash": false, "todos": "all", "snoozedOnly": false } },
+    { "name": "is:snoozed in:inbox keeps the snoozed todos", "query": "is:snoozed in:inbox", "expect": { "gmailQuery": "in:inbox", "includeSpamTrash": false, "todos": "snoozed", "snoozedOnly": true } },
+    { "name": "is:done with a mail operator leaves todos out", "query": "is:done from:ana", "expect": { "gmailQuery": "-in:inbox from:ana", "includeSpamTrash": false, "todos": "none", "snoozedOnly": false } },
+    { "name": "is:unread leaves todos out", "query": "is:unread", "expect": { "gmailQuery": "is:unread", "includeSpamTrash": false, "todos": "none", "snoozedOnly": false } },
+    { "name": "in:outbox alone lists no Gmail mail", "query": "in:outbox", "expect": { "gmailQuery": null, "includeSpamTrash": false, "todos": "none", "snoozedOnly": false } },
+    { "name": "in:spam asks for spam", "query": "in:spam lunch", "expect": { "gmailQuery": "in:spam lunch", "includeSpamTrash": true, "todos": "none", "snoozedOnly": false } },
+    { "name": "-in:trash doesn't", "query": "-in:trash lunch", "expect": { "gmailQuery": "-in:trash lunch", "includeSpamTrash": false, "todos": "none", "snoozedOnly": false } }
+  ],
+  "todos": [
+    {
+      "name": "is:snoozed lists snoozed todos soonest to wake first",
+      "query": "is:snoozed",
+      "now": 1794492000000,
+      "todos": [
+        { "id": "late", "snoozeUntil": "2026-11-20T08:00:00", "modifiedAt": 1794480000000 },
+        { "id": "active", "modifiedAt": 1794490000000 },
+        { "id": "soon", "snoozeUntil": "2026-11-12T13:00:00", "modifiedAt": 1794400000000 },
+        { "id": "done", "state": "DONE", "snoozeUntil": "2026-11-13T08:00:00" },
+        { "id": "woke", "snoozeUntil": "2026-11-12T07:00:00" },
+        { "id": "tomorrow", "snoozeUntil": "2026-11-13T08:00:00", "modifiedAt": 1794450000000 }
+      ],
+      "ids": ["soon", "tomorrow", "late"]
+    },
+    {
+      "name": "is:snoozed with words ranks the snoozed, ties by wake time",
+      "query": "is:snoozed milk",
+      "now": 1794492000000,
+      "todos": [
+        { "id": "late", "text": "Buy milk", "snoozeUntil": "2026-11-20T08:00:00" },
+        { "id": "bread", "text": "Buy bread", "snoozeUntil": "2026-11-12T10:00:00" },
+        { "id": "soon", "text": "Milk the goat", "snoozeUntil": "2026-11-12T13:00:00" },
+        { "id": "active", "text": "milk" }
+      ],
+      "ids": ["soon", "late"]
+    },
+    {
+      "name": "is:todo lists every todo newest first",
+      "query": "is:todo",
+      "now": 1794492000000,
+      "todos": [
+        { "id": "old", "modifiedAt": 1794400000000 },
+        { "id": "new", "modifiedAt": 1794480000000 },
+        { "id": "done", "state": "DONE", "modifiedAt": 1794440000000 }
+      ],
+      "ids": ["new", "done", "old"]
+    },
+    {
+      "name": "in:inbox lists the todos not done, snoozed ones too",
+      "query": "in:inbox",
+      "now": 1794492000000,
+      "todos": [
+        { "id": "active", "modifiedAt": 1794480000000 },
+        { "id": "snoozed", "snoozeUntil": "2026-11-20T08:00:00", "modifiedAt": 1794470000000 },
+        { "id": "done", "state": "DONE", "modifiedAt": 1794460000000 }
+      ],
+      "ids": ["active", "snoozed"]
+    },
+    {
+      "name": "is:done lists the done todos",
+      "query": "is:done",
+      "now": 1794492000000,
+      "todos": [
+        { "id": "active", "modifiedAt": 1794480000000 },
+        { "id": "done", "state": "DONE", "modifiedAt": 1794460000000 }
+      ],
+      "ids": ["done"]
+    },
+    {
+      "name": "-in:inbox lists the done todos",
+      "query": "-in:inbox",
+      "now": 1794492000000,
+      "todos": [
+        { "id": "active", "modifiedAt": 1794480000000 },
+        { "id": "done", "state": "DONE", "modifiedAt": 1794460000000 }
+      ],
+      "ids": ["done"]
+    },
+    {
+      "name": "-is:done lists the others",
+      "query": "-is:done",
+      "now": 1794492000000,
+      "todos": [
+        { "id": "active", "modifiedAt": 1794480000000 },
+        { "id": "done", "state": "DONE", "modifiedAt": 1794460000000 }
+      ],
+      "ids": ["active"]
+    },
+    {
+      "name": "is:pinned lists the pinned todos",
+      "query": "is:pinned",
+      "now": 1794492000000,
+      "todos": [
+        { "id": "pinned", "pinned": true, "modifiedAt": 1794470000000 },
+        { "id": "plain", "modifiedAt": 1794480000000 }
+      ],
+      "ids": ["pinned"]
+    },
+    {
+      "name": "is:starred lists the pinned todos too, -is:pinned the others",
+      "query": "is:starred",
+      "now": 1794492000000,
+      "todos": [
+        { "id": "pinned", "pinned": true, "modifiedAt": 1794470000000 },
+        { "id": "plain", "modifiedAt": 1794480000000 }
+      ],
+      "ids": ["pinned"]
+    },
+    {
+      "name": "-is:pinned lists the unpinned todos",
+      "query": "-is:pinned",
+      "now": 1794492000000,
+      "todos": [
+        { "id": "pinned", "pinned": true, "modifiedAt": 1794470000000 },
+        { "id": "plain", "modifiedAt": 1794480000000 }
+      ],
+      "ids": ["plain"]
+    },
+    {
+      "name": "-is:snoozed lists the todos not snoozed",
+      "query": "-is:snoozed",
+      "now": 1794492000000,
+      "todos": [
+        { "id": "active", "modifiedAt": 1794480000000 },
+        { "id": "snoozed", "snoozeUntil": "2026-11-20T08:00:00", "modifiedAt": 1794470000000 },
+        { "id": "done", "state": "DONE", "modifiedAt": 1794460000000 }
+      ],
+      "ids": ["active", "done"]
+    },
+    {
+      "name": "in:inbox and label: hold together",
+      "query": "in:inbox label:read-later",
+      "now": 1794492000000,
+      "todos": [
+        { "id": "tagged", "text": "Book #read-later", "modifiedAt": 1794480000000 },
+        { "id": "tagged-done", "text": "Film #read-later", "state": "DONE", "modifiedAt": 1794470000000 },
+        { "id": "other", "text": "#home" }
+      ],
+      "ids": ["tagged"]
+    },
+    {
+      "name": "-is:todo lists none",
+      "query": "-is:todo",
+      "now": 1794492000000,
+      "todos": [{ "id": "a" }],
+      "ids": []
+    },
+    {
+      "name": "a mail operator lists none",
+      "query": "from:ana milk",
+      "now": 1794492000000,
+      "todos": [{ "id": "a" }],
+      "ids": []
+    },
+    {
+      "name": "label: lists the todos whose tags name the label",
+      "query": "label:read-later",
+      "now": 1794492000000,
+      "todos": [
+        { "id": "tagged", "text": "Book #read-later", "modifiedAt": 1794480000000 },
+        { "id": "spelled", "text": "#Read-Later movie", "modifiedAt": 1794470000000 },
+        { "id": "other", "text": "#home" },
+        { "id": "underscore", "text": "#read_later" }
+      ],
+      "ids": ["tagged", "spelled"]
+    },
+    {
+      "name": "label: takes a nested label by Gmail's name for it",
+      "query": "label:work-projects",
+      "now": 1794492000000,
+      "todos": [
+        { "id": "nested", "text": "#work/projects plan" },
+        { "id": "hyphen", "text": "#work-projects plan" }
+      ],
+      "ids": ["nested"]
+    },
+    {
+      "name": "-label: lists the others",
+      "query": "-label:read-later",
+      "now": 1794492000000,
+      "todos": [
+        { "id": "tagged", "text": "Book #read-later" },
+        { "id": "other", "text": "#home" }
+      ],
+      "ids": ["other"]
+    },
+    {
+      "name": "a category's label: lists none",
+      "query": "label:category_promotions",
+      "now": 1794492000000,
+      "todos": [{ "id": "a", "text": "#category_promotions" }],
+      "ids": []
+    },
+    {
+      "name": "label: with words ranks the labeled",
+      "query": "label:read-later movie",
+      "now": 1794492000000,
+      "todos": [
+        { "id": "book", "text": "Book #read-later" },
+        { "id": "movie", "text": "Movie #read-later" },
+        { "id": "unlabeled", "text": "Movie night" }
+      ],
+      "ids": ["movie"]
+    },
+    {
+      "name": "a -#tag lists the todos without that tag",
+      "query": "-#home",
+      "now": 1794492000000,
+      "todos": [
+        { "id": "home", "text": "Buy milk #Home" },
+        { "id": "other", "text": "Call mom" },
+        { "id": "homework", "text": "Math #homework" }
+      ],
+      "ids": ["other", "homework"]
+    },
+    {
+      "name": "a -#tag with words ranks the others",
+      "query": "milk -#home",
+      "now": 1794492000000,
+      "todos": [
+        { "id": "home", "text": "Buy milk #home" },
+        { "id": "shop", "text": "Milk run #shop" },
+        { "id": "other", "text": "Call mom" }
+      ],
+      "ids": ["shop"]
+    },
+    {
+      "name": "a #tag ranks as a word",
+      "query": "#home",
+      "now": 1794492000000,
+      "todos": [
+        { "id": "home", "text": "Buy milk #home" },
+        { "id": "other", "text": "Call mom" }
+      ],
+      "ids": ["home"]
+    }
+  ],
+  "emailTodos": [
+    { "name": "words match the text", "query": "milk", "todos": [{ "threadId": "t1", "text": "Call *Maya* about #home" }, { "threadId": "t2", "text": "Pay rent #read-later" }, { "threadId": "t3", "text": "Buy milk" }], "threadIds": ["t3"] },
+    { "name": "most words matched first", "query": "maya rent call", "todos": [{ "threadId": "t1", "text": "Call *Maya* about #home" }, { "threadId": "t2", "text": "Pay rent #read-later" }, { "threadId": "t3", "text": "Buy milk" }], "threadIds": ["t1", "t2"] },
+    { "name": "is:todo alone lists every email with a todo", "query": "is:todo", "todos": [{ "threadId": "t1", "text": "Call *Maya* about #home" }, { "threadId": "t2", "text": "Pay rent #read-later" }, { "threadId": "t3", "text": "Buy milk" }], "threadIds": ["t1", "t2", "t3"] },
+    { "name": "state terms are the email's, left to the list's filter", "query": "is:snoozed -is:pinned in:inbox -is:done", "todos": [{ "threadId": "t1", "text": "Call *Maya* about #home" }, { "threadId": "t2", "text": "Pay rent #read-later" }, { "threadId": "t3", "text": "Buy milk" }], "threadIds": ["t1", "t2", "t3"] },
+    { "name": "label: reads the tags", "query": "label:read-later", "todos": [{ "threadId": "t1", "text": "Call *Maya* about #home" }, { "threadId": "t2", "text": "Pay rent #read-later" }, { "threadId": "t3", "text": "Buy milk" }], "threadIds": ["t2"] },
+    { "name": "-label: leaves tagged ones out", "query": "-label:read-later", "todos": [{ "threadId": "t1", "text": "Call *Maya* about #home" }, { "threadId": "t2", "text": "Pay rent #read-later" }, { "threadId": "t3", "text": "Buy milk" }], "threadIds": ["t1", "t3"] },
+    { "name": "-#tag leaves that tag out", "query": "-#home", "todos": [{ "threadId": "t1", "text": "Call *Maya* about #home" }, { "threadId": "t2", "text": "Pay rent #read-later" }, { "threadId": "t3", "text": "Buy milk" }], "threadIds": ["t2", "t3"] },
+    { "name": "a mail operator lists none", "query": "from:maya milk", "todos": [{ "threadId": "t1", "text": "Call *Maya* about #home" }, { "threadId": "t2", "text": "Pay rent #read-later" }, { "threadId": "t3", "text": "Buy milk" }], "threadIds": [] },
+    { "name": "-is:todo lists none", "query": "milk -is:todo", "todos": [{ "threadId": "t1", "text": "Call *Maya* about #home" }, { "threadId": "t2", "text": "Pay rent #read-later" }, { "threadId": "t3", "text": "Buy milk" }], "threadIds": [] }
+  ]
+}

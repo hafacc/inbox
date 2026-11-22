@@ -1,0 +1,1000 @@
+{
+  "_doc": {
+    "about": "latr's list behavior (latr web/src/lib/utils/group.ts, reorder.ts, todo.ts heldInPlace and rankBySearch, inline-style.ts styledTree), generated from latr's own code, kept to the Active list. Run by shared/src/todos/list.spec.ts.",
+    "todos": "Every todo is todo-fixtures.json's `base` with the listed fields replaced; times are epoch milliseconds, local times read in `zone`.",
+    "group": "groupActive(sortForFilter(todos, 'ACTIVE'), now): each heading's label, its ids in order, whether it is Pinned, and its floor and ceiling (null when it has none).",
+    "move": "planMove(todo `id`, the Active list grouped as in `group`, slot, now): `same` when the slot is where it is, null when it can't go there, else the fields that change.",
+    "held": "heldInPlace(held, previous, live): the fields of the result that differ from `base`.",
+    "search": "rankBySearch(todos, query): the ids found, in order.",
+    "styled": "styledTree(text): text, marker, tag and span nodes."
+  },
+  "zone": "America/New_York",
+  "base": {
+    "id": "a",
+    "text": "Buy *milk* #home",
+    "state": "ACTIVE",
+    "createdAt": 1794400000000,
+    "modifiedAt": 1794400000000,
+    "snoozeUntil": null,
+    "pinned": false,
+    "position": null,
+    "deleted": false,
+    "repeat": null,
+    "repeatSpawned": false,
+    "occurrence": null
+  },
+  "group": [
+    {
+      "name": "active: pinned first, then by day of the active key",
+      "now": 1794492000000,
+      "todos": [
+        {
+          "id": "today",
+          "modifiedAt": 1794488400000
+        },
+        {
+          "id": "pinned",
+          "modifiedAt": 1794232800000,
+          "pinned": true
+        },
+        {
+          "id": "yesterday",
+          "modifiedAt": 1794405600000
+        },
+        {
+          "id": "week",
+          "modifiedAt": 1794146400000
+        },
+        {
+          "id": "earlier",
+          "modifiedAt": 1791900000000
+        },
+        {
+          "id": "woke",
+          "modifiedAt": 1791036000000,
+          "snoozeUntil": "2026-11-12T07:00:00"
+        },
+        {
+          "id": "moved",
+          "position": "1794319200000iz"
+        },
+        {
+          "id": "midnight",
+          "modifiedAt": 1794459600000
+        },
+        {
+          "id": "late-yesterday",
+          "modifiedAt": 1794459599000
+        }
+      ],
+      "buckets": [
+        {
+          "label": "Pinned",
+          "ids": [
+            "pinned"
+          ],
+          "pinned": true,
+          "floor": null,
+          "ceiling": null
+        },
+        {
+          "label": "Today",
+          "ids": [
+            "today",
+            "woke",
+            "midnight"
+          ],
+          "pinned": false,
+          "floor": 1794459600000,
+          "ceiling": null
+        },
+        {
+          "label": "Yesterday",
+          "ids": [
+            "late-yesterday",
+            "yesterday"
+          ],
+          "pinned": false,
+          "floor": 1794373200000,
+          "ceiling": 1794459600000
+        },
+        {
+          "label": "This week",
+          "ids": [
+            "moved",
+            "week"
+          ],
+          "pinned": false,
+          "floor": 1793941200000,
+          "ceiling": 1794373200000
+        },
+        {
+          "label": "Earlier",
+          "ids": [
+            "earlier"
+          ],
+          "pinned": false,
+          "floor": 0,
+          "ceiling": 1793941200000
+        }
+      ]
+    },
+    {
+      "name": "active: empty",
+      "now": 1794492000000,
+      "todos": [],
+      "buckets": []
+    }
+  ],
+  "move": [
+    {
+      "name": "active: up within today",
+      "now": 1794492000000,
+      "todos": [
+        {
+          "id": "today",
+          "modifiedAt": 1794488400000
+        },
+        {
+          "id": "pinned",
+          "modifiedAt": 1794232800000,
+          "pinned": true
+        },
+        {
+          "id": "yesterday",
+          "modifiedAt": 1794405600000
+        },
+        {
+          "id": "week",
+          "modifiedAt": 1794146400000
+        },
+        {
+          "id": "earlier",
+          "modifiedAt": 1791900000000
+        },
+        {
+          "id": "woke",
+          "modifiedAt": 1791036000000,
+          "snoozeUntil": "2026-11-12T07:00:00"
+        },
+        {
+          "id": "moved",
+          "position": "1794319200000iz"
+        },
+        {
+          "id": "midnight",
+          "modifiedAt": 1794459600000
+        },
+        {
+          "id": "late-yesterday",
+          "modifiedAt": 1794459599000
+        }
+      ],
+      "id": "midnight",
+      "slot": {
+        "bucket": 1,
+        "index": 1
+      },
+      "out": {
+        "id": "midnight",
+        "modifiedAt": 1794492000000,
+        "position": "1794486600000midnightz"
+      }
+    },
+    {
+      "name": "active: to the top of today",
+      "now": 1794492000000,
+      "todos": [
+        {
+          "id": "today",
+          "modifiedAt": 1794488400000
+        },
+        {
+          "id": "pinned",
+          "modifiedAt": 1794232800000,
+          "pinned": true
+        },
+        {
+          "id": "yesterday",
+          "modifiedAt": 1794405600000
+        },
+        {
+          "id": "week",
+          "modifiedAt": 1794146400000
+        },
+        {
+          "id": "earlier",
+          "modifiedAt": 1791900000000
+        },
+        {
+          "id": "woke",
+          "modifiedAt": 1791036000000,
+          "snoozeUntil": "2026-11-12T07:00:00"
+        },
+        {
+          "id": "moved",
+          "position": "1794319200000iz"
+        },
+        {
+          "id": "midnight",
+          "modifiedAt": 1794459600000
+        },
+        {
+          "id": "late-yesterday",
+          "modifiedAt": 1794459599000
+        }
+      ],
+      "id": "midnight",
+      "slot": {
+        "bucket": 1,
+        "index": 0
+      },
+      "out": {
+        "id": "midnight",
+        "modifiedAt": 1794492000000,
+        "position": "1794490200000midnightz"
+      }
+    },
+    {
+      "name": "active: down into yesterday",
+      "now": 1794492000000,
+      "todos": [
+        {
+          "id": "today",
+          "modifiedAt": 1794488400000
+        },
+        {
+          "id": "pinned",
+          "modifiedAt": 1794232800000,
+          "pinned": true
+        },
+        {
+          "id": "yesterday",
+          "modifiedAt": 1794405600000
+        },
+        {
+          "id": "week",
+          "modifiedAt": 1794146400000
+        },
+        {
+          "id": "earlier",
+          "modifiedAt": 1791900000000
+        },
+        {
+          "id": "woke",
+          "modifiedAt": 1791036000000,
+          "snoozeUntil": "2026-11-12T07:00:00"
+        },
+        {
+          "id": "moved",
+          "position": "1794319200000iz"
+        },
+        {
+          "id": "midnight",
+          "modifiedAt": 1794459600000
+        },
+        {
+          "id": "late-yesterday",
+          "modifiedAt": 1794459599000
+        }
+      ],
+      "id": "today",
+      "slot": {
+        "bucket": 2,
+        "index": 1
+      },
+      "out": {
+        "id": "today",
+        "modifiedAt": 1794492000000,
+        "position": "1794432599500todayz"
+      }
+    },
+    {
+      "name": "active: to the bottom of earlier",
+      "now": 1794492000000,
+      "todos": [
+        {
+          "id": "today",
+          "modifiedAt": 1794488400000
+        },
+        {
+          "id": "pinned",
+          "modifiedAt": 1794232800000,
+          "pinned": true
+        },
+        {
+          "id": "yesterday",
+          "modifiedAt": 1794405600000
+        },
+        {
+          "id": "week",
+          "modifiedAt": 1794146400000
+        },
+        {
+          "id": "earlier",
+          "modifiedAt": 1791900000000
+        },
+        {
+          "id": "woke",
+          "modifiedAt": 1791036000000,
+          "snoozeUntil": "2026-11-12T07:00:00"
+        },
+        {
+          "id": "moved",
+          "position": "1794319200000iz"
+        },
+        {
+          "id": "midnight",
+          "modifiedAt": 1794459600000
+        },
+        {
+          "id": "late-yesterday",
+          "modifiedAt": 1794459599000
+        }
+      ],
+      "id": "today",
+      "slot": {
+        "bucket": 4,
+        "index": 1
+      },
+      "out": {
+        "id": "today",
+        "modifiedAt": 1794492000000,
+        "position": "0895950000000todayz"
+      }
+    },
+    {
+      "name": "active: a woken row moved keeps no snooze",
+      "now": 1794492000000,
+      "todos": [
+        {
+          "id": "today",
+          "modifiedAt": 1794488400000
+        },
+        {
+          "id": "pinned",
+          "modifiedAt": 1794232800000,
+          "pinned": true
+        },
+        {
+          "id": "yesterday",
+          "modifiedAt": 1794405600000
+        },
+        {
+          "id": "week",
+          "modifiedAt": 1794146400000
+        },
+        {
+          "id": "earlier",
+          "modifiedAt": 1791900000000
+        },
+        {
+          "id": "woke",
+          "modifiedAt": 1791036000000,
+          "snoozeUntil": "2026-11-12T07:00:00"
+        },
+        {
+          "id": "moved",
+          "position": "1794319200000iz"
+        },
+        {
+          "id": "midnight",
+          "modifiedAt": 1794459600000
+        },
+        {
+          "id": "late-yesterday",
+          "modifiedAt": 1794459599000
+        }
+      ],
+      "id": "woke",
+      "slot": {
+        "bucket": 1,
+        "index": 0
+      },
+      "out": {
+        "id": "woke",
+        "modifiedAt": 1794492000000,
+        "position": "1794490200000wokez"
+      }
+    },
+    {
+      "name": "active: unpinned into pinned is refused",
+      "now": 1794492000000,
+      "todos": [
+        {
+          "id": "today",
+          "modifiedAt": 1794488400000
+        },
+        {
+          "id": "pinned",
+          "modifiedAt": 1794232800000,
+          "pinned": true
+        },
+        {
+          "id": "yesterday",
+          "modifiedAt": 1794405600000
+        },
+        {
+          "id": "week",
+          "modifiedAt": 1794146400000
+        },
+        {
+          "id": "earlier",
+          "modifiedAt": 1791900000000
+        },
+        {
+          "id": "woke",
+          "modifiedAt": 1791036000000,
+          "snoozeUntil": "2026-11-12T07:00:00"
+        },
+        {
+          "id": "moved",
+          "position": "1794319200000iz"
+        },
+        {
+          "id": "midnight",
+          "modifiedAt": 1794459600000
+        },
+        {
+          "id": "late-yesterday",
+          "modifiedAt": 1794459599000
+        }
+      ],
+      "id": "today",
+      "slot": {
+        "bucket": 0,
+        "index": 0
+      },
+      "out": null
+    },
+    {
+      "name": "active: pinned into today is refused",
+      "now": 1794492000000,
+      "todos": [
+        {
+          "id": "today",
+          "modifiedAt": 1794488400000
+        },
+        {
+          "id": "pinned",
+          "modifiedAt": 1794232800000,
+          "pinned": true
+        },
+        {
+          "id": "yesterday",
+          "modifiedAt": 1794405600000
+        },
+        {
+          "id": "week",
+          "modifiedAt": 1794146400000
+        },
+        {
+          "id": "earlier",
+          "modifiedAt": 1791900000000
+        },
+        {
+          "id": "woke",
+          "modifiedAt": 1791036000000,
+          "snoozeUntil": "2026-11-12T07:00:00"
+        },
+        {
+          "id": "moved",
+          "position": "1794319200000iz"
+        },
+        {
+          "id": "midnight",
+          "modifiedAt": 1794459600000
+        },
+        {
+          "id": "late-yesterday",
+          "modifiedAt": 1794459599000
+        }
+      ],
+      "id": "pinned",
+      "slot": {
+        "bucket": 1,
+        "index": 0
+      },
+      "out": null
+    },
+    {
+      "name": "active: where it already is",
+      "now": 1794492000000,
+      "todos": [
+        {
+          "id": "today",
+          "modifiedAt": 1794488400000
+        },
+        {
+          "id": "pinned",
+          "modifiedAt": 1794232800000,
+          "pinned": true
+        },
+        {
+          "id": "yesterday",
+          "modifiedAt": 1794405600000
+        },
+        {
+          "id": "week",
+          "modifiedAt": 1794146400000
+        },
+        {
+          "id": "earlier",
+          "modifiedAt": 1791900000000
+        },
+        {
+          "id": "woke",
+          "modifiedAt": 1791036000000,
+          "snoozeUntil": "2026-11-12T07:00:00"
+        },
+        {
+          "id": "moved",
+          "position": "1794319200000iz"
+        },
+        {
+          "id": "midnight",
+          "modifiedAt": 1794459600000
+        },
+        {
+          "id": "late-yesterday",
+          "modifiedAt": 1794459599000
+        }
+      ],
+      "id": "today",
+      "slot": {
+        "bucket": 1,
+        "index": 0
+      },
+      "out": "same"
+    }
+  ],
+  "held": [
+    {
+      "name": "a text edit keeps the held place and text",
+      "held": {
+        "modifiedAt": 1794488400000,
+        "snoozeUntil": "2026-11-12T07:00:00",
+        "text": "Buy *milk* #home and"
+      },
+      "previous": {
+        "modifiedAt": 1794488400000,
+        "snoozeUntil": "2026-11-12T07:00:00"
+      },
+      "live": {
+        "modifiedAt": 1794484800000,
+        "snoozeUntil": null,
+        "text": "Buy *milk* #home and eggs"
+      },
+      "out": {
+        "text": "Buy *milk* #home and",
+        "modifiedAt": 1794488400000,
+        "snoozeUntil": "2026-11-12T07:00:00"
+      }
+    },
+    {
+      "name": "a pin is taken, the text kept",
+      "held": {
+        "modifiedAt": 1794488400000,
+        "snoozeUntil": "2026-11-12T07:00:00",
+        "text": "Buy *milk* #home and"
+      },
+      "previous": {
+        "modifiedAt": 1794488400000,
+        "snoozeUntil": "2026-11-12T07:00:00"
+      },
+      "live": {
+        "modifiedAt": 1794492000000,
+        "snoozeUntil": null,
+        "pinned": true
+      },
+      "out": {
+        "text": "Buy *milk* #home and",
+        "modifiedAt": 1794492000000,
+        "pinned": true
+      }
+    }
+  ],
+  "search": [
+    {
+      "name": "one word, as a word start",
+      "todos": [
+        {
+          "id": "milk",
+          "text": "Buy *milk* #home"
+        },
+        {
+          "id": "bread",
+          "text": "Buy bread and _milk_"
+        },
+        {
+          "id": "work",
+          "text": "Fix the build #work"
+        },
+        {
+          "id": "homework",
+          "text": "Check homework"
+        },
+        {
+          "id": "call",
+          "text": "Call Mom about the milkman"
+        }
+      ],
+      "query": "milk",
+      "ids": [
+        "milk",
+        "bread",
+        "call"
+      ]
+    },
+    {
+      "name": "most words first",
+      "todos": [
+        {
+          "id": "milk",
+          "text": "Buy *milk* #home"
+        },
+        {
+          "id": "bread",
+          "text": "Buy bread and _milk_"
+        },
+        {
+          "id": "work",
+          "text": "Fix the build #work"
+        },
+        {
+          "id": "homework",
+          "text": "Check homework"
+        },
+        {
+          "id": "call",
+          "text": "Call Mom about the milkman"
+        }
+      ],
+      "query": "buy milk",
+      "ids": [
+        "milk",
+        "bread",
+        "call"
+      ]
+    },
+    {
+      "name": "a tag",
+      "todos": [
+        {
+          "id": "milk",
+          "text": "Buy *milk* #home"
+        },
+        {
+          "id": "bread",
+          "text": "Buy bread and _milk_"
+        },
+        {
+          "id": "work",
+          "text": "Fix the build #work"
+        },
+        {
+          "id": "homework",
+          "text": "Check homework"
+        },
+        {
+          "id": "call",
+          "text": "Call Mom about the milkman"
+        }
+      ],
+      "query": "#home",
+      "ids": [
+        "milk"
+      ]
+    },
+    {
+      "name": "case ignored",
+      "todos": [
+        {
+          "id": "milk",
+          "text": "Buy *milk* #home"
+        },
+        {
+          "id": "bread",
+          "text": "Buy bread and _milk_"
+        },
+        {
+          "id": "work",
+          "text": "Fix the build #work"
+        },
+        {
+          "id": "homework",
+          "text": "Check homework"
+        },
+        {
+          "id": "call",
+          "text": "Call Mom about the milkman"
+        }
+      ],
+      "query": "FIX",
+      "ids": [
+        "work"
+      ]
+    },
+    {
+      "name": "no word inside another",
+      "todos": [
+        {
+          "id": "milk",
+          "text": "Buy *milk* #home"
+        },
+        {
+          "id": "bread",
+          "text": "Buy bread and _milk_"
+        },
+        {
+          "id": "work",
+          "text": "Fix the build #work"
+        },
+        {
+          "id": "homework",
+          "text": "Check homework"
+        },
+        {
+          "id": "call",
+          "text": "Call Mom about the milkman"
+        }
+      ],
+      "query": "work",
+      "ids": [
+        "work"
+      ]
+    },
+    {
+      "name": "markers removed",
+      "todos": [
+        {
+          "id": "milk",
+          "text": "Buy *milk* #home"
+        },
+        {
+          "id": "bread",
+          "text": "Buy bread and _milk_"
+        },
+        {
+          "id": "work",
+          "text": "Fix the build #work"
+        },
+        {
+          "id": "homework",
+          "text": "Check homework"
+        },
+        {
+          "id": "call",
+          "text": "Call Mom about the milkman"
+        }
+      ],
+      "query": "bread milk",
+      "ids": [
+        "bread",
+        "milk",
+        "call"
+      ]
+    },
+    {
+      "name": "nothing matches",
+      "todos": [
+        {
+          "id": "milk",
+          "text": "Buy *milk* #home"
+        },
+        {
+          "id": "bread",
+          "text": "Buy bread and _milk_"
+        },
+        {
+          "id": "work",
+          "text": "Fix the build #work"
+        },
+        {
+          "id": "homework",
+          "text": "Check homework"
+        },
+        {
+          "id": "call",
+          "text": "Call Mom about the milkman"
+        }
+      ],
+      "query": "zebra",
+      "ids": []
+    },
+    {
+      "name": "blank keeps all",
+      "todos": [
+        {
+          "id": "milk",
+          "text": "Buy *milk* #home"
+        },
+        {
+          "id": "bread",
+          "text": "Buy bread and _milk_"
+        },
+        {
+          "id": "work",
+          "text": "Fix the build #work"
+        },
+        {
+          "id": "homework",
+          "text": "Check homework"
+        },
+        {
+          "id": "call",
+          "text": "Call Mom about the milkman"
+        }
+      ],
+      "query": "  ",
+      "ids": [
+        "milk",
+        "bread",
+        "work",
+        "homework",
+        "call"
+      ]
+    }
+  ],
+  "styled": [
+    {
+      "in": "plain",
+      "tree": [
+        {
+          "kind": "text",
+          "text": "plain"
+        }
+      ]
+    },
+    {
+      "in": "Buy *milk* #home",
+      "tree": [
+        {
+          "kind": "text",
+          "text": "Buy "
+        },
+        {
+          "kind": "span",
+          "style": "bold",
+          "children": [
+            {
+              "kind": "marker",
+              "text": "*"
+            },
+            {
+              "kind": "text",
+              "text": "milk"
+            },
+            {
+              "kind": "marker",
+              "text": "*"
+            }
+          ]
+        },
+        {
+          "kind": "text",
+          "text": " "
+        },
+        {
+          "kind": "tag",
+          "text": "#home"
+        }
+      ]
+    },
+    {
+      "in": "a *b _c_* d",
+      "tree": [
+        {
+          "kind": "text",
+          "text": "a "
+        },
+        {
+          "kind": "span",
+          "style": "bold",
+          "children": [
+            {
+              "kind": "marker",
+              "text": "*"
+            },
+            {
+              "kind": "text",
+              "text": "b "
+            },
+            {
+              "kind": "span",
+              "style": "italic",
+              "children": [
+                {
+                  "kind": "marker",
+                  "text": "_"
+                },
+                {
+                  "kind": "text",
+                  "text": "c"
+                },
+                {
+                  "kind": "marker",
+                  "text": "_"
+                }
+              ]
+            },
+            {
+              "kind": "marker",
+              "text": "*"
+            }
+          ]
+        },
+        {
+          "kind": "text",
+          "text": " d"
+        }
+      ]
+    },
+    {
+      "in": "#work *#urgent* now",
+      "tree": [
+        {
+          "kind": "tag",
+          "text": "#work"
+        },
+        {
+          "kind": "text",
+          "text": " "
+        },
+        {
+          "kind": "span",
+          "style": "bold",
+          "children": [
+            {
+              "kind": "marker",
+              "text": "*"
+            },
+            {
+              "kind": "tag",
+              "text": "#urgent"
+            },
+            {
+              "kind": "marker",
+              "text": "*"
+            }
+          ]
+        },
+        {
+          "kind": "text",
+          "text": " now"
+        }
+      ]
+    },
+    {
+      "in": "_unclosed *bold*",
+      "tree": [
+        {
+          "kind": "text",
+          "text": "_unclosed "
+        },
+        {
+          "kind": "span",
+          "style": "bold",
+          "children": [
+            {
+              "kind": "marker",
+              "text": "*"
+            },
+            {
+              "kind": "text",
+              "text": "bold"
+            },
+            {
+              "kind": "marker",
+              "text": "*"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "in": "",
+      "tree": []
+    }
+  ]
+}

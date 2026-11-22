@@ -1,0 +1,428 @@
+{
+  "_doc": {
+    "about": "The offline label-change queue, run by shared/src/offline-queue.spec.ts and Android :core OfflineQueueTest. A change is { seq, threadId, add, remove } (web also gives each a unique id, left out here).",
+    "enqueue": "enqueue each of add in order onto queue: seqs is every seq after, numbered after the highest already queued.",
+    "applyChange": "applyChange(labels, { add, remove }): removes, then adds (so a label in both ends up added), sorted.",
+    "compact": "compact(queue): one net change per thread, at its last change's seq, in seq order; add and remove sorted.",
+    "replay": "replay(queue, send) with one request at a time: sends compact(queue) in order, again with whatever was queued meanwhile, until it is empty (drained true) or a thread in later answers \"later\" (drained false). Settling a change takes its thread's changes up to its seq off the queue. queuedWhileSending[threadId] is enqueued the first time that thread's change is sent. sent is the thread of each request; left is the seqs still queued."
+  },
+  "enqueue": [
+    {
+      "name": "numbered from 1 on an empty queue",
+      "queue": [],
+      "add": [
+        {
+          "threadId": "a",
+          "add": [],
+          "remove": [
+            "INBOX"
+          ]
+        },
+        {
+          "threadId": "b",
+          "add": [
+            "STARRED"
+          ],
+          "remove": []
+        }
+      ],
+      "seqs": [
+        1,
+        2
+      ]
+    },
+    {
+      "name": "numbering keeps moving forward after the first is sent",
+      "queue": [
+        {
+          "seq": 2,
+          "threadId": "b",
+          "add": [
+            "STARRED"
+          ],
+          "remove": []
+        }
+      ],
+      "add": [
+        {
+          "threadId": "c",
+          "add": [],
+          "remove": []
+        }
+      ],
+      "seqs": [
+        2,
+        3
+      ]
+    },
+    {
+      "name": "numbered after the highest, not the last",
+      "queue": [
+        {
+          "seq": 5,
+          "threadId": "a",
+          "add": [],
+          "remove": []
+        },
+        {
+          "seq": 3,
+          "threadId": "b",
+          "add": [],
+          "remove": []
+        }
+      ],
+      "add": [
+        {
+          "threadId": "c",
+          "add": [],
+          "remove": []
+        }
+      ],
+      "seqs": [
+        5,
+        3,
+        6
+      ]
+    }
+  ],
+  "applyChange": [
+    {
+      "name": "removes, then adds",
+      "labels": [
+        "INBOX",
+        "UNREAD"
+      ],
+      "add": [
+        "STARRED"
+      ],
+      "remove": [
+        "INBOX"
+      ],
+      "expect": [
+        "STARRED",
+        "UNREAD"
+      ]
+    },
+    {
+      "name": "a label both added and removed ends up added",
+      "labels": [
+        "A"
+      ],
+      "add": [
+        "A"
+      ],
+      "remove": [
+        "A"
+      ],
+      "expect": [
+        "A"
+      ]
+    },
+    {
+      "name": "adding a label already there or removing one that isn't changes nothing",
+      "labels": [
+        "UNREAD",
+        "INBOX"
+      ],
+      "add": [
+        "INBOX"
+      ],
+      "remove": [
+        "STARRED"
+      ],
+      "expect": [
+        "INBOX",
+        "UNREAD"
+      ]
+    }
+  ],
+  "compact": [
+    {
+      "name": "a thread's changes fold in order, at its last change's place",
+      "queue": [
+        {
+          "seq": 1,
+          "threadId": "a",
+          "add": [],
+          "remove": [
+            "INBOX"
+          ]
+        },
+        {
+          "seq": 2,
+          "threadId": "b",
+          "add": [
+            "STARRED"
+          ],
+          "remove": []
+        },
+        {
+          "seq": 3,
+          "threadId": "a",
+          "add": [
+            "INBOX"
+          ],
+          "remove": []
+        },
+        {
+          "seq": 4,
+          "threadId": "a",
+          "add": [
+            "STARRED"
+          ],
+          "remove": [
+            "UNREAD"
+          ]
+        },
+        {
+          "seq": 5,
+          "threadId": "b",
+          "add": [],
+          "remove": [
+            "STARRED"
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "seq": 4,
+          "threadId": "a",
+          "add": [
+            "INBOX",
+            "STARRED"
+          ],
+          "remove": [
+            "UNREAD"
+          ]
+        },
+        {
+          "seq": 5,
+          "threadId": "b",
+          "add": [],
+          "remove": [
+            "STARRED"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "out of order input replays by seq",
+      "queue": [
+        {
+          "seq": 3,
+          "threadId": "a",
+          "add": [
+            "INBOX"
+          ],
+          "remove": []
+        },
+        {
+          "seq": 1,
+          "threadId": "a",
+          "add": [],
+          "remove": [
+            "INBOX"
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "seq": 3,
+          "threadId": "a",
+          "add": [
+            "INBOX"
+          ],
+          "remove": []
+        }
+      ]
+    },
+    {
+      "name": "an undone change still goes as the last word",
+      "queue": [
+        {
+          "seq": 1,
+          "threadId": "a",
+          "add": [],
+          "remove": [
+            "INBOX"
+          ]
+        },
+        {
+          "seq": 2,
+          "threadId": "a",
+          "add": [
+            "INBOX"
+          ],
+          "remove": []
+        }
+      ],
+      "expect": [
+        {
+          "seq": 2,
+          "threadId": "a",
+          "add": [
+            "INBOX"
+          ],
+          "remove": []
+        }
+      ]
+    },
+    {
+      "name": "an empty queue",
+      "queue": [],
+      "expect": []
+    }
+  ],
+  "replay": [
+    {
+      "name": "one request per thread, in the order of each thread's last change",
+      "queue": [
+        {
+          "seq": 1,
+          "threadId": "a",
+          "add": [],
+          "remove": [
+            "INBOX"
+          ]
+        },
+        {
+          "seq": 2,
+          "threadId": "b",
+          "add": [
+            "STARRED"
+          ],
+          "remove": []
+        },
+        {
+          "seq": 3,
+          "threadId": "a",
+          "add": [
+            "UNREAD"
+          ],
+          "remove": []
+        }
+      ],
+      "later": [],
+      "queuedWhileSending": {},
+      "sent": [
+        "b",
+        "a"
+      ],
+      "drained": true,
+      "left": []
+    },
+    {
+      "name": "changes queued while it runs go too",
+      "queue": [
+        {
+          "seq": 1,
+          "threadId": "t1",
+          "add": [],
+          "remove": [
+            "INBOX"
+          ]
+        }
+      ],
+      "later": [],
+      "queuedWhileSending": {
+        "t1": [
+          {
+            "threadId": "t2",
+            "add": [
+              "STARRED"
+            ],
+            "remove": []
+          }
+        ]
+      },
+      "sent": [
+        "t1",
+        "t2"
+      ],
+      "drained": true,
+      "left": []
+    },
+    {
+      "name": "a change queued on the thread being sent goes in its own later request",
+      "queue": [
+        {
+          "seq": 1,
+          "threadId": "t1",
+          "add": [],
+          "remove": [
+            "INBOX"
+          ]
+        }
+      ],
+      "later": [],
+      "queuedWhileSending": {
+        "t1": [
+          {
+            "threadId": "t1",
+            "add": [
+              "INBOX"
+            ],
+            "remove": []
+          }
+        ]
+      },
+      "sent": [
+        "t1",
+        "t1"
+      ],
+      "drained": true,
+      "left": []
+    },
+    {
+      "name": "stops at a change that has to wait, keeping it and the rest",
+      "queue": [
+        {
+          "seq": 1,
+          "threadId": "a",
+          "add": [],
+          "remove": [
+            "INBOX"
+          ]
+        },
+        {
+          "seq": 2,
+          "threadId": "b",
+          "add": [],
+          "remove": [
+            "INBOX"
+          ]
+        },
+        {
+          "seq": 3,
+          "threadId": "c",
+          "add": [],
+          "remove": [
+            "INBOX"
+          ]
+        }
+      ],
+      "later": [
+        "b"
+      ],
+      "queuedWhileSending": {},
+      "sent": [
+        "a",
+        "b"
+      ],
+      "drained": false,
+      "left": [
+        2,
+        3
+      ]
+    },
+    {
+      "name": "an empty queue is drained",
+      "queue": [],
+      "later": [],
+      "queuedWhileSending": {},
+      "sent": [],
+      "drained": true,
+      "left": []
+    }
+  ]
+}

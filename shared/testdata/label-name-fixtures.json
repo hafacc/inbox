@@ -1,0 +1,350 @@
+{
+ "_doc": "User label names (shared/src/label-names.ts, Android :core label/LabelNames.kt). `sort`: the names in list order (compareLabelNames). `parts`: parentName and leafName. `nested`: nestedName(parent, leaf). `renames` and `errors` run against `labels`: renames(labels, id, newName) and labelNameError(labels, text, exceptId).",
+ "labels": [
+  {
+   "id": "INBOX",
+   "name": "INBOX",
+   "type": "system"
+  },
+  {
+   "id": "CATEGORY_SOCIAL",
+   "name": "CATEGORY_SOCIAL",
+   "type": "system"
+  },
+  {
+   "id": "L1",
+   "name": "Work",
+   "type": "user"
+  },
+  {
+   "id": "L2",
+   "name": "Work/A",
+   "type": "user"
+  },
+  {
+   "id": "L3",
+   "name": "Work 2",
+   "type": "user"
+  },
+  {
+   "id": "L4",
+   "name": "Work/A/Deep",
+   "type": "user"
+  },
+  {
+   "id": "L5",
+   "name": "Workshop",
+   "type": "user"
+  },
+  {
+   "id": "L6",
+   "name": "home",
+   "type": "user"
+  },
+  {
+   "id": "L7",
+   "name": "Home/Bills",
+   "type": "user"
+  },
+  {
+   "id": "L8",
+   "name": "Éte",
+   "type": "user"
+  },
+  {
+   "id": "L9",
+   "name": "zebra",
+   "type": "user"
+  },
+  {
+   "id": "L10",
+   "name": "Work/B",
+   "type": "user"
+  }
+ ],
+ "sort": {
+  "names": [
+   "Work/A",
+   "Work 2",
+   "work",
+   "Work",
+   "Workshop",
+   "Work/A/Deep",
+   "home",
+   "Home/Bills",
+   "Éte",
+   "zebra",
+   "Ete",
+   "A-B",
+   "A/B",
+   "A B",
+   "10",
+   "9",
+   "Work/b",
+   "Work/B"
+  ],
+  "expect": [
+   "10",
+   "9",
+   "A/B",
+   "A B",
+   "A-B",
+   "Ete",
+   "Éte",
+   "home",
+   "Home/Bills",
+   "Work",
+   "work",
+   "Work/A",
+   "Work/A/Deep",
+   "Work/B",
+   "Work/b",
+   "Work 2",
+   "Workshop",
+   "zebra"
+  ]
+ },
+ "parts": [
+  {
+   "name": "Home/Bills/Water",
+   "parent": "Home/Bills",
+   "leaf": "Water"
+  },
+  {
+   "name": "Home",
+   "parent": null,
+   "leaf": "Home"
+  },
+  {
+   "name": "/Lead",
+   "parent": null,
+   "leaf": "Lead"
+  },
+  {
+   "name": "a/",
+   "parent": "a",
+   "leaf": ""
+  },
+  {
+   "name": "Work 2",
+   "parent": null,
+   "leaf": "Work 2"
+  }
+ ],
+ "nested": [
+  {
+   "parent": null,
+   "leaf": "Top",
+   "expect": "Top"
+  },
+  {
+   "parent": "Home",
+   "leaf": " Rent/2027 ",
+   "expect": "Home/Rent-2027"
+  },
+  {
+   "parent": "Home/Bills",
+   "leaf": "Water",
+   "expect": "Home/Bills/Water"
+  },
+  {
+   "parent": null,
+   "leaf": "a/b",
+   "expect": "a-b"
+  },
+  {
+   "parent": "",
+   "leaf": "x",
+   "expect": "x"
+  },
+  {
+   "parent": null,
+   "leaf": "  ",
+   "expect": ""
+  }
+ ],
+ "renames": [
+  {
+   "name": "the label and every label nested under it move",
+   "id": "L2",
+   "newName": "Work/Alpha",
+   "expect": [
+    {
+     "id": "L2",
+     "name": "Work/Alpha"
+    },
+    {
+     "id": "L4",
+     "name": "Work/Alpha/Deep"
+    }
+   ]
+  },
+  {
+   "name": "a top label carries its whole tree",
+   "id": "L1",
+   "newName": "Job",
+   "expect": [
+    {
+     "id": "L1",
+     "name": "Job"
+    },
+    {
+     "id": "L2",
+     "name": "Job/A"
+    },
+    {
+     "id": "L4",
+     "name": "Job/A/Deep"
+    },
+    {
+     "id": "L10",
+     "name": "Job/B"
+    }
+   ]
+  },
+  {
+   "name": "a label starting with the same letters stays",
+   "id": "L1",
+   "newName": "Office",
+   "expect": [
+    {
+     "id": "L1",
+     "name": "Office"
+    },
+    {
+     "id": "L2",
+     "name": "Office/A"
+    },
+    {
+     "id": "L4",
+     "name": "Office/A/Deep"
+    },
+    {
+     "id": "L10",
+     "name": "Office/B"
+    }
+   ]
+  },
+  {
+   "name": "moving under another parent",
+   "id": "L2",
+   "newName": "Home/A",
+   "expect": [
+    {
+     "id": "L2",
+     "name": "Home/A"
+    },
+    {
+     "id": "L4",
+     "name": "Home/A/Deep"
+    }
+   ]
+  },
+  {
+   "name": "the name is trimmed",
+   "id": "L9",
+   "newName": "  Zebra  ",
+   "expect": [
+    {
+     "id": "L9",
+     "name": "Zebra"
+    }
+   ]
+  },
+  {
+   "name": "the same name changes nothing",
+   "id": "L2",
+   "newName": "Work/A",
+   "expect": []
+  },
+  {
+   "name": "a blank name changes nothing",
+   "id": "L2",
+   "newName": "  ",
+   "expect": []
+  },
+  {
+   "name": "an unknown label changes nothing",
+   "id": "nope",
+   "newName": "X",
+   "expect": []
+  },
+  {
+   "name": "only a case change",
+   "id": "L6",
+   "newName": "Home",
+   "expect": [
+    {
+     "id": "L6",
+     "name": "Home"
+    },
+    {
+     "id": "L7",
+     "name": "Home/Bills"
+    }
+   ]
+  }
+ ],
+ "errors": [
+  {
+   "name": "blank",
+   "text": "  ",
+   "exceptId": null,
+   "expect": "Enter a name"
+  },
+  {
+   "name": "a nested name with a blank last part",
+   "text": "Work/ ",
+   "exceptId": null,
+   "expect": "Enter a name"
+  },
+  {
+   "name": "taken, any case",
+   "text": "work",
+   "exceptId": null,
+   "expect": "A label has that name"
+  },
+  {
+   "name": "taken by a nested label",
+   "text": "work/a",
+   "exceptId": null,
+   "expect": "A label has that name"
+  },
+  {
+   "name": "taken by Gmail's own",
+   "text": "Inbox",
+   "exceptId": null,
+   "expect": "A label has that name"
+  },
+  {
+   "name": "its own name is fine when renaming",
+   "text": "Work",
+   "exceptId": "L1",
+   "expect": null
+  },
+  {
+   "name": "a case change of its own name",
+   "text": "WORK",
+   "exceptId": "L1",
+   "expect": null
+  },
+  {
+   "name": "new",
+   "text": "Receipts",
+   "exceptId": null,
+   "expect": null
+  },
+  {
+   "name": "spaces around don't count",
+   "text": "  zebra ",
+   "exceptId": null,
+   "expect": "A label has that name"
+  },
+  {
+   "name": "new under a parent",
+   "text": "Work/C",
+   "exceptId": null,
+   "expect": null
+  }
+ ]
+}

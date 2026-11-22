@@ -1,0 +1,449 @@
+rules_version = '2';
+
+// Clients may touch only their own users/{uid} tree, and bump latr's snoozePickLog/global tally.
+// private/** (sealed refresh tokens), addresses/** (address claims), serverKeys/** (sealed server
+// keys) and deletedAccounts/** are written by functions through the Admin SDK,
+// which bypasses these rules. Under users/{uid}, outbox, thread, todo and label docs and
+// users/{uid}'s settings and pgp are held to a shape, and users/{uid}'s Google profile, .address and
+// .addressSetup are the server's.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    // deleteAccount marks the account in deletedAccounts/{uid} before deleting its data, so a device
+    // still holding a valid ID token can't write any of it back; signIn clears the mark.
+    function isLiveOwner(uid) {
+      return isOwner(uid)
+        && !exists(/databases/$(database)/documents/deletedAccounts/$(uid));
+    }
+
+    // A scheduled send as a client may write it: waiting, with only the fields clients own.
+    // Every later status (sending, retrying, blocked, sent, failed) is the server's, but for a device
+    // sending a send now itself (isDeviceClaim below).
+    function isWaitingSend(data) {
+      return data.keys().hasAll(['draftId', 'from', 'status', 'sendAt'])
+        && data.keys().hasOnly(['draftId', 'from', 'status', 'sendAt', 'chosenAt', 'threadId'])
+        && data.status == 'waiting'
+        && data.draftId is string && data.draftId.size() > 0 && data.draftId.size() <= 256
+        && data.from is string && data.from.size() <= 320
+        && data.from.matches('[^@\\s]+@[^@\\s]+')
+        && data.sendAt is timestamp
+        && (!('chosenAt' in data) || data.chosenAt == null || data.chosenAt is timestamp)
+        && (!('threadId' in data) || data.threadId == null
+          || (data.threadId is string && data.threadId.size() <= 256));
+    }
+
+    function isOutboxId(id) {
+      return id.matches('[A-Za-z0-9_-]{1,128}');
+    }
+
+    // A device taking a send now for itself when its undo window ends (shared/src/direct-send.ts):
+    // only a waiting doc with nothing but the client's fields, from an address outside @hafa.cc,
+    // within 30 s before and 60 s after its unchanged sendAt, moved to sending with the claim and
+    // what it hands over, as the server's claim and attempt record would. A device claims at most
+    // 30 s late by its own clock (DIRECT_SEND_LATE_MS); the window is 30 s wider on each side for
+    // clock skew. The server leaves it alone while the lease runs and takes over a claim whose
+    // device died.
+    function isDeviceClaim(before, after) {
+      return before.status == 'waiting'
+        && before.keys().hasOnly(['draftId', 'from', 'status', 'sendAt', 'chosenAt', 'threadId'])
+        && !before.from.lower().matches('.*@hafa[.]cc')
+        && request.time >= before.sendAt - duration.value(30, 's')
+        && request.time <= before.sendAt + duration.value(60, 's')
+        && after.diff(before).affectedKeys().hasOnly(['status', 'claimedAt', 'firstAttemptAt',
+          'inFlightAt', 'via', 'draftMessageId', 'messageIdHeader', 'deviceClaim'])
+        && after.keys().hasAll(['claimedAt', 'firstAttemptAt', 'inFlightAt', 'via',
+          'draftMessageId', 'messageIdHeader', 'deviceClaim'])
+        && after.status == 'sending'
+        && after.claimedAt == request.time
+        && after.firstAttemptAt == request.time
+        && after.inFlightAt == request.time
+        && after.via == 'gmail'
+        && after.draftMessageId is string && after.draftMessageId.matches('[A-Za-z0-9_-]{1,256}')
+        && (after.messageIdHeader == null
+          || (after.messageIdHeader is string && after.messageIdHeader.size() <= 998))
+        && after.deviceClaim is string && after.deviceClaim.matches('[A-Za-z0-9_-]{16,64}');
+    }
+
+    // A device's result goes only under the claim standing. The device writes its claim id with the
+    // result, so a result from an older claim changes deviceClaim and is refused; a server takeover
+    // deletes deviceClaim, so none passes after it.
+    function isOwnDeviceClaim(before, after) {
+      return before.status == 'sending' && 'deviceClaim' in before
+        && after.deviceClaim == before.deviceClaim;
+    }
+
+    // The claiming device's result, only while its claim stands: sent with Gmail's ids, as the
+    // server records a Gmail send.
+    function isDeviceSent(before, after) {
+      return isOwnDeviceClaim(before, after)
+        && after.diff(before).affectedKeys().hasOnly(['status', 'sentAt', 'messageId', 'threadId',
+          'filed', 'rejected', 'inFlightAt'])
+        && after.keys().hasAll(['sentAt', 'messageId', 'threadId', 'filed', 'rejected'])
+        && !('inFlightAt' in after)
+        && after.status == 'sent'
+        && after.sentAt == request.time
+        && after.messageId is string && after.messageId.matches('[A-Za-z0-9_-]{1,256}')
+        && after.threadId is string && after.threadId.matches('[A-Za-z0-9_-]{1,256}')
+        && after.filed == true
+        && after.rejected == [];
+    }
+
+    // The claiming device's result when Gmail refused the send outright: failed as rejected, as the
+    // server records it. Anything less clear stays sending for the server's takeover.
+    function isDeviceRefused(before, after) {
+      return isOwnDeviceClaim(before, after)
+        && after.diff(before).affectedKeys().hasOnly(['status', 'error', 'failedAt', 'inFlightAt'])
+        && !('inFlightAt' in after)
+        && after.status == 'failed'
+        && after.failedAt == request.time
+        && after.error.keys().hasOnly(['code', 'message'])
+        && after.error.code == 'rejected'
+        && after.error.message is string && after.error.message.size() <= 2000;
+    }
+
+    // One passkey's sealed copy of the OpenPGP private key (docs/pgp-contract.md).
+    function isSealedCopy(entry) {
+      // A missing field fails when read, so hasOnly is enough (rules allow 1,000 steps per write).
+      return entry.keys().hasOnly(['credentialId', 'salt', 'sealedPrivateKey', 'name', 'addedAt'])
+        && entry.credentialId.size() > 0 && entry.credentialId.size() <= 1024
+        && entry.salt.size() > 0 && entry.salt.size() <= 128
+        && isSealedValue(entry.sealedPrivateKey)
+        && entry.name is string && entry.name.size() <= 100
+        && entry.addedAt is timestamp;
+    }
+
+    // A value from seal(): base64, never an armored key in the clear.
+    function isSealedValue(value) {
+      return value.size() <= 32768 && value.matches('[A-Za-z0-9+/]+=*');
+    }
+
+    // Up to 8 passkeys; rules can't loop, so each slot is checked in turn (10 would pass the
+    // 1,000-step limit rules have per write).
+    function isSealedList(list) {
+      return list is list && list.size() <= 8
+        && (list.size() < 1 || isSealedCopy(list[0]))
+        && (list.size() < 2 || isSealedCopy(list[1]))
+        && (list.size() < 3 || isSealedCopy(list[2]))
+        && (list.size() < 4 || isSealedCopy(list[3]))
+        && (list.size() < 5 || isSealedCopy(list[4]))
+        && (list.size() < 6 || isSealedCopy(list[5]))
+        && (list.size() < 7 || isSealedCopy(list[6]))
+        && (list.size() < 8 || isSealedCopy(list[7]));
+    }
+
+    function isRecoverySealed(recovery) {
+      return recovery is map
+        && recovery.keys().hasOnly(['salt', 'sealedPrivateKey', 'kdf'])
+        && recovery.keys().hasAll(['salt', 'sealedPrivateKey', 'kdf'])
+        && recovery.salt is string && recovery.salt.size() > 0 && recovery.salt.size() <= 128
+        && isSealedValue(recovery.sealedPrivateKey)
+        && recovery.kdf is map
+        && recovery.kdf.keys().hasOnly(['name', 'memoryKiB', 'iterations', 'parallelism'])
+        && recovery.kdf.keys().hasAll(['name', 'memoryKiB', 'iterations', 'parallelism'])
+        && recovery.kdf.name == 'argon2id'
+        && recovery.kdf.memoryKiB is int && recovery.kdf.memoryKiB >= 19456
+        && recovery.kdf.memoryKiB <= 1048576
+        && recovery.kdf.iterations is int && recovery.kdf.iterations >= 1
+        && recovery.kdf.iterations <= 20
+        && recovery.kdf.parallelism is int && recovery.kdf.parallelism >= 1
+        && recovery.kdf.parallelism <= 8;
+    }
+
+    // users/{uid}.pgp: the public key, and the private key only ever sealed. The server publishes
+    // the public key (WKD) and never reads anything else here.
+    function isPgp(pgp) {
+      return pgp is map
+        && pgp.keys().hasOnly(['publicKey', 'sealed', 'recoverySealed'])
+        && pgp.keys().hasAll(['publicKey', 'sealed', 'recoverySealed'])
+        && pgp.publicKey is string && pgp.publicKey.size() <= 32768
+        && pgp.publicKey.matches('(?s)\\s*-----BEGIN PGP PUBLIC KEY BLOCK-----.*')
+        && !pgp.publicKey.matches('(?s).*PRIVATE KEY.*')
+        && isSealedList(pgp.sealed)
+        && isRecoverySealed(pgp.recoverySealed);
+    }
+
+    // pgp absent (no key, or removed) or well formed.
+    function pgpOk(data) {
+      return !('pgp' in data) || isPgp(data.pgp);
+    }
+
+    // settings holds only what the apps write, each of its type: theme one of the color themes in
+    // shared/themes/themes.json, images 'ask' or 'always', imageSenders a map of address to true
+    // (rules can't loop, so its entries go unchecked), varySendMaxMinutes whole minutes in 1..30.
+    function settingsOk(data) {
+      return !('settings' in data) || isSettings(data.settings);
+    }
+
+    function isSettings(settings) {
+      return settings is map
+        && settings.keys().hasOnly(['theme', 'shortcuts', 'showTodos', 'images', 'imageSenders',
+          'signature', 'sendAsDefault', 'varySendTimes', 'varySendMaxMinutes', 'quietBundles'])
+        && (!('theme' in settings)
+          || settings.theme in ['green', 'blue', 'plum', 'clay', 'slate'])
+        && (!('shortcuts' in settings) || settings.shortcuts is bool)
+        && (!('showTodos' in settings) || settings.showTodos is bool)
+        && (!('quietBundles' in settings) || settings.quietBundles is bool)
+        && (!('images' in settings) || settings.images in ['ask', 'always'])
+        && (!('imageSenders' in settings)
+          || (settings.imageSenders is map && settings.imageSenders.size() <= 10000))
+        && (!('signature' in settings) || settings.signature == null
+          || (settings.signature is string && settings.signature.size() <= 100000))
+        && (!('sendAsDefault' in settings) || settings.sendAsDefault == null
+          || (settings.sendAsDefault is string && settings.sendAsDefault.size() <= 320))
+        && (!('varySendTimes' in settings) || settings.varySendTimes is bool)
+        && (!('varySendMaxMinutes' in settings)
+          || (settings.varySendMaxMinutes is int && settings.varySendMaxMinutes >= 1
+            && settings.varySendMaxMinutes <= 30));
+    }
+
+    // The Google profile is written only by signIn, and the @hafa.cc address and its setup
+    // progress only by the address functions.
+    function serverFields() {
+      return ['email', 'displayName', 'photoUrl', 'address', 'addressSetup'];
+    }
+
+    // A local wall time with no zone, as snoozes are stored: a real date (Feb 29 only in leap
+    // years) and time of day, as isLocalIso in shared/src/local-time.ts checks.
+    function isLocalTime(value) {
+      return value is string && value.matches(
+        '([0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|1[0-9]|2[0-8])'
+          + '|[0-9]{4}-(0[13-9]|1[0-2])-(29|30)'
+          + '|[0-9]{4}-(0[13578]|1[02])-31'
+          + '|([0-9]{2}(0[48]|[2468][048]|[13579][26])|([02468][048]|[13579][26])00)-02-29)'
+          + 'T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]');
+    }
+
+    // A thread's snooze, as clients write it (design.md, "Firestore").
+    function isThreadSnooze(data) {
+      return data.keys().hasOnly(['snoozeUntil', 'snoozeWatermark'])
+        && (!('snoozeUntil' in data) || data.snoozeUntil == null || isLocalTime(data.snoozeUntil))
+        && (!('snoozeWatermark' in data) || data.snoozeWatermark == null
+          || (data.snoozeWatermark is string && data.snoozeWatermark.matches('[0-9]{1,32}')));
+    }
+
+    // The fields of users/{uid} clients write; the rest are serverFields().
+    function clientFields() {
+      return ['settings', 'pgp'];
+    }
+
+    // An update of users/{uid} touching `changed`; the diff is taken once, since a pgp check
+    // comes close to the 1,000 steps rules allow per write.
+    function userUpdateOk(changed) {
+      return changed.hasOnly(clientFields())
+        && (!changed.hasAny(['pgp']) || pgpOk(request.resource.data))
+        && (!changed.hasAny(['settings']) || settingsOk(request.resource.data));
+    }
+
+    match /users/{uid} {
+      allow read: if isOwner(uid);
+      allow create: if isLiveOwner(uid)
+        && request.resource.data.keys().hasOnly(clientFields())
+        && pgpOk(request.resource.data)
+        && settingsOk(request.resource.data);
+      allow update: if userUpdateOk(request.resource.data.diff(resource.data).affectedKeys())
+        && isLiveOwner(uid);
+      // Deleting the doc would drop a held address from view; only deleteAccount removes it.
+      allow delete: if isOwner(uid)
+        && (resource == null || resource.data.get('address', null) == null);
+    }
+
+    match /users/{uid}/{collection}/{document=**} {
+      allow read: if isOwner(uid);
+      allow create, update: if isLiveOwner(uid)
+        && !(collection in ['outbox', 'labelPrefs', 'threads', 'todos'])
+        && request.path != /databases/$(database)/documents/users/$(uid)/meta/snoozeWaits;
+      allow delete: if isOwner(uid) && !(collection in ['outbox', 'labelPrefs', 'threads', 'todos']);
+    }
+
+    // One phone's entry: the snooze it waits on (none when both fields are missing) and when it
+    // worked that out. An entry the write changes must carry the write's own time. The item is a
+    // thread id or `todo:` and a todo's id (up to 128 characters).
+    // An entry the write leaves as it was passes at once, so a write checks only what it changes and
+    // stays within the 1,000 steps rules allow per write.
+    function isSnoozeWait(waits, old, key) {
+      let entry = waits[key];
+      return (key in old && old[key] == entry)
+        || (key.size() <= 512
+          && entry is map
+          && entry.keys().hasOnly(['itemId', 'snoozeUntil', 'updatedAt'])
+          && ('itemId' in entry) == ('snoozeUntil' in entry)
+          && (!('itemId' in entry)
+            || (entry.itemId is string && entry.itemId.size() > 0 && entry.itemId.size() <= 133
+              && isLocalTime(entry.snoozeUntil)))
+          && entry.updatedAt == request.time);
+    }
+
+    function isWaitSlot(waits, old, index) {
+      return waits.size() <= index || isSnoozeWait(waits, old, waits.keys()[index]);
+    }
+
+    // Up to 10 phones, keyed by push token; rules can't loop, so each slot is checked in turn.
+    // `waits` may be missing: clearing a phone's entry on a doc that isn't there writes an empty doc.
+    function isSnoozeWaits(data, old) {
+      return data.keys().hasOnly(['waits'])
+        && areSnoozeWaits(data.get('waits', {}), old);
+    }
+
+    function areSnoozeWaits(waits, old) {
+      return waits is map && waits.size() <= 10
+        && isWaitSlot(waits, old, 0) && isWaitSlot(waits, old, 1)
+        && isWaitSlot(waits, old, 2) && isWaitSlot(waits, old, 3)
+        && isWaitSlot(waits, old, 4) && isWaitSlot(waits, old, 5)
+        && isWaitSlot(waits, old, 6) && isWaitSlot(waits, old, 7)
+        && isWaitSlot(waits, old, 8) && isWaitSlot(waits, old, 9);
+    }
+
+    // What each phone waits on, so the server pings a phone only when a snooze change moves its alarm
+    // (design.md "Notifications").
+    match /users/{uid}/meta/snoozeWaits {
+      allow read, delete: if isOwner(uid);
+      allow create, update: if isLiveOwner(uid)
+        && isSnoozeWaits(request.resource.data,
+          resource == null ? {} : resource.data.get('waits', {}));
+    }
+
+    // Held to its shape (snoozeUntil a local wall time with no zone) and a Gmail-like id.
+    match /users/{uid}/threads/{threadId} {
+      allow read, delete: if isOwner(uid);
+      allow create, update: if isLiveOwner(uid)
+        && threadId.matches('[A-Za-z0-9_-]{1,64}')
+        && isThreadSnooze(request.resource.data);
+    }
+
+    // A repeating todo's rule (shared/src/todos/repeat.ts); the anchor's calendar date is checked
+    // when read.
+    function isRepeat(rule) {
+      return rule is map
+        && rule.keys().hasOnly(['every', 'unit', 'weekday', 'monthDay', 'at', 'anchor'])
+        && rule.keys().hasAll(['every', 'unit', 'weekday', 'monthDay', 'at', 'anchor'])
+        && rule.every is int && rule.every >= 1 && rule.every <= 7
+        && rule.unit in ['day', 'week', 'month']
+        && rule.weekday is int && rule.weekday >= 1 && rule.weekday <= 7
+        && rule.monthDay is int && (rule.monthDay == -1 || (rule.monthDay >= 1 && rule.monthDay <= 31))
+        && rule.at is string && rule.at.matches('([01][0-9]|2[0-3]):[0-5][0-9]')
+        && rule.anchor is string && rule.anchor.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}');
+    }
+
+    function isTime(value) {
+      return value is int && value >= 0;
+    }
+
+    function isLocalTimeOrNull(value) {
+      return value == null || isLocalTime(value);
+    }
+
+    // A todo as clients write it (design.md, "Todos"): every field, each of its type, stamped with
+    // the write's own server time. A delete of a doc that isn't there may leave a bare tombstone
+    // ({deleted, text, modifiedAt, serverModifiedAt}), as latr's set/merge delete does.
+    function isTodo(data) {
+      return data.keys().hasOnly(['text', 'state', 'createdAt', 'modifiedAt', 'serverModifiedAt',
+          'snoozeUntil', 'pinned', 'position', 'deleted', 'repeat', 'repeatSpawned', 'occurrence'])
+        && data.keys().hasAll(['text', 'deleted', 'modifiedAt', 'serverModifiedAt'])
+        && (data.deleted == true || data.keys().hasAll(['state', 'createdAt', 'snoozeUntil',
+          'pinned', 'position', 'repeat', 'repeatSpawned', 'occurrence']))
+        && data.text is string && data.text.size() <= 100000
+        && data.deleted is bool
+        && isTime(data.modifiedAt)
+        && data.serverModifiedAt == request.time
+        && data.get('state', 'ACTIVE') in ['ACTIVE', 'DONE']
+        && isTime(data.get('createdAt', 0))
+        && isLocalTimeOrNull(data.get('snoozeUntil', null))
+        && data.get('pinned', false) is bool
+        && (data.get('position', null) == null
+          || (data.position is string && data.position.size() <= 1000
+            && data.position.matches('[0-9]{13}[0-9a-z]*')))
+        && (data.get('repeat', null) == null || isRepeat(data.repeat))
+        && data.get('repeatSpawned', false) is bool
+        && isLocalTimeOrNull(data.get('occurrence', null));
+    }
+
+    // A todo on an email (design.md, "Todos on an email"): its text and bookkeeping alone, since
+    // done, snoozed and pinned are its email's. Its id is its thread's, so an email has one.
+    function isEmailTodo(data, todoId) {
+      return data.keys().hasOnly(['threadId', 'text', 'createdAt', 'modifiedAt', 'serverModifiedAt',
+          'deleted'])
+        && data.keys().hasAll(['threadId', 'text', 'createdAt', 'modifiedAt', 'serverModifiedAt',
+          'deleted'])
+        && data.threadId == todoId
+        && todoId.matches('[A-Za-z0-9_-]{1,64}')
+        && data.text is string && data.text.size() <= 100000
+        && data.deleted is bool
+        && isTime(data.createdAt)
+        && isTime(data.modifiedAt)
+        && data.serverModifiedAt == request.time;
+    }
+
+    // latr's todos and the todos on emails. Deleting is mostly a tombstone write (deleted: true),
+    // which keeps a device's stale copy from bringing the todo back; an abandoned empty todo is
+    // deleted outright.
+    match /users/{uid}/todos/{todoId} {
+      allow read, delete: if isOwner(uid);
+      allow create, update: if isLiveOwner(uid)
+        && todoId.matches('[A-Za-z0-9_-]{1,128}')
+        && ('threadId' in request.resource.data
+          ? isEmailTodo(request.resource.data, todoId)
+          : isTodo(request.resource.data));
+    }
+
+    // One label's settings: only these fields, booleans, and an icon from shared/themes/label-icons.json.
+    function isLabelPrefs(data) {
+      return data.keys().hasOnly(['sidebar', 'bundle', 'icon'])
+        && (!('sidebar' in data) || data.sidebar is bool)
+        && (!('bundle' in data) || data.bundle is bool)
+        && (!('icon' in data) || data.icon in ['none', 'tag', 'users', 'bell', 'message-square', 'info', 'inbox', 'star', 'heart', 'briefcase', 'home', 'receipt', 'shopping-bag', 'credit-card', 'landmark', 'plane', 'car', 'truck', 'package', 'calendar', 'book', 'graduation-cap', 'code', 'newspaper', 'file-text', 'folder', 'music', 'camera', 'gift', 'utensils', 'coffee', 'dumbbell', 'stethoscope', 'gamepad', 'baby', 'paw', 'leaf', 'globe', 'lock', 'flag', 'sparkles']);
+    }
+
+    match /users/{uid}/labelPrefs/{labelId} {
+      allow read, delete: if isOwner(uid);
+      // Gmail's categories keep a fixed name, color and icon: only sidebar and bundle are theirs.
+      allow create, update: if isLiveOwner(uid) && labelId.size() <= 256
+        && isLabelPrefs(request.resource.data)
+        && (!(labelId in ['CATEGORY_PROMOTIONS', 'CATEGORY_SOCIAL', 'CATEGORY_UPDATES', 'CATEGORY_FORUMS'])
+          || request.resource.data.keys().hasOnly(['sidebar', 'bundle']));
+    }
+
+    // Undo (or canceling a retrying or blocked send) deletes the doc; a reschedule, or "Send again"
+    // after a failed or blocked send, replaces it whole (the server puts back the attempt record it
+    // needs). A sending or retrying doc can't be rewritten: its attempt is still running; only the
+    // device that claimed a send now records how its own attempt ended. A sending
+    // doc can't be deleted either: the attempt would go on without it.
+    // Ids reach the server's task payloads and logs, so they are held to a plain alphabet; a
+    // random id and an encrypted send's `{id}-bcc-{n}` copies pass.
+    match /users/{uid}/outbox/{outboxId} {
+      allow create: if isLiveOwner(uid) && isOutboxId(outboxId)
+        && isWaitingSend(request.resource.data);
+      allow update: if isLiveOwner(uid) && isOutboxId(outboxId)
+        && ((resource.data.status in ['waiting', 'failed', 'blocked']
+            && isWaitingSend(request.resource.data))
+          || isDeviceClaim(resource.data, request.resource.data)
+          || isDeviceSent(resource.data, request.resource.data)
+          || isDeviceRefused(resource.data, request.resource.data));
+      allow delete: if isOwner(uid)
+        && (resource == null || resource.data.get('status', null) != 'sending');
+    }
+
+    // latr's opt-in tally of which snooze menu row was picked, summed over every user: admins
+    // (custom claim admin: true) read it, and a write moves one field by exactly 1. `key` names that
+    // field, since rules can't pull it out of affectedKeys().
+    match /snoozePickLog/{docId} {
+      function validBump(before) {
+        let field = request.resource.data.key;
+        let changed = request.resource.data.diff(before).affectedKeys();
+        return field is string
+          && field.matches('[1-9]|1[0-9]|20|none')
+          && changed.hasOnly([field, 'key'])
+          && changed.hasAny([field])
+          && request.resource.data[field] is int
+          && (request.resource.data[field] == before.get(field, 0) + 1
+              || request.resource.data[field] == before.get(field, 0) - 1);
+      }
+
+      allow create: if request.auth != null && docId == 'global' && validBump({});
+      allow update: if request.auth != null && docId == 'global' && validBump(resource.data);
+      allow read: if request.auth != null && request.auth.token.admin == true;
+    }
+  }
+}

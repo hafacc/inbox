@@ -1,0 +1,1029 @@
+{
+  "_doc": {
+    "about": "OpenPGP behavior every client must match: web (shared/src/pgp, TypeScript, openpgp.js) and Android :core (Kotlin). Contract: docs/pgp-contract.md. Strings use CRLF where messages do. Made by shared/src/pgp/make-fixtures.ts.",
+    "keys": "Test people only: each test run makes its own key pairs for them (Curve25519, EdDSA legacy primary + ECDH Curve25519 subkey, v4, created 2026-01-01, unprotected), so this file holds no private key. Web: shared/src/pgp/test-fixtures.ts; Android: FixtureMessages.kt.",
+    "seal": "seal(secret, plaintext, iv) == sealed and unseal(secret, sealed) == plaintext. Key = HKDF-SHA256(ikm=secret, salt=empty, info=UTF-8 'inbox.hafa.cc/pgp-seal/v1', 32 bytes); AES-256-GCM, no AAD; sealed = base64(0x01 || iv(12) || ciphertext || tag(16)). unsealFailures must throw.",
+    "phraseWords": "wordsFromBytes(bytes, 8): big-endian 16-bit numbers, skip ≥ 62208, word = list[n % 7776] (shared/wordlists/eff_large_wordlist.txt, line n+1).",
+    "parsePhrase": "parsePhrase(input): lower-case, split on whitespace (not hyphens), unknown = indexes not in the list, normalized = words joined by one space when 8 known words, else null.",
+    "recovery": "recoverySecret(phrase, salt, kdf) == secretHex: Argon2id v0x13, password = UTF-8 of the normalized phrase, 32-byte output. unsealWithPhrase(phrase, sealed) == plaintext; also with phraseTyped.",
+    "wkd": "wkdHash(local) and wkdUrls(address): z-base-32 of SHA-1 of the local part with A-Z lower-cased; the l= parameter is the local part as given, percent-encoded.",
+    "zbase32": "zbase32(bytes).",
+    "autocrypt": "build: autocryptHeaderValue(address, publicKey) == value (key data in 64-character pieces joined by spaces); publicKey is a test public key whose private key was thrown away. The key data is the key re-serialized, so packets a keyring adds (a trust packet) are left out. parse: parseAutocrypt(value) → null, or addr, preferEncrypt and keydata (base64 of the bytes). for: autocryptFor(values, from) → addr or null.",
+    "decision": "encryptionDecision(from, recipients, keys) where keys maps each address in withKeys to a key and the rest to null.",
+    "protect": "protectedParts(mime) == { outerHeaders, inner }; assemblePgpMime(outerHeaders, placeholder, boundary) == assembled. mime is buildMime(composeInput) from compose-fixtures' rules (boundary token fixture1). Also: decrypting encryptMime(mime, …) gives back inner byte for byte.",
+    "decrypt": "Build the message with this run's keys, signing at 2026-01-02: encrypt pgp.data (binary, or text when format is text) to pgp.to's keys, signed by each of pgp.signers in order; for {{signature}} in data, first put the armored detached binary signature by pgp.signature.by over the UTF-8 of pgp.signature.over. Armored blocks go in with CRLF line breaks and none at the end. In raw, {{pgp}} is that armored message, {{pgp:qp}} the same with each = written =3D, and {{pgp:base64}} the base64 (76-character lines, CRLF) of 'Hi', the fewest '!' that make the UTF-8 byte count 2 mod 3, CRLF CRLF and the armored message. A case with encryptMime instead of raw is encryptMime(mime, to's public keys, signer's private key, boundary). The message is the UTF-8 of the result. Then decryptMessage(message, { decryptionKeys: [keys[k].privateKey], verificationKeys: [keys[k].publicKey…] }). expect: kind, signature status, protectedHeaders (null or the map), mismatchedHeaders, type of the decrypted entity, and text = the decoded first text/plain part. Or error = PgpError code; otherwise also encryptionKind(parseMime(message)) == kind. PGP/MIME is a multipart/encrypted (protocol application/pgp-encrypted) at the root or as a direct child of the root. Signature: the first signature whose key id is one of the verification keys' (primary or subkey) decides valid/invalid; unknown-key (with the first signature's key id) when none is. protectedHeaders: from, reply-to, to and cc come from inside only when the signature is valid and its key has a user id whose address equals the inner From's single address (case-insensitive); otherwise each present inside is replaced by the outer header's decoded value (removed when the outer message has none), and listed in mismatchedHeaders (in the order from, reply-to, to, cc) when the two differ after collapsing whitespace runs to one space and trimming.",
+    "headerDecode": "decodeHeaderValue(value) == expect: RFC 2047 encoded words decoded (whitespace between two adjacent encoded words dropped); a word that fails to decode (bad base64) stays exactly as written."
+  },
+  "keys": {
+    "alice": {
+      "address": "test@hafa.cc",
+      "name": "Alice Test"
+    },
+    "bob": {
+      "address": "bob@example.com",
+      "name": "Bob Test"
+    },
+    "carol": {
+      "address": "carol@example.org",
+      "name": ""
+    }
+  },
+  "seal": [
+    {
+      "secretHex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "ivHex": "0f0e0d0c0b0a090807060504",
+      "plaintext": "hello, sealed world",
+      "sealed": "AQ8ODQwLCgkIBwYFBOyNISOrQtQT8z/tZaVOefXD3lJUeVrc45pTO+W9rKToYeZW"
+    },
+    {
+      "secretHex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "ivHex": "000000000000000000000000",
+      "plaintext": "A longer plaintext over several lines,\nwith ünïcode, sealed under a zero IV.\n01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\n",
+      "sealed": "AQAAAAAAAAAAAAAAAGH3g81ZtEau0FXKJN7527BNiL0JL0Zzz1reZ2X8i1JM3vbDqN/X7N5sqrdBPPJ/Samv4HEFDGOeW5WJLlwhXIus+VdbZwH9OCKFQDj/G5804+IZlwCmvCtm0uEkbQ7ZZa/pcgRE2XJq/Qg0Ms5jdLFl9OIbo5eN5ZmGox4zrZxslb19NthrTEZoqS4qgess+3OFAeTIIdNobK2KY0YD8KwDRTqMctniwPGUSFW//JG9QyswSSD666Go84/W8/FpG2JCvhi1o1TGXxToX0k81YptQa1Yo76oFmdKHOTt7t/xhlrT3cstV/0xr8VxSLV4mZ04oJ6iIB+UEzH3IbZX39zLZrbULVOStRMC6Cp9de8lf3Ui5noMYWJH9RwKDU65PyGrb9IEtwBN"
+    }
+  ],
+  "unsealFailures": [
+    {
+      "name": "wrong secret",
+      "secretHex": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "sealed": "AQ8ODQwLCgkIBwYFBPycIuWfJqzZzALWeMjOuSkT"
+    },
+    {
+      "name": "unknown version",
+      "secretHex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "sealed": "AgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+    },
+    {
+      "name": "too short",
+      "secretHex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "sealed": "AQID"
+    }
+  ],
+  "phraseWords": [
+    {
+      "bytesHex": "0000000100021e5f1e601e61f2ffffff",
+      "words": [
+        "abacus",
+        "abdomen",
+        "abdominal",
+        "zoom",
+        "abacus",
+        "abdomen"
+      ]
+    },
+    {
+      "bytesHex": "f300f2ffaaaa5555123498760001f2fe00ff",
+      "words": [
+        "zoom",
+        "prepaid",
+        "starboard",
+        "player",
+        "ambush",
+        "abdomen",
+        "zoology",
+        "apostle"
+      ]
+    }
+  ],
+  "parsePhrase": [
+    {
+      "input": "abacus zoom t-shirt yo-yo crumpet drop-down eel oxygen",
+      "words": [
+        "abacus",
+        "zoom",
+        "t-shirt",
+        "yo-yo",
+        "crumpet",
+        "drop-down",
+        "eel",
+        "oxygen"
+      ],
+      "unknown": [],
+      "normalized": "abacus zoom t-shirt yo-yo crumpet drop-down eel oxygen"
+    },
+    {
+      "input": "  ABACUS\tzoom\n t-shirt yo-yo crumpet drop-down eel oxygen ",
+      "words": [
+        "abacus",
+        "zoom",
+        "t-shirt",
+        "yo-yo",
+        "crumpet",
+        "drop-down",
+        "eel",
+        "oxygen"
+      ],
+      "unknown": [],
+      "normalized": "abacus zoom t-shirt yo-yo crumpet drop-down eel oxygen"
+    },
+    {
+      "input": "abacus zoom tshirt yo-yo crumpet drop-down eel oxygen",
+      "words": [
+        "abacus",
+        "zoom",
+        "tshirt",
+        "yo-yo",
+        "crumpet",
+        "drop-down",
+        "eel",
+        "oxygen"
+      ],
+      "unknown": [
+        2
+      ],
+      "normalized": null
+    },
+    {
+      "input": "abacus zoom t-shirt yo-yo crumpet drop-down eel",
+      "words": [
+        "abacus",
+        "zoom",
+        "t-shirt",
+        "yo-yo",
+        "crumpet",
+        "drop-down",
+        "eel"
+      ],
+      "unknown": [],
+      "normalized": null
+    },
+    {
+      "input": "",
+      "words": [],
+      "unknown": [],
+      "normalized": null
+    }
+  ],
+  "recovery": [
+    {
+      "phrase": "abacus zoom t-shirt yo-yo crumpet drop-down eel oxygen",
+      "phraseTyped": "Abacus  Zoom T-Shirt yo-yo crumpet drop-down eel OXYGEN",
+      "saltHex": "00112233445566778899aabbccddeeff",
+      "kdf": {
+        "name": "argon2id",
+        "memoryKiB": 65536,
+        "iterations": 3,
+        "parallelism": 1
+      },
+      "secretHex": "f97284e60328ff5419baa624ae55ca095f46fc4daf6f652b2c651d1688b2850b",
+      "plaintext": "stands in for an armored private key",
+      "sealed": {
+        "salt": "ABEiM0RVZneImaq7zN3u/w==",
+        "sealedPrivateKey": "AWVYtyksiqd13NVwIC64NIwygyXqeaCxnWvNBf2pgIOm+ChB7xREDyUd+clXR52ucDNs86VhnGKJd2SUFUFIaCI=",
+        "kdf": {
+          "name": "argon2id",
+          "memoryKiB": 65536,
+          "iterations": 3,
+          "parallelism": 1
+        }
+      }
+    }
+  ],
+  "wkd": [
+    {
+      "address": "Joe.Doe@Example.ORG",
+      "hash": "iy9q119eutrkn8s1mk4r39qejnbu3n5q",
+      "advanced": "https://openpgpkey.example.org/.well-known/openpgpkey/example.org/hu/iy9q119eutrkn8s1mk4r39qejnbu3n5q?l=Joe.Doe",
+      "direct": "https://example.org/.well-known/openpgpkey/hu/iy9q119eutrkn8s1mk4r39qejnbu3n5q?l=Joe.Doe"
+    },
+    {
+      "address": "test@hafa.cc",
+      "hash": "iffe93qcsgp4c8ncbb378rxjo6cn9q6u",
+      "advanced": "https://openpgpkey.hafa.cc/.well-known/openpgpkey/hafa.cc/hu/iffe93qcsgp4c8ncbb378rxjo6cn9q6u?l=test",
+      "direct": "https://hafa.cc/.well-known/openpgpkey/hu/iffe93qcsgp4c8ncbb378rxjo6cn9q6u?l=test"
+    },
+    {
+      "address": "me@proton.example.net",
+      "hash": "s8y7oh5xrdpu9psba3i5ntk64ohouhga",
+      "advanced": "https://openpgpkey.proton.example.net/.well-known/openpgpkey/proton.example.net/hu/s8y7oh5xrdpu9psba3i5ntk64ohouhga?l=me",
+      "direct": "https://proton.example.net/.well-known/openpgpkey/hu/s8y7oh5xrdpu9psba3i5ntk64ohouhga?l=me"
+    },
+    {
+      "address": "test+b@hafa.cc",
+      "hash": "97dapr64wq8r7dqtc3fpabj51zdq6jx6",
+      "advanced": "https://openpgpkey.hafa.cc/.well-known/openpgpkey/hafa.cc/hu/97dapr64wq8r7dqtc3fpabj51zdq6jx6?l=test%2Bb",
+      "direct": "https://hafa.cc/.well-known/openpgpkey/hu/97dapr64wq8r7dqtc3fpabj51zdq6jx6?l=test%2Bb"
+    }
+  ],
+  "zbase32": [
+    {
+      "hex": "",
+      "encoded": ""
+    },
+    {
+      "hex": "00",
+      "encoded": "yy"
+    },
+    {
+      "hex": "ff",
+      "encoded": "9h"
+    },
+    {
+      "hex": "f0bfc7",
+      "encoded": "6n9hq"
+    },
+    {
+      "hex": "d4a9a8d51d",
+      "encoded": "41w4tie7"
+    }
+  ],
+  "autocrypt": {
+    "build": [
+      {
+        "address": "Test@Hafa.cc",
+        "publicKey": "-----BEGIN PGP PUBLIC KEY BLOCK-----\n\nxjMEaVW5ABYJKwYBBAHaRw8BAQdAuXwjX2LoPlqM6eQyn+yPLvZHpLS8U3Aa\nz00R3yn9Iy/NGUFsaWNlIFRlc3QgPHRlc3RAaGFmYS5jYz7CwBMEExYKAIUF\ngmlVuQADCwkHCRDSaU3kG8cNZkUUAAAAAAAcACBzYWx0QG5vdGF0aW9ucy5v\ncGVucGdwanMub3JntOLA2roppb0Fb8ZEHm/NchdR+ejaLfVtpqTh65LSauMF\nFQoIDgwEFgACAQIZAQKbAwIeARYhBJmU9OSadKEOw6bb3NJpTeQbxw1mAADF\nSAEAzR9hzA6cvDpZy2MImZJSVfEP65uMqAMaW+N9Tt3q2OkA/2Elclf69tI3\nIMt0EGDwE9L097LVoGHjBHrB3q0YkKADzjgEaVW5ABIKKwYBBAGXVQEFAQEH\nQBLSvjJkfhBLcMr/CDhi7wij5C2RbQ1BWq+IOUPBwxlnAwEIB8K+BBgWCgBw\nBYJpVbkACRDSaU3kG8cNZkUUAAAAAAAcACBzYWx0QG5vdGF0aW9ucy5vcGVu\ncGdwanMub3Jnk8y1FaQULrcTx8J1P9QShRXp00NawrSDGO4fLMZO2EwCmwwW\nIQSZlPTkmnShDsOm29zSaU3kG8cNZgAAN4QBAPt6A4uL1RT6xAItYBchFdIx\nEBQRgu7Jo0l6cK4I4nh/AQDnZ1N0ObWk1nusN9KAfsT+EcQVWfmXSSJJLwXR\naS3FCQ==\n=WMrp\n-----END PGP PUBLIC KEY BLOCK-----\n",
+        "value": "addr=test@hafa.cc; prefer-encrypt=mutual; keydata=xjMEaVW5ABYJKwYBBAHaRw8BAQdAuXwjX2LoPlqM6eQyn+yPLvZHpLS8U3Aaz00R 3yn9Iy/NGUFsaWNlIFRlc3QgPHRlc3RAaGFmYS5jYz7CwBMEExYKAIUFgmlVuQAD CwkHCRDSaU3kG8cNZkUUAAAAAAAcACBzYWx0QG5vdGF0aW9ucy5vcGVucGdwanMu b3JntOLA2roppb0Fb8ZEHm/NchdR+ejaLfVtpqTh65LSauMFFQoIDgwEFgACAQIZ AQKbAwIeARYhBJmU9OSadKEOw6bb3NJpTeQbxw1mAADFSAEAzR9hzA6cvDpZy2MI mZJSVfEP65uMqAMaW+N9Tt3q2OkA/2Elclf69tI3IMt0EGDwE9L097LVoGHjBHrB 3q0YkKADzjgEaVW5ABIKKwYBBAGXVQEFAQEHQBLSvjJkfhBLcMr/CDhi7wij5C2R bQ1BWq+IOUPBwxlnAwEIB8K+BBgWCgBwBYJpVbkACRDSaU3kG8cNZkUUAAAAAAAc ACBzYWx0QG5vdGF0aW9ucy5vcGVucGdwanMub3Jnk8y1FaQULrcTx8J1P9QShRXp 00NawrSDGO4fLMZO2EwCmwwWIQSZlPTkmnShDsOm29zSaU3kG8cNZgAAN4QBAPt6 A4uL1RT6xAItYBchFdIxEBQRgu7Jo0l6cK4I4nh/AQDnZ1N0ObWk1nusN9KAfsT+ EcQVWfmXSSJJLwXRaS3FCQ=="
+      },
+      {
+        "address": "test@hafa.cc",
+        "publicKey": "-----BEGIN PGP PUBLIC KEY BLOCK-----\n\nxjMEaVW5ABYJKwYBBAHaRw8BAQdAuXwjX2LoPlqM6eQyn+yPLvZHpLS8U3Aa\nz00R3yn9Iy/MAgAAzRlBbGljZSBUZXN0IDx0ZXN0QGhhZmEuY2M+wsATBBMW\nCgCFBYJpVbkAAwsJBwkQ0mlN5BvHDWZFFAAAAAAAHAAgc2FsdEBub3RhdGlv\nbnMub3BlbnBncGpzLm9yZ7TiwNq6KaW9BW/GRB5vzXIXUfno2i31baak4euS\n0mrjBRUKCA4MBBYAAgECGQECmwMCHgEWIQSZlPTkmnShDsOm29zSaU3kG8cN\nZgAAxUgBAM0fYcwOnLw6WctjCJmSUlXxD+ubjKgDGlvjfU7d6tjpAP9hJXJX\n+vbSNyDLdBBg8BPS9Pey1aBh4wR6wd6tGJCgA844BGlVuQASCisGAQQBl1UB\nBQEBB0AS0r4yZH4QS3DK/wg4Yu8Io+QtkW0NQVqviDlDwcMZZwMBCAfCvgQY\nFgoAcAWCaVW5AAkQ0mlN5BvHDWZFFAAAAAAAHAAgc2FsdEBub3RhdGlvbnMu\nb3BlbnBncGpzLm9yZ5PMtRWkFC63E8fCdT/UEoUV6dNDWsK0gxjuHyzGTthM\nApsMFiEEmZT05Jp0oQ7Dptvc0mlN5BvHDWYAADeEAQD7egOLi9UU+sQCLWAX\nIRXSMRAUEYLuyaNJenCuCOJ4fwEA52dTdDm1pNZ7rDfSgH7E/hHEFVn5l0ki\nSS8F0WktxQk=\n-----END PGP PUBLIC KEY BLOCK-----\n",
+        "value": "addr=test@hafa.cc; prefer-encrypt=mutual; keydata=xjMEaVW5ABYJKwYBBAHaRw8BAQdAuXwjX2LoPlqM6eQyn+yPLvZHpLS8U3Aaz00R 3yn9Iy/NGUFsaWNlIFRlc3QgPHRlc3RAaGFmYS5jYz7CwBMEExYKAIUFgmlVuQAD CwkHCRDSaU3kG8cNZkUUAAAAAAAcACBzYWx0QG5vdGF0aW9ucy5vcGVucGdwanMu b3JntOLA2roppb0Fb8ZEHm/NchdR+ejaLfVtpqTh65LSauMFFQoIDgwEFgACAQIZ AQKbAwIeARYhBJmU9OSadKEOw6bb3NJpTeQbxw1mAADFSAEAzR9hzA6cvDpZy2MI mZJSVfEP65uMqAMaW+N9Tt3q2OkA/2Elclf69tI3IMt0EGDwE9L097LVoGHjBHrB 3q0YkKADzjgEaVW5ABIKKwYBBAGXVQEFAQEHQBLSvjJkfhBLcMr/CDhi7wij5C2R bQ1BWq+IOUPBwxlnAwEIB8K+BBgWCgBwBYJpVbkACRDSaU3kG8cNZkUUAAAAAAAc ACBzYWx0QG5vdGF0aW9ucy5vcGVucGdwanMub3Jnk8y1FaQULrcTx8J1P9QShRXp 00NawrSDGO4fLMZO2EwCmwwWIQSZlPTkmnShDsOm29zSaU3kG8cNZgAAN4QBAPt6 A4uL1RT6xAItYBchFdIxEBQRgu7Jo0l6cK4I4nh/AQDnZ1N0ObWk1nusN9KAfsT+ EcQVWfmXSSJJLwXRaS3FCQ=="
+      }
+    ],
+    "parse": [
+      {
+        "value": "addr=test@hafa.cc; prefer-encrypt=mutual; keydata=xjMEaVW5ABYJKwYBBAHaRw8BAQdAuXwjX2LoPlqM6eQyn+yPLvZHpLS8U3Aaz00R 3yn9Iy/NGUFsaWNlIFRlc3QgPHRlc3RAaGFmYS5jYz7CwBMEExYKAIUFgmlVuQAD CwkHCRDSaU3kG8cNZkUUAAAAAAAcACBzYWx0QG5vdGF0aW9ucy5vcGVucGdwanMu b3JntOLA2roppb0Fb8ZEHm/NchdR+ejaLfVtpqTh65LSauMFFQoIDgwEFgACAQIZ AQKbAwIeARYhBJmU9OSadKEOw6bb3NJpTeQbxw1mAADFSAEAzR9hzA6cvDpZy2MI mZJSVfEP65uMqAMaW+N9Tt3q2OkA/2Elclf69tI3IMt0EGDwE9L097LVoGHjBHrB 3q0YkKADzjgEaVW5ABIKKwYBBAGXVQEFAQEHQBLSvjJkfhBLcMr/CDhi7wij5C2R bQ1BWq+IOUPBwxlnAwEIB8K+BBgWCgBwBYJpVbkACRDSaU3kG8cNZkUUAAAAAAAc ACBzYWx0QG5vdGF0aW9ucy5vcGVucGdwanMub3Jnk8y1FaQULrcTx8J1P9QShRXp 00NawrSDGO4fLMZO2EwCmwwWIQSZlPTkmnShDsOm29zSaU3kG8cNZgAAN4QBAPt6 A4uL1RT6xAItYBchFdIxEBQRgu7Jo0l6cK4I4nh/AQDnZ1N0ObWk1nusN9KAfsT+ EcQVWfmXSSJJLwXRaS3FCQ==",
+        "expect": {
+          "addr": "test@hafa.cc",
+          "preferEncrypt": "mutual",
+          "keydata": "xjMEaVW5ABYJKwYBBAHaRw8BAQdAuXwjX2LoPlqM6eQyn+yPLvZHpLS8U3Aaz00R3yn9Iy/NGUFsaWNlIFRlc3QgPHRlc3RAaGFmYS5jYz7CwBMEExYKAIUFgmlVuQADCwkHCRDSaU3kG8cNZkUUAAAAAAAcACBzYWx0QG5vdGF0aW9ucy5vcGVucGdwanMub3JntOLA2roppb0Fb8ZEHm/NchdR+ejaLfVtpqTh65LSauMFFQoIDgwEFgACAQIZAQKbAwIeARYhBJmU9OSadKEOw6bb3NJpTeQbxw1mAADFSAEAzR9hzA6cvDpZy2MImZJSVfEP65uMqAMaW+N9Tt3q2OkA/2Elclf69tI3IMt0EGDwE9L097LVoGHjBHrB3q0YkKADzjgEaVW5ABIKKwYBBAGXVQEFAQEHQBLSvjJkfhBLcMr/CDhi7wij5C2RbQ1BWq+IOUPBwxlnAwEIB8K+BBgWCgBwBYJpVbkACRDSaU3kG8cNZkUUAAAAAAAcACBzYWx0QG5vdGF0aW9ucy5vcGVucGdwanMub3Jnk8y1FaQULrcTx8J1P9QShRXp00NawrSDGO4fLMZO2EwCmwwWIQSZlPTkmnShDsOm29zSaU3kG8cNZgAAN4QBAPt6A4uL1RT6xAItYBchFdIxEBQRgu7Jo0l6cK4I4nh/AQDnZ1N0ObWk1nusN9KAfsT+EcQVWfmXSSJJLwXRaS3FCQ=="
+        }
+      },
+      {
+        "value": "addr=Bob@Example.com; keydata=xjMEaVW5ABYJKwYBBAHaRw8BAQdAuXwjX2LoPlqM6eQyn+yPLvZHpLS8U3Aaz00R 3yn9Iy/NGUFsaWNlIFRlc3QgPHRlc3RAaGFmYS5jYz7CwBMEExYKAIUFgmlVuQAD CwkHCRDSaU3kG8cNZkUUAAAAAAAcACBzYWx0QG5vdGF0aW9ucy5vcGVucGdwanMu b3JntOLA2roppb0Fb8ZEHm/NchdR+ejaLfVtpqTh65LSauMFFQoIDgwEFgACAQIZ AQKbAwIeARYhBJmU9OSadKEOw6bb3NJpTeQbxw1mAADFSAEAzR9hzA6cvDpZy2MI mZJSVfEP65uMqAMaW+N9Tt3q2OkA/2Elclf69tI3IMt0EGDwE9L097LVoGHjBHrB 3q0YkKADzjgEaVW5ABIKKwYBBAGXVQEFAQEHQBLSvjJkfhBLcMr/CDhi7wij5C2R bQ1BWq+IOUPBwxlnAwEIB8K+BBgWCgBwBYJpVbkACRDSaU3kG8cNZkUUAAAAAAAc ACBzYWx0QG5vdGF0aW9ucy5vcGVucGdwanMub3Jnk8y1FaQULrcTx8J1P9QShRXp 00NawrSDGO4fLMZO2EwCmwwWIQSZlPTkmnShDsOm29zSaU3kG8cNZgAAN4QBAPt6 A4uL1RT6xAItYBchFdIxEBQRgu7Jo0l6cK4I4nh/AQDnZ1N0ObWk1nusN9KAfsT+ EcQVWfmXSSJJLwXRaS3FCQ==",
+        "expect": {
+          "addr": "bob@example.com",
+          "preferEncrypt": "nopreference",
+          "keydata": "xjMEaVW5ABYJKwYBBAHaRw8BAQdAuXwjX2LoPlqM6eQyn+yPLvZHpLS8U3Aaz00R3yn9Iy/NGUFsaWNlIFRlc3QgPHRlc3RAaGFmYS5jYz7CwBMEExYKAIUFgmlVuQADCwkHCRDSaU3kG8cNZkUUAAAAAAAcACBzYWx0QG5vdGF0aW9ucy5vcGVucGdwanMub3JntOLA2roppb0Fb8ZEHm/NchdR+ejaLfVtpqTh65LSauMFFQoIDgwEFgACAQIZAQKbAwIeARYhBJmU9OSadKEOw6bb3NJpTeQbxw1mAADFSAEAzR9hzA6cvDpZy2MImZJSVfEP65uMqAMaW+N9Tt3q2OkA/2Elclf69tI3IMt0EGDwE9L097LVoGHjBHrB3q0YkKADzjgEaVW5ABIKKwYBBAGXVQEFAQEHQBLSvjJkfhBLcMr/CDhi7wij5C2RbQ1BWq+IOUPBwxlnAwEIB8K+BBgWCgBwBYJpVbkACRDSaU3kG8cNZkUUAAAAAAAcACBzYWx0QG5vdGF0aW9ucy5vcGVucGdwanMub3Jnk8y1FaQULrcTx8J1P9QShRXp00NawrSDGO4fLMZO2EwCmwwWIQSZlPTkmnShDsOm29zSaU3kG8cNZgAAN4QBAPt6A4uL1RT6xAItYBchFdIxEBQRgu7Jo0l6cK4I4nh/AQDnZ1N0ObWk1nusN9KAfsT+EcQVWfmXSSJJLwXRaS3FCQ=="
+        }
+      },
+      {
+        "value": "addr=bob@example.com; _extra=1; keydata=xjMEaVW5ABYJKwYBBAHaRw8BAQdAuXwjX2LoPlqM6eQyn+yPLvZHpLS8U3Aaz00R 3yn9Iy/NGUFsaWNlIFRlc3QgPHRlc3RAaGFmYS5jYz7CwBMEExYKAIUFgmlVuQAD CwkHCRDSaU3kG8cNZkUUAAAAAAAcACBzYWx0QG5vdGF0aW9ucy5vcGVucGdwanMu b3JntOLA2roppb0Fb8ZEHm/NchdR+ejaLfVtpqTh65LSauMFFQoIDgwEFgACAQIZ AQKbAwIeARYhBJmU9OSadKEOw6bb3NJpTeQbxw1mAADFSAEAzR9hzA6cvDpZy2MI mZJSVfEP65uMqAMaW+N9Tt3q2OkA/2Elclf69tI3IMt0EGDwE9L097LVoGHjBHrB 3q0YkKADzjgEaVW5ABIKKwYBBAGXVQEFAQEHQBLSvjJkfhBLcMr/CDhi7wij5C2R bQ1BWq+IOUPBwxlnAwEIB8K+BBgWCgBwBYJpVbkACRDSaU3kG8cNZkUUAAAAAAAc ACBzYWx0QG5vdGF0aW9ucy5vcGVucGdwanMub3Jnk8y1FaQULrcTx8J1P9QShRXp 00NawrSDGO4fLMZO2EwCmwwWIQSZlPTkmnShDsOm29zSaU3kG8cNZgAAN4QBAPt6 A4uL1RT6xAItYBchFdIxEBQRgu7Jo0l6cK4I4nh/AQDnZ1N0ObWk1nusN9KAfsT+ EcQVWfmXSSJJLwXRaS3FCQ==",
+        "expect": {
+          "addr": "bob@example.com",
+          "preferEncrypt": "nopreference",
+          "keydata": "xjMEaVW5ABYJKwYBBAHaRw8BAQdAuXwjX2LoPlqM6eQyn+yPLvZHpLS8U3Aaz00R3yn9Iy/NGUFsaWNlIFRlc3QgPHRlc3RAaGFmYS5jYz7CwBMEExYKAIUFgmlVuQADCwkHCRDSaU3kG8cNZkUUAAAAAAAcACBzYWx0QG5vdGF0aW9ucy5vcGVucGdwanMub3JntOLA2roppb0Fb8ZEHm/NchdR+ejaLfVtpqTh65LSauMFFQoIDgwEFgACAQIZAQKbAwIeARYhBJmU9OSadKEOw6bb3NJpTeQbxw1mAADFSAEAzR9hzA6cvDpZy2MImZJSVfEP65uMqAMaW+N9Tt3q2OkA/2Elclf69tI3IMt0EGDwE9L097LVoGHjBHrB3q0YkKADzjgEaVW5ABIKKwYBBAGXVQEFAQEHQBLSvjJkfhBLcMr/CDhi7wij5C2RbQ1BWq+IOUPBwxlnAwEIB8K+BBgWCgBwBYJpVbkACRDSaU3kG8cNZkUUAAAAAAAcACBzYWx0QG5vdGF0aW9ucy5vcGVucGdwanMub3Jnk8y1FaQULrcTx8J1P9QShRXp00NawrSDGO4fLMZO2EwCmwwWIQSZlPTkmnShDsOm29zSaU3kG8cNZgAAN4QBAPt6A4uL1RT6xAItYBchFdIxEBQRgu7Jo0l6cK4I4nh/AQDnZ1N0ObWk1nusN9KAfsT+EcQVWfmXSSJJLwXRaS3FCQ=="
+        }
+      },
+      {
+        "value": "addr=bob@example.com; unknown=1; keydata=xjMEaVW5ABYJKwYBBAHaRw8BAQdAuXwjX2LoPlqM6eQyn+yPLvZHpLS8U3Aaz00R 3yn9Iy/NGUFsaWNlIFRlc3QgPHRlc3RAaGFmYS5jYz7CwBMEExYKAIUFgmlVuQAD CwkHCRDSaU3kG8cNZkUUAAAAAAAcACBzYWx0QG5vdGF0aW9ucy5vcGVucGdwanMu b3JntOLA2roppb0Fb8ZEHm/NchdR+ejaLfVtpqTh65LSauMFFQoIDgwEFgACAQIZ AQKbAwIeARYhBJmU9OSadKEOw6bb3NJpTeQbxw1mAADFSAEAzR9hzA6cvDpZy2MI mZJSVfEP65uMqAMaW+N9Tt3q2OkA/2Elclf69tI3IMt0EGDwE9L097LVoGHjBHrB 3q0YkKADzjgEaVW5ABIKKwYBBAGXVQEFAQEHQBLSvjJkfhBLcMr/CDhi7wij5C2R bQ1BWq+IOUPBwxlnAwEIB8K+BBgWCgBwBYJpVbkACRDSaU3kG8cNZkUUAAAAAAAc ACBzYWx0QG5vdGF0aW9ucy5vcGVucGdwanMub3Jnk8y1FaQULrcTx8J1P9QShRXp 00NawrSDGO4fLMZO2EwCmwwWIQSZlPTkmnShDsOm29zSaU3kG8cNZgAAN4QBAPt6 A4uL1RT6xAItYBchFdIxEBQRgu7Jo0l6cK4I4nh/AQDnZ1N0ObWk1nusN9KAfsT+ EcQVWfmXSSJJLwXRaS3FCQ==",
+        "expect": null
+      },
+      {
+        "value": "addr=bob@example.com",
+        "expect": null
+      },
+      {
+        "value": "keydata=AAAA",
+        "expect": null
+      },
+      {
+        "value": "addr=bob@example.com; keydata=***",
+        "expect": null
+      },
+      {
+        "value": "addr=bob@example.com; addr=eve@example.com; keydata=AAAA",
+        "expect": null
+      }
+    ],
+    "for": [
+      {
+        "values": [
+          "addr=test@hafa.cc; prefer-encrypt=mutual; keydata=xjMEaVW5ABYJKwYBBAHaRw8BAQdAuXwjX2LoPlqM6eQyn+yPLvZHpLS8U3Aaz00R 3yn9Iy/NGUFsaWNlIFRlc3QgPHRlc3RAaGFmYS5jYz7CwBMEExYKAIUFgmlVuQAD CwkHCRDSaU3kG8cNZkUUAAAAAAAcACBzYWx0QG5vdGF0aW9ucy5vcGVucGdwanMu b3JntOLA2roppb0Fb8ZEHm/NchdR+ejaLfVtpqTh65LSauMFFQoIDgwEFgACAQIZ AQKbAwIeARYhBJmU9OSadKEOw6bb3NJpTeQbxw1mAADFSAEAzR9hzA6cvDpZy2MI mZJSVfEP65uMqAMaW+N9Tt3q2OkA/2Elclf69tI3IMt0EGDwE9L097LVoGHjBHrB 3q0YkKADzjgEaVW5ABIKKwYBBAGXVQEFAQEHQBLSvjJkfhBLcMr/CDhi7wij5C2R bQ1BWq+IOUPBwxlnAwEIB8K+BBgWCgBwBYJpVbkACRDSaU3kG8cNZkUUAAAAAAAc ACBzYWx0QG5vdGF0aW9ucy5vcGVucGdwanMub3Jnk8y1FaQULrcTx8J1P9QShRXp 00NawrSDGO4fLMZO2EwCmwwWIQSZlPTkmnShDsOm29zSaU3kG8cNZgAAN4QBAPt6 A4uL1RT6xAItYBchFdIxEBQRgu7Jo0l6cK4I4nh/AQDnZ1N0ObWk1nusN9KAfsT+ EcQVWfmXSSJJLwXRaS3FCQ=="
+        ],
+        "from": "Test@hafa.cc",
+        "expect": "test@hafa.cc"
+      },
+      {
+        "values": [
+          "addr=test@hafa.cc; prefer-encrypt=mutual; keydata=xjMEaVW5ABYJKwYBBAHaRw8BAQdAuXwjX2LoPlqM6eQyn+yPLvZHpLS8U3Aaz00R 3yn9Iy/NGUFsaWNlIFRlc3QgPHRlc3RAaGFmYS5jYz7CwBMEExYKAIUFgmlVuQAD CwkHCRDSaU3kG8cNZkUUAAAAAAAcACBzYWx0QG5vdGF0aW9ucy5vcGVucGdwanMu b3JntOLA2roppb0Fb8ZEHm/NchdR+ejaLfVtpqTh65LSauMFFQoIDgwEFgACAQIZ AQKbAwIeARYhBJmU9OSadKEOw6bb3NJpTeQbxw1mAADFSAEAzR9hzA6cvDpZy2MI mZJSVfEP65uMqAMaW+N9Tt3q2OkA/2Elclf69tI3IMt0EGDwE9L097LVoGHjBHrB 3q0YkKADzjgEaVW5ABIKKwYBBAGXVQEFAQEHQBLSvjJkfhBLcMr/CDhi7wij5C2R bQ1BWq+IOUPBwxlnAwEIB8K+BBgWCgBwBYJpVbkACRDSaU3kG8cNZkUUAAAAAAAc ACBzYWx0QG5vdGF0aW9ucy5vcGVucGdwanMub3Jnk8y1FaQULrcTx8J1P9QShRXp 00NawrSDGO4fLMZO2EwCmwwWIQSZlPTkmnShDsOm29zSaU3kG8cNZgAAN4QBAPt6 A4uL1RT6xAItYBchFdIxEBQRgu7Jo0l6cK4I4nh/AQDnZ1N0ObWk1nusN9KAfsT+ EcQVWfmXSSJJLwXRaS3FCQ=="
+        ],
+        "from": "bob@example.com",
+        "expect": null
+      },
+      {
+        "values": [
+          "addr=Bob@Example.com; keydata=xjMEaVW5ABYJKwYBBAHaRw8BAQdAuXwjX2LoPlqM6eQyn+yPLvZHpLS8U3Aaz00R 3yn9Iy/NGUFsaWNlIFRlc3QgPHRlc3RAaGFmYS5jYz7CwBMEExYKAIUFgmlVuQAD CwkHCRDSaU3kG8cNZkUUAAAAAAAcACBzYWx0QG5vdGF0aW9ucy5vcGVucGdwanMu b3JntOLA2roppb0Fb8ZEHm/NchdR+ejaLfVtpqTh65LSauMFFQoIDgwEFgACAQIZ AQKbAwIeARYhBJmU9OSadKEOw6bb3NJpTeQbxw1mAADFSAEAzR9hzA6cvDpZy2MI mZJSVfEP65uMqAMaW+N9Tt3q2OkA/2Elclf69tI3IMt0EGDwE9L097LVoGHjBHrB 3q0YkKADzjgEaVW5ABIKKwYBBAGXVQEFAQEHQBLSvjJkfhBLcMr/CDhi7wij5C2R bQ1BWq+IOUPBwxlnAwEIB8K+BBgWCgBwBYJpVbkACRDSaU3kG8cNZkUUAAAAAAAc ACBzYWx0QG5vdGF0aW9ucy5vcGVucGdwanMub3Jnk8y1FaQULrcTx8J1P9QShRXp 00NawrSDGO4fLMZO2EwCmwwWIQSZlPTkmnShDsOm29zSaU3kG8cNZgAAN4QBAPt6 A4uL1RT6xAItYBchFdIxEBQRgu7Jo0l6cK4I4nh/AQDnZ1N0ObWk1nusN9KAfsT+ EcQVWfmXSSJJLwXRaS3FCQ==",
+          "addr=bob@example.com; _extra=1; keydata=xjMEaVW5ABYJKwYBBAHaRw8BAQdAuXwjX2LoPlqM6eQyn+yPLvZHpLS8U3Aaz00R 3yn9Iy/NGUFsaWNlIFRlc3QgPHRlc3RAaGFmYS5jYz7CwBMEExYKAIUFgmlVuQAD CwkHCRDSaU3kG8cNZkUUAAAAAAAcACBzYWx0QG5vdGF0aW9ucy5vcGVucGdwanMu b3JntOLA2roppb0Fb8ZEHm/NchdR+ejaLfVtpqTh65LSauMFFQoIDgwEFgACAQIZ AQKbAwIeARYhBJmU9OSadKEOw6bb3NJpTeQbxw1mAADFSAEAzR9hzA6cvDpZy2MI mZJSVfEP65uMqAMaW+N9Tt3q2OkA/2Elclf69tI3IMt0EGDwE9L097LVoGHjBHrB 3q0YkKADzjgEaVW5ABIKKwYBBAGXVQEFAQEHQBLSvjJkfhBLcMr/CDhi7wij5C2R bQ1BWq+IOUPBwxlnAwEIB8K+BBgWCgBwBYJpVbkACRDSaU3kG8cNZkUUAAAAAAAc ACBzYWx0QG5vdGF0aW9ucy5vcGVucGdwanMub3Jnk8y1FaQULrcTx8J1P9QShRXp 00NawrSDGO4fLMZO2EwCmwwWIQSZlPTkmnShDsOm29zSaU3kG8cNZgAAN4QBAPt6 A4uL1RT6xAItYBchFdIxEBQRgu7Jo0l6cK4I4nh/AQDnZ1N0ObWk1nusN9KAfsT+ EcQVWfmXSSJJLwXRaS3FCQ=="
+        ],
+        "from": "bob@example.com",
+        "expect": null
+      },
+      {
+        "values": [
+          "addr=Bob@Example.com; keydata=xjMEaVW5ABYJKwYBBAHaRw8BAQdAuXwjX2LoPlqM6eQyn+yPLvZHpLS8U3Aaz00R 3yn9Iy/NGUFsaWNlIFRlc3QgPHRlc3RAaGFmYS5jYz7CwBMEExYKAIUFgmlVuQAD CwkHCRDSaU3kG8cNZkUUAAAAAAAcACBzYWx0QG5vdGF0aW9ucy5vcGVucGdwanMu b3JntOLA2roppb0Fb8ZEHm/NchdR+ejaLfVtpqTh65LSauMFFQoIDgwEFgACAQIZ AQKbAwIeARYhBJmU9OSadKEOw6bb3NJpTeQbxw1mAADFSAEAzR9hzA6cvDpZy2MI mZJSVfEP65uMqAMaW+N9Tt3q2OkA/2Elclf69tI3IMt0EGDwE9L097LVoGHjBHrB 3q0YkKADzjgEaVW5ABIKKwYBBAGXVQEFAQEHQBLSvjJkfhBLcMr/CDhi7wij5C2R bQ1BWq+IOUPBwxlnAwEIB8K+BBgWCgBwBYJpVbkACRDSaU3kG8cNZkUUAAAAAAAc ACBzYWx0QG5vdGF0aW9ucy5vcGVucGdwanMub3Jnk8y1FaQULrcTx8J1P9QShRXp 00NawrSDGO4fLMZO2EwCmwwWIQSZlPTkmnShDsOm29zSaU3kG8cNZgAAN4QBAPt6 A4uL1RT6xAItYBchFdIxEBQRgu7Jo0l6cK4I4nh/AQDnZ1N0ObWk1nusN9KAfsT+ EcQVWfmXSSJJLwXRaS3FCQ==",
+          "addr=bob@example.com; unknown=1; keydata=xjMEaVW5ABYJKwYBBAHaRw8BAQdAuXwjX2LoPlqM6eQyn+yPLvZHpLS8U3Aaz00R 3yn9Iy/NGUFsaWNlIFRlc3QgPHRlc3RAaGFmYS5jYz7CwBMEExYKAIUFgmlVuQAD CwkHCRDSaU3kG8cNZkUUAAAAAAAcACBzYWx0QG5vdGF0aW9ucy5vcGVucGdwanMu b3JntOLA2roppb0Fb8ZEHm/NchdR+ejaLfVtpqTh65LSauMFFQoIDgwEFgACAQIZ AQKbAwIeARYhBJmU9OSadKEOw6bb3NJpTeQbxw1mAADFSAEAzR9hzA6cvDpZy2MI mZJSVfEP65uMqAMaW+N9Tt3q2OkA/2Elclf69tI3IMt0EGDwE9L097LVoGHjBHrB 3q0YkKADzjgEaVW5ABIKKwYBBAGXVQEFAQEHQBLSvjJkfhBLcMr/CDhi7wij5C2R bQ1BWq+IOUPBwxlnAwEIB8K+BBgWCgBwBYJpVbkACRDSaU3kG8cNZkUUAAAAAAAc ACBzYWx0QG5vdGF0aW9ucy5vcGVucGdwanMub3Jnk8y1FaQULrcTx8J1P9QShRXp 00NawrSDGO4fLMZO2EwCmwwWIQSZlPTkmnShDsOm29zSaU3kG8cNZgAAN4QBAPt6 A4uL1RT6xAItYBchFdIxEBQRgu7Jo0l6cK4I4nh/AQDnZ1N0ObWk1nusN9KAfsT+ EcQVWfmXSSJJLwXRaS3FCQ=="
+        ],
+        "from": "bob@example.com",
+        "expect": "bob@example.com"
+      }
+    ]
+  },
+  "decision": [
+    {
+      "from": "test@hafa.cc",
+      "recipients": [
+        "Bob@Example.com"
+      ],
+      "withKeys": [
+        "bob@example.com"
+      ],
+      "expect": {
+        "encrypt": true,
+        "reason": "encrypt",
+        "missing": []
+      }
+    },
+    {
+      "from": "Alice <x>",
+      "recipients": [
+        "bob@example.com"
+      ],
+      "withKeys": [
+        "bob@example.com"
+      ],
+      "expect": {
+        "encrypt": false,
+        "reason": "not-encrypting-sender",
+        "missing": []
+      }
+    },
+    {
+      "from": "alice@example.com",
+      "recipients": [
+        "bob@example.com"
+      ],
+      "withKeys": [
+        "bob@example.com"
+      ],
+      "expect": {
+        "encrypt": false,
+        "reason": "not-encrypting-sender",
+        "missing": []
+      }
+    },
+    {
+      "from": "test@HAFA.CC",
+      "recipients": [
+        "bob@example.com",
+        "carol@example.org",
+        "bob@example.com"
+      ],
+      "withKeys": [
+        "bob@example.com"
+      ],
+      "expect": {
+        "encrypt": false,
+        "reason": "missing-keys",
+        "missing": [
+          "carol@example.org"
+        ]
+      }
+    },
+    {
+      "from": "test@hafa.cc",
+      "recipients": [],
+      "withKeys": [],
+      "expect": {
+        "encrypt": false,
+        "reason": "no-recipients",
+        "missing": []
+      }
+    },
+    {
+      "from": "test@sub.hafa.cc",
+      "recipients": [
+        "bob@example.com"
+      ],
+      "withKeys": [
+        "bob@example.com"
+      ],
+      "expect": {
+        "encrypt": false,
+        "reason": "not-encrypting-sender",
+        "missing": []
+      }
+    }
+  ],
+  "protect": [
+    {
+      "composeInput": {
+        "from": {
+          "name": "Alice Test",
+          "email": "test@hafa.cc"
+        },
+        "to": [
+          {
+            "name": "Bob Test",
+            "email": "bob@example.com"
+          }
+        ],
+        "cc": [],
+        "bcc": [
+          {
+            "name": "",
+            "email": "hidden@example.net"
+          }
+        ],
+        "subject": "Plans for Thursday — café?",
+        "markdown": "Lunch at *noon*?",
+        "signature": null,
+        "inReplyTo": "<prev@example.com>",
+        "references": [
+          "<prev@example.com>"
+        ],
+        "inlineImages": [],
+        "attachments": [],
+        "extraHeaders": [
+          [
+            "Autocrypt",
+            "addr=test@hafa.cc; prefer-encrypt=mutual; keydata=xjMEaVW5ABYJKwYBBAHaRw8BAQdAuXwjX2LoPlqM6eQyn+yPLvZHpLS8U3Aaz00R 3yn9Iy/NGUFsaWNlIFRlc3QgPHRlc3RAaGFmYS5jYz7CwBMEExYKAIUFgmlVuQAD CwkHCRDSaU3kG8cNZkUUAAAAAAAcACBzYWx0QG5vdGF0aW9ucy5vcGVucGdwanMu b3JntOLA2roppb0Fb8ZEHm/NchdR+ejaLfVtpqTh65LSauMFFQoIDgwEFgACAQIZ AQKbAwIeARYhBJmU9OSadKEOw6bb3NJpTeQbxw1mAADFSAEAzR9hzA6cvDpZy2MI mZJSVfEP65uMqAMaW+N9Tt3q2OkA/2Elclf69tI3IMt0EGDwE9L097LVoGHjBHrB 3q0YkKADzjgEaVW5ABIKKwYBBAGXVQEFAQEHQBLSvjJkfhBLcMr/CDhi7wij5C2R bQ1BWq+IOUPBwxlnAwEIB8K+BBgWCgBwBYJpVbkACRDSaU3kG8cNZkUUAAAAAAAc ACBzYWx0QG5vdGF0aW9ucy5vcGVucGdwanMub3Jnk8y1FaQULrcTx8J1P9QShRXp 00NawrSDGO4fLMZO2EwCmwwWIQSZlPTkmnShDsOm29zSaU3kG8cNZgAAN4QBAPt6 A4uL1RT6xAItYBchFdIxEBQRgu7Jo0l6cK4I4nh/AQDnZ1N0ObWk1nusN9KAfsT+ EcQVWfmXSSJJLwXRaS3FCQ=="
+          ]
+        ],
+        "boundary": "fixture1"
+      },
+      "mime": "From: Alice Test <test@hafa.cc>\r\nTo: Bob Test <bob@example.com>\r\nBcc: hidden@example.net\r\nSubject: =?UTF-8?B?UGxhbnMgZm9yIFRodXJzZGF5IOKAlCBjYWbDqT8=?=\r\nIn-Reply-To: <prev@example.com>\r\nReferences: <prev@example.com>\r\nAutocrypt: addr=test@hafa.cc; prefer-encrypt=mutual;\r\n keydata=xjMEaVW5ABYJKwYBBAHaRw8BAQdAuXwjX2LoPlqM6eQyn+yPLvZHpLS8U3Aaz00R\r\n 3yn9Iy/NGUFsaWNlIFRlc3QgPHRlc3RAaGFmYS5jYz7CwBMEExYKAIUFgmlVuQAD\r\n CwkHCRDSaU3kG8cNZkUUAAAAAAAcACBzYWx0QG5vdGF0aW9ucy5vcGVucGdwanMu\r\n b3JntOLA2roppb0Fb8ZEHm/NchdR+ejaLfVtpqTh65LSauMFFQoIDgwEFgACAQIZ\r\n AQKbAwIeARYhBJmU9OSadKEOw6bb3NJpTeQbxw1mAADFSAEAzR9hzA6cvDpZy2MI\r\n mZJSVfEP65uMqAMaW+N9Tt3q2OkA/2Elclf69tI3IMt0EGDwE9L097LVoGHjBHrB\r\n 3q0YkKADzjgEaVW5ABIKKwYBBAGXVQEFAQEHQBLSvjJkfhBLcMr/CDhi7wij5C2R\r\n bQ1BWq+IOUPBwxlnAwEIB8K+BBgWCgBwBYJpVbkACRDSaU3kG8cNZkUUAAAAAAAc\r\n ACBzYWx0QG5vdGF0aW9ucy5vcGVucGdwanMub3Jnk8y1FaQULrcTx8J1P9QShRXp\r\n 00NawrSDGO4fLMZO2EwCmwwWIQSZlPTkmnShDsOm29zSaU3kG8cNZgAAN4QBAPt6\r\n A4uL1RT6xAItYBchFdIxEBQRgu7Jo0l6cK4I4nh/AQDnZ1N0ObWk1nusN9KAfsT+\r\n EcQVWfmXSSJJLwXRaS3FCQ==\r\nMIME-Version: 1.0\r\nContent-Type: multipart/alternative; boundary=\"=_fixture1_0\"\r\n\r\n--=_fixture1_0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\nLunch at *noon*?\r\n--=_fixture1_0\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n<div dir=3D\"auto\">Lunch at <b>noon</b>?</div>\r\n--=_fixture1_0--\r\n",
+      "outerHeaders": [
+        "From: Alice Test <test@hafa.cc>",
+        "To: Bob Test <bob@example.com>",
+        "Bcc: hidden@example.net",
+        "Subject: ...",
+        "In-Reply-To: <prev@example.com>",
+        "References: <prev@example.com>",
+        "Autocrypt: addr=test@hafa.cc; prefer-encrypt=mutual;\r\n keydata=xjMEaVW5ABYJKwYBBAHaRw8BAQdAuXwjX2LoPlqM6eQyn+yPLvZHpLS8U3Aaz00R\r\n 3yn9Iy/NGUFsaWNlIFRlc3QgPHRlc3RAaGFmYS5jYz7CwBMEExYKAIUFgmlVuQAD\r\n CwkHCRDSaU3kG8cNZkUUAAAAAAAcACBzYWx0QG5vdGF0aW9ucy5vcGVucGdwanMu\r\n b3JntOLA2roppb0Fb8ZEHm/NchdR+ejaLfVtpqTh65LSauMFFQoIDgwEFgACAQIZ\r\n AQKbAwIeARYhBJmU9OSadKEOw6bb3NJpTeQbxw1mAADFSAEAzR9hzA6cvDpZy2MI\r\n mZJSVfEP65uMqAMaW+N9Tt3q2OkA/2Elclf69tI3IMt0EGDwE9L097LVoGHjBHrB\r\n 3q0YkKADzjgEaVW5ABIKKwYBBAGXVQEFAQEHQBLSvjJkfhBLcMr/CDhi7wij5C2R\r\n bQ1BWq+IOUPBwxlnAwEIB8K+BBgWCgBwBYJpVbkACRDSaU3kG8cNZkUUAAAAAAAc\r\n ACBzYWx0QG5vdGF0aW9ucy5vcGVucGdwanMub3Jnk8y1FaQULrcTx8J1P9QShRXp\r\n 00NawrSDGO4fLMZO2EwCmwwWIQSZlPTkmnShDsOm29zSaU3kG8cNZgAAN4QBAPt6\r\n A4uL1RT6xAItYBchFdIxEBQRgu7Jo0l6cK4I4nh/AQDnZ1N0ObWk1nusN9KAfsT+\r\n EcQVWfmXSSJJLwXRaS3FCQ==",
+        "MIME-Version: 1.0"
+      ],
+      "inner": "Content-Type: multipart/alternative; boundary=\"=_fixture1_0\";\r\n protected-headers=\"v1\"; hp=\"cipher\"\r\nFrom: Alice Test <test@hafa.cc>\r\nTo: Bob Test <bob@example.com>\r\nSubject: =?UTF-8?B?UGxhbnMgZm9yIFRodXJzZGF5IOKAlCBjYWbDqT8=?=\r\nIn-Reply-To: <prev@example.com>\r\nReferences: <prev@example.com>\r\nHP-Outer: From: Alice Test <test@hafa.cc>\r\nHP-Outer: To: Bob Test <bob@example.com>\r\nHP-Outer: Subject: ...\r\nHP-Outer: In-Reply-To: <prev@example.com>\r\nHP-Outer: References: <prev@example.com>\r\n\r\n--=_fixture1_0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\nLunch at *noon*?\r\n--=_fixture1_0\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n<div dir=3D\"auto\">Lunch at <b>noon</b>?</div>\r\n--=_fixture1_0--\r\n",
+      "boundary": "fx",
+      "placeholder": "-----BEGIN PGP MESSAGE-----\n\nAAAA\n=AAAA\n-----END PGP MESSAGE-----\n",
+      "assembled": "From: Alice Test <test@hafa.cc>\r\nTo: Bob Test <bob@example.com>\r\nBcc: hidden@example.net\r\nSubject: ...\r\nIn-Reply-To: <prev@example.com>\r\nReferences: <prev@example.com>\r\nAutocrypt: addr=test@hafa.cc; prefer-encrypt=mutual;\r\n keydata=xjMEaVW5ABYJKwYBBAHaRw8BAQdAuXwjX2LoPlqM6eQyn+yPLvZHpLS8U3Aaz00R\r\n 3yn9Iy/NGUFsaWNlIFRlc3QgPHRlc3RAaGFmYS5jYz7CwBMEExYKAIUFgmlVuQAD\r\n CwkHCRDSaU3kG8cNZkUUAAAAAAAcACBzYWx0QG5vdGF0aW9ucy5vcGVucGdwanMu\r\n b3JntOLA2roppb0Fb8ZEHm/NchdR+ejaLfVtpqTh65LSauMFFQoIDgwEFgACAQIZ\r\n AQKbAwIeARYhBJmU9OSadKEOw6bb3NJpTeQbxw1mAADFSAEAzR9hzA6cvDpZy2MI\r\n mZJSVfEP65uMqAMaW+N9Tt3q2OkA/2Elclf69tI3IMt0EGDwE9L097LVoGHjBHrB\r\n 3q0YkKADzjgEaVW5ABIKKwYBBAGXVQEFAQEHQBLSvjJkfhBLcMr/CDhi7wij5C2R\r\n bQ1BWq+IOUPBwxlnAwEIB8K+BBgWCgBwBYJpVbkACRDSaU3kG8cNZkUUAAAAAAAc\r\n ACBzYWx0QG5vdGF0aW9ucy5vcGVucGdwanMub3Jnk8y1FaQULrcTx8J1P9QShRXp\r\n 00NawrSDGO4fLMZO2EwCmwwWIQSZlPTkmnShDsOm29zSaU3kG8cNZgAAN4QBAPt6\r\n A4uL1RT6xAItYBchFdIxEBQRgu7Jo0l6cK4I4nh/AQDnZ1N0ObWk1nusN9KAfsT+\r\n EcQVWfmXSSJJLwXRaS3FCQ==\r\nMIME-Version: 1.0\r\nContent-Type: multipart/encrypted; protocol=\"application/pgp-encrypted\";\r\n boundary=\"=_fx_enc\"\r\n\r\nThis is an OpenPGP/MIME encrypted message (RFC 4880 and 3156)\r\n--=_fx_enc\r\nContent-Type: application/pgp-encrypted\r\nContent-Description: PGP/MIME version identification\r\n\r\nVersion: 1\r\n\r\n--=_fx_enc\r\nContent-Type: application/octet-stream; name=\"encrypted.asc\"\r\nContent-Description: OpenPGP encrypted message\r\nContent-Disposition: inline; filename=\"encrypted.asc\"\r\n\r\n-----BEGIN PGP MESSAGE-----\r\n\r\nAAAA\r\n=AAAA\r\n-----END PGP MESSAGE-----\r\n--=_fx_enc--\r\n"
+    }
+  ],
+  "decrypt": [
+    {
+      "name": "PGP/MIME signed and encrypted, sender key known",
+      "raw": "From: Bob Test <bob@example.com>\r\nTo: Alice Test <test@hafa.cc>\r\nSubject: ...\r\nMIME-Version: 1.0\r\nContent-Type: multipart/encrypted; protocol=\"application/pgp-encrypted\";\r\n boundary=\"=_fx_enc\"\r\n\r\nThis is an OpenPGP/MIME encrypted message (RFC 4880 and 3156)\r\n--=_fx_enc\r\nContent-Type: application/pgp-encrypted\r\nContent-Description: PGP/MIME version identification\r\n\r\nVersion: 1\r\n\r\n--=_fx_enc\r\nContent-Type: application/octet-stream; name=\"encrypted.asc\"\r\nContent-Description: OpenPGP encrypted message\r\nContent-Disposition: inline; filename=\"encrypted.asc\"\r\n\r\n{{pgp}}\r\n--=_fx_enc--\r\n",
+      "pgp": {
+        "data": "Content-Type: multipart/alternative; boundary=\"alt\"; protected-headers=\"v1\"\r\nSubject: =?UTF-8?Q?Re:_Plans_for_Thursday_=E2=80=94_caf=C3=A9=3F?=\r\nFrom: Bob Test <bob@example.com>\r\nTo: Alice Test <test@hafa.cc>\r\n\r\n--alt\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\nNoon works. =E2=98=95\r\n--alt\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n<p>Noon works. &#9749;</p>\r\n--alt--\r\n",
+        "format": "binary",
+        "to": [
+          "alice",
+          "bob"
+        ],
+        "signers": [
+          "bob"
+        ]
+      },
+      "decryptionKey": "alice",
+      "verificationKeys": [
+        "bob"
+      ],
+      "expect": {
+        "kind": "pgp-mime",
+        "signature": "valid",
+        "protectedHeaders": {
+          "subject": "Re: Plans for Thursday — café?",
+          "from": "Bob Test <bob@example.com>",
+          "to": "Alice Test <test@hafa.cc>"
+        },
+        "mismatchedHeaders": [],
+        "type": "multipart/alternative",
+        "text": "Noon works. ☕"
+      }
+    },
+    {
+      "name": "same message, sender key unknown",
+      "raw": "From: Bob Test <bob@example.com>\r\nTo: Alice Test <test@hafa.cc>\r\nSubject: ...\r\nMIME-Version: 1.0\r\nContent-Type: multipart/encrypted; protocol=\"application/pgp-encrypted\";\r\n boundary=\"=_fx_enc\"\r\n\r\nThis is an OpenPGP/MIME encrypted message (RFC 4880 and 3156)\r\n--=_fx_enc\r\nContent-Type: application/pgp-encrypted\r\nContent-Description: PGP/MIME version identification\r\n\r\nVersion: 1\r\n\r\n--=_fx_enc\r\nContent-Type: application/octet-stream; name=\"encrypted.asc\"\r\nContent-Description: OpenPGP encrypted message\r\nContent-Disposition: inline; filename=\"encrypted.asc\"\r\n\r\n{{pgp}}\r\n--=_fx_enc--\r\n",
+      "pgp": {
+        "data": "Content-Type: multipart/alternative; boundary=\"alt\"; protected-headers=\"v1\"\r\nSubject: =?UTF-8?Q?Re:_Plans_for_Thursday_=E2=80=94_caf=C3=A9=3F?=\r\nFrom: Bob Test <bob@example.com>\r\nTo: Alice Test <test@hafa.cc>\r\n\r\n--alt\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\nNoon works. =E2=98=95\r\n--alt\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n<p>Noon works. &#9749;</p>\r\n--alt--\r\n",
+        "format": "binary",
+        "to": [
+          "alice",
+          "bob"
+        ],
+        "signers": [
+          "bob"
+        ]
+      },
+      "decryptionKey": "alice",
+      "verificationKeys": [],
+      "expect": {
+        "kind": "pgp-mime",
+        "signature": "unknown-key",
+        "protectedHeaders": {
+          "subject": "Re: Plans for Thursday — café?",
+          "from": "Bob Test <bob@example.com>",
+          "to": "Alice Test <test@hafa.cc>"
+        },
+        "mismatchedHeaders": [],
+        "type": "multipart/alternative",
+        "text": "Noon works. ☕"
+      }
+    },
+    {
+      "name": "same message, another key for the sender",
+      "raw": "From: Bob Test <bob@example.com>\r\nTo: Alice Test <test@hafa.cc>\r\nSubject: ...\r\nMIME-Version: 1.0\r\nContent-Type: multipart/encrypted; protocol=\"application/pgp-encrypted\";\r\n boundary=\"=_fx_enc\"\r\n\r\nThis is an OpenPGP/MIME encrypted message (RFC 4880 and 3156)\r\n--=_fx_enc\r\nContent-Type: application/pgp-encrypted\r\nContent-Description: PGP/MIME version identification\r\n\r\nVersion: 1\r\n\r\n--=_fx_enc\r\nContent-Type: application/octet-stream; name=\"encrypted.asc\"\r\nContent-Description: OpenPGP encrypted message\r\nContent-Disposition: inline; filename=\"encrypted.asc\"\r\n\r\n{{pgp}}\r\n--=_fx_enc--\r\n",
+      "pgp": {
+        "data": "Content-Type: multipart/alternative; boundary=\"alt\"; protected-headers=\"v1\"\r\nSubject: =?UTF-8?Q?Re:_Plans_for_Thursday_=E2=80=94_caf=C3=A9=3F?=\r\nFrom: Bob Test <bob@example.com>\r\nTo: Alice Test <test@hafa.cc>\r\n\r\n--alt\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\nNoon works. =E2=98=95\r\n--alt\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n<p>Noon works. &#9749;</p>\r\n--alt--\r\n",
+        "format": "binary",
+        "to": [
+          "alice",
+          "bob"
+        ],
+        "signers": [
+          "bob"
+        ]
+      },
+      "decryptionKey": "alice",
+      "verificationKeys": [
+        "carol"
+      ],
+      "expect": {
+        "kind": "pgp-mime",
+        "signature": "unknown-key",
+        "protectedHeaders": {
+          "subject": "Re: Plans for Thursday — café?",
+          "from": "Bob Test <bob@example.com>",
+          "to": "Alice Test <test@hafa.cc>"
+        },
+        "mismatchedHeaders": [],
+        "type": "multipart/alternative",
+        "text": "Noon works. ☕"
+      }
+    },
+    {
+      "name": "PGP/MIME our own sent copy, unsigned, no protected headers",
+      "raw": "From: Alice Test <test@hafa.cc>\r\nTo: Alice Test <test@hafa.cc>\r\nSubject: Note\r\nMIME-Version: 1.0\r\nContent-Type: multipart/encrypted; protocol=\"application/pgp-encrypted\";\r\n boundary=\"=_fx_enc\"\r\n\r\nThis is an OpenPGP/MIME encrypted message (RFC 4880 and 3156)\r\n--=_fx_enc\r\nContent-Type: application/pgp-encrypted\r\nContent-Description: PGP/MIME version identification\r\n\r\nVersion: 1\r\n\r\n--=_fx_enc\r\nContent-Type: application/octet-stream; name=\"encrypted.asc\"\r\nContent-Description: OpenPGP encrypted message\r\nContent-Disposition: inline; filename=\"encrypted.asc\"\r\n\r\n{{pgp}}\r\n--=_fx_enc--\r\n",
+      "pgp": {
+        "data": "Content-Type: text/plain; charset=UTF-8\r\n\r\nJust text.\r\n",
+        "format": "binary",
+        "to": [
+          "alice"
+        ],
+        "signers": []
+      },
+      "decryptionKey": "alice",
+      "verificationKeys": [
+        "alice"
+      ],
+      "expect": {
+        "kind": "pgp-mime",
+        "signature": "unsigned",
+        "protectedHeaders": null,
+        "mismatchedHeaders": [],
+        "type": "text/plain",
+        "text": "Just text.\r\n"
+      }
+    },
+    {
+      "name": "built by encryptMime",
+      "encryptMime": {
+        "mime": "From: Alice Test <test@hafa.cc>\r\nTo: Bob Test <bob@example.com>\r\nBcc: hidden@example.net\r\nSubject: =?UTF-8?B?UGxhbnMgZm9yIFRodXJzZGF5IOKAlCBjYWbDqT8=?=\r\nIn-Reply-To: <prev@example.com>\r\nReferences: <prev@example.com>\r\nAutocrypt: addr=test@hafa.cc; prefer-encrypt=mutual;\r\n keydata=xjMEaVW5ABYJKwYBBAHaRw8BAQdAuXwjX2LoPlqM6eQyn+yPLvZHpLS8U3Aaz00R\r\n 3yn9Iy/NGUFsaWNlIFRlc3QgPHRlc3RAaGFmYS5jYz7CwBMEExYKAIUFgmlVuQAD\r\n CwkHCRDSaU3kG8cNZkUUAAAAAAAcACBzYWx0QG5vdGF0aW9ucy5vcGVucGdwanMu\r\n b3JntOLA2roppb0Fb8ZEHm/NchdR+ejaLfVtpqTh65LSauMFFQoIDgwEFgACAQIZ\r\n AQKbAwIeARYhBJmU9OSadKEOw6bb3NJpTeQbxw1mAADFSAEAzR9hzA6cvDpZy2MI\r\n mZJSVfEP65uMqAMaW+N9Tt3q2OkA/2Elclf69tI3IMt0EGDwE9L097LVoGHjBHrB\r\n 3q0YkKADzjgEaVW5ABIKKwYBBAGXVQEFAQEHQBLSvjJkfhBLcMr/CDhi7wij5C2R\r\n bQ1BWq+IOUPBwxlnAwEIB8K+BBgWCgBwBYJpVbkACRDSaU3kG8cNZkUUAAAAAAAc\r\n ACBzYWx0QG5vdGF0aW9ucy5vcGVucGdwanMub3Jnk8y1FaQULrcTx8J1P9QShRXp\r\n 00NawrSDGO4fLMZO2EwCmwwWIQSZlPTkmnShDsOm29zSaU3kG8cNZgAAN4QBAPt6\r\n A4uL1RT6xAItYBchFdIxEBQRgu7Jo0l6cK4I4nh/AQDnZ1N0ObWk1nusN9KAfsT+\r\n EcQVWfmXSSJJLwXRaS3FCQ==\r\nMIME-Version: 1.0\r\nContent-Type: multipart/alternative; boundary=\"=_fixture1_0\"\r\n\r\n--=_fixture1_0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\nLunch at *noon*?\r\n--=_fixture1_0\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n<div dir=3D\"auto\">Lunch at <b>noon</b>?</div>\r\n--=_fixture1_0--\r\n",
+        "to": [
+          "bob",
+          "alice"
+        ],
+        "signer": "alice",
+        "boundary": "fx2"
+      },
+      "decryptionKey": "bob",
+      "verificationKeys": [
+        "alice"
+      ],
+      "expect": {
+        "kind": "pgp-mime",
+        "signature": "valid",
+        "protectedHeaders": {
+          "from": "Alice Test <test@hafa.cc>",
+          "to": "Bob Test <bob@example.com>",
+          "subject": "Plans for Thursday — café?",
+          "in-reply-to": "<prev@example.com>",
+          "references": "<prev@example.com>"
+        },
+        "mismatchedHeaders": [],
+        "type": "multipart/alternative",
+        "text": "Lunch at *noon*?"
+      }
+    },
+    {
+      "name": "signed inside as multipart/signed (RFC 3156 6.1)",
+      "raw": "From: Bob Test <bob@example.com>\r\nTo: Alice Test <test@hafa.cc>\r\nSubject: Signed inside\r\nMIME-Version: 1.0\r\nContent-Type: multipart/encrypted; protocol=\"application/pgp-encrypted\";\r\n boundary=\"=_fx_enc\"\r\n\r\nThis is an OpenPGP/MIME encrypted message (RFC 4880 and 3156)\r\n--=_fx_enc\r\nContent-Type: application/pgp-encrypted\r\nContent-Description: PGP/MIME version identification\r\n\r\nVersion: 1\r\n\r\n--=_fx_enc\r\nContent-Type: application/octet-stream; name=\"encrypted.asc\"\r\nContent-Description: OpenPGP encrypted message\r\nContent-Disposition: inline; filename=\"encrypted.asc\"\r\n\r\n{{pgp}}\r\n--=_fx_enc--\r\n",
+      "pgp": {
+        "data": "Content-Type: multipart/signed; micalg=pgp-sha512; protocol=\"application/pgp-signature\"; boundary=\"sig\"\r\n\r\n--sig\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\nSigned then encrypted.\r\n--sig\r\nContent-Type: application/pgp-signature; name=\"signature.asc\"\r\n\r\n{{signature}}\r\n--sig--\r\n",
+        "format": "binary",
+        "to": [
+          "alice"
+        ],
+        "signers": [],
+        "signature": {
+          "by": "bob",
+          "over": "Content-Type: text/plain; charset=UTF-8\r\n\r\nSigned then encrypted."
+        }
+      },
+      "decryptionKey": "alice",
+      "verificationKeys": [
+        "bob"
+      ],
+      "expect": {
+        "kind": "pgp-mime",
+        "signature": "valid",
+        "protectedHeaders": null,
+        "mismatchedHeaders": [],
+        "type": "text/plain",
+        "text": "Signed then encrypted."
+      }
+    },
+    {
+      "name": "multipart/signed inside, content changed after signing",
+      "raw": "From: Bob Test <bob@example.com>\r\nTo: Alice Test <test@hafa.cc>\r\nSubject: Tampered\r\nMIME-Version: 1.0\r\nContent-Type: multipart/encrypted; protocol=\"application/pgp-encrypted\";\r\n boundary=\"=_fx_enc\"\r\n\r\nThis is an OpenPGP/MIME encrypted message (RFC 4880 and 3156)\r\n--=_fx_enc\r\nContent-Type: application/pgp-encrypted\r\nContent-Description: PGP/MIME version identification\r\n\r\nVersion: 1\r\n\r\n--=_fx_enc\r\nContent-Type: application/octet-stream; name=\"encrypted.asc\"\r\nContent-Description: OpenPGP encrypted message\r\nContent-Disposition: inline; filename=\"encrypted.asc\"\r\n\r\n{{pgp}}\r\n--=_fx_enc--\r\n",
+      "pgp": {
+        "data": "Content-Type: multipart/signed; micalg=pgp-sha512; protocol=\"application/pgp-signature\"; boundary=\"sig\"\r\n\r\n--sig\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\nChanged then encrypted.\r\n--sig\r\nContent-Type: application/pgp-signature; name=\"signature.asc\"\r\n\r\n{{signature}}\r\n--sig--\r\n",
+        "format": "binary",
+        "to": [
+          "alice"
+        ],
+        "signers": [],
+        "signature": {
+          "by": "bob",
+          "over": "Content-Type: text/plain; charset=UTF-8\r\n\r\nSigned then encrypted."
+        }
+      },
+      "decryptionKey": "alice",
+      "verificationKeys": [
+        "bob"
+      ],
+      "expect": {
+        "kind": "pgp-mime",
+        "signature": "invalid",
+        "protectedHeaders": null,
+        "mismatchedHeaders": [],
+        "type": "text/plain",
+        "text": "Changed then encrypted."
+      }
+    },
+    {
+      "name": "inline PGP",
+      "raw": "From: bob@example.com\r\nTo: test@hafa.cc\r\nSubject: Old school\r\nContent-Type: text/plain; charset=us-ascii\r\n\r\nHi,\r\n\r\n{{pgp}}\r\n",
+      "pgp": {
+        "data": "Inline secret, ünïcode.",
+        "format": "text",
+        "to": [
+          "alice"
+        ],
+        "signers": [
+          "bob"
+        ]
+      },
+      "decryptionKey": "alice",
+      "verificationKeys": [
+        "bob"
+      ],
+      "expect": {
+        "kind": "inline",
+        "signature": "valid",
+        "protectedHeaders": null,
+        "mismatchedHeaders": [],
+        "type": "text/plain",
+        "text": "Inline secret, ünïcode."
+      }
+    },
+    {
+      "name": "inline PGP inside quoted-printable multipart/alternative",
+      "raw": "From: bob@example.com\r\nContent-Type: multipart/alternative; boundary=\"b1\"\r\n\r\n--b1\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n{{pgp:qp}}\r\n--b1\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<pre>encrypted</pre>\r\n--b1--\r\n",
+      "pgp": {
+        "data": "Inline secret, ünïcode.",
+        "format": "text",
+        "to": [
+          "alice"
+        ],
+        "signers": [
+          "bob"
+        ]
+      },
+      "decryptionKey": "alice",
+      "verificationKeys": [
+        "bob"
+      ],
+      "expect": {
+        "kind": "inline",
+        "signature": "valid",
+        "protectedHeaders": null,
+        "mismatchedHeaders": [],
+        "type": "text/plain",
+        "text": "Inline secret, ünïcode."
+      }
+    },
+    {
+      "name": "PGP/MIME, base64 text ending in ==",
+      "raw": "From: Bob Test <bob@example.com>\r\nTo: Alice Test <test@hafa.cc>\r\nSubject: ...\r\nMIME-Version: 1.0\r\nContent-Type: multipart/encrypted; protocol=\"application/pgp-encrypted\";\r\n boundary=\"=_fx_enc\"\r\n\r\nThis is an OpenPGP/MIME encrypted message (RFC 4880 and 3156)\r\n--=_fx_enc\r\nContent-Type: application/pgp-encrypted\r\nContent-Description: PGP/MIME version identification\r\n\r\nVersion: 1\r\n\r\n--=_fx_enc\r\nContent-Type: application/octet-stream; name=\"encrypted.asc\"\r\nContent-Description: OpenPGP encrypted message\r\nContent-Disposition: inline; filename=\"encrypted.asc\"\r\n\r\n{{pgp}}\r\n--=_fx_enc--\r\n",
+      "pgp": {
+        "data": "Content-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\nVHdvIHBhZGRpbmc6IMO8bsOvY29kZQ==\r\n",
+        "format": "binary",
+        "to": [
+          "alice",
+          "bob"
+        ],
+        "signers": [
+          "bob"
+        ]
+      },
+      "decryptionKey": "alice",
+      "verificationKeys": [
+        "bob"
+      ],
+      "expect": {
+        "kind": "pgp-mime",
+        "signature": "valid",
+        "protectedHeaders": null,
+        "mismatchedHeaders": [],
+        "type": "text/plain",
+        "text": "Two padding: ünïcode"
+      }
+    },
+    {
+      "name": "PGP/MIME, base64 text ending in =",
+      "raw": "From: Bob Test <bob@example.com>\r\nTo: Alice Test <test@hafa.cc>\r\nSubject: ...\r\nMIME-Version: 1.0\r\nContent-Type: multipart/encrypted; protocol=\"application/pgp-encrypted\";\r\n boundary=\"=_fx_enc\"\r\n\r\nThis is an OpenPGP/MIME encrypted message (RFC 4880 and 3156)\r\n--=_fx_enc\r\nContent-Type: application/pgp-encrypted\r\nContent-Description: PGP/MIME version identification\r\n\r\nVersion: 1\r\n\r\n--=_fx_enc\r\nContent-Type: application/octet-stream; name=\"encrypted.asc\"\r\nContent-Description: OpenPGP encrypted message\r\nContent-Disposition: inline; filename=\"encrypted.asc\"\r\n\r\n{{pgp}}\r\n--=_fx_enc--\r\n",
+      "pgp": {
+        "data": "Content-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\nT25lIHBhZGRpbmc6IGNhZsOpISE=\r\n",
+        "format": "binary",
+        "to": [
+          "alice",
+          "bob"
+        ],
+        "signers": [
+          "bob"
+        ]
+      },
+      "decryptionKey": "alice",
+      "verificationKeys": [
+        "bob"
+      ],
+      "expect": {
+        "kind": "pgp-mime",
+        "signature": "valid",
+        "protectedHeaders": null,
+        "mismatchedHeaders": [],
+        "type": "text/plain",
+        "text": "One padding: café!!"
+      }
+    },
+    {
+      "name": "PGP/MIME, base64 text without padding",
+      "raw": "From: Bob Test <bob@example.com>\r\nTo: Alice Test <test@hafa.cc>\r\nSubject: ...\r\nMIME-Version: 1.0\r\nContent-Type: multipart/encrypted; protocol=\"application/pgp-encrypted\";\r\n boundary=\"=_fx_enc\"\r\n\r\nThis is an OpenPGP/MIME encrypted message (RFC 4880 and 3156)\r\n--=_fx_enc\r\nContent-Type: application/pgp-encrypted\r\nContent-Description: PGP/MIME version identification\r\n\r\nVersion: 1\r\n\r\n--=_fx_enc\r\nContent-Type: application/octet-stream; name=\"encrypted.asc\"\r\nContent-Description: OpenPGP encrypted message\r\nContent-Disposition: inline; filename=\"encrypted.asc\"\r\n\r\n{{pgp}}\r\n--=_fx_enc--\r\n",
+      "pgp": {
+        "data": "Content-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\nTm8gcGFkZGluZzogY2Fmw6kh\r\n",
+        "format": "binary",
+        "to": [
+          "alice",
+          "bob"
+        ],
+        "signers": [
+          "bob"
+        ]
+      },
+      "decryptionKey": "alice",
+      "verificationKeys": [
+        "bob"
+      ],
+      "expect": {
+        "kind": "pgp-mime",
+        "signature": "valid",
+        "protectedHeaders": null,
+        "mismatchedHeaders": [],
+        "type": "text/plain",
+        "text": "No padding: café!"
+      }
+    },
+    {
+      "name": "inline PGP inside a base64 text part",
+      "raw": "From: bob@example.com\r\nTo: test@hafa.cc\r\nSubject: Old school\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n{{pgp:base64}}\r\n",
+      "pgp": {
+        "data": "Inline secret, ünïcode.",
+        "format": "text",
+        "to": [
+          "alice"
+        ],
+        "signers": [
+          "bob"
+        ]
+      },
+      "decryptionKey": "alice",
+      "verificationKeys": [
+        "bob"
+      ],
+      "expect": {
+        "kind": "inline",
+        "signature": "valid",
+        "protectedHeaders": null,
+        "mismatchedHeaders": [],
+        "type": "text/plain",
+        "text": "Inline secret, ünïcode."
+      }
+    },
+    {
+      "name": "unsigned: inner From is not trusted over the outer one",
+      "raw": "From: Mallory <mallory@example.net>\r\nTo: Alice Test <test@hafa.cc>\r\nSubject: ...\r\nMIME-Version: 1.0\r\nContent-Type: multipart/encrypted; protocol=\"application/pgp-encrypted\";\r\n boundary=\"=_fx_enc\"\r\n\r\nThis is an OpenPGP/MIME encrypted message (RFC 4880 and 3156)\r\n--=_fx_enc\r\nContent-Type: application/pgp-encrypted\r\nContent-Description: PGP/MIME version identification\r\n\r\nVersion: 1\r\n\r\n--=_fx_enc\r\nContent-Type: application/octet-stream; name=\"encrypted.asc\"\r\nContent-Description: OpenPGP encrypted message\r\nContent-Disposition: inline; filename=\"encrypted.asc\"\r\n\r\n{{pgp}}\r\n--=_fx_enc--\r\n",
+      "pgp": {
+        "data": "Content-Type: multipart/alternative; boundary=\"alt\"; protected-headers=\"v1\"\r\nSubject: =?UTF-8?B?Q?= Re: plans\r\nFrom: Bob Test <bob@example.com>\r\nTo: Alice Test <test@hafa.cc>\r\n\r\n--alt\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\nNoon works. =E2=98=95\r\n--alt\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n<p>Noon works. &#9749;</p>\r\n--alt--\r\n",
+        "format": "binary",
+        "to": [
+          "alice"
+        ],
+        "signers": []
+      },
+      "decryptionKey": "alice",
+      "verificationKeys": [
+        "bob"
+      ],
+      "expect": {
+        "kind": "pgp-mime",
+        "signature": "unsigned",
+        "protectedHeaders": {
+          "subject": "=?UTF-8?B?Q?= Re: plans",
+          "from": "Mallory <mallory@example.net>",
+          "to": "Alice Test <test@hafa.cc>"
+        },
+        "mismatchedHeaders": [
+          "from"
+        ],
+        "type": "multipart/alternative",
+        "text": "Noon works. ☕"
+      }
+    },
+    {
+      "name": "valid signature by a key for another address than the inner From",
+      "raw": "From: carol@example.org\r\nTo: Alice Test <test@hafa.cc>\r\nSubject: ...\r\nMIME-Version: 1.0\r\nContent-Type: multipart/encrypted; protocol=\"application/pgp-encrypted\";\r\n boundary=\"=_fx_enc\"\r\n\r\nThis is an OpenPGP/MIME encrypted message (RFC 4880 and 3156)\r\n--=_fx_enc\r\nContent-Type: application/pgp-encrypted\r\nContent-Description: PGP/MIME version identification\r\n\r\nVersion: 1\r\n\r\n--=_fx_enc\r\nContent-Type: application/octet-stream; name=\"encrypted.asc\"\r\nContent-Description: OpenPGP encrypted message\r\nContent-Disposition: inline; filename=\"encrypted.asc\"\r\n\r\n{{pgp}}\r\n--=_fx_enc--\r\n",
+      "pgp": {
+        "data": "Content-Type: multipart/alternative; boundary=\"alt\"; protected-headers=\"v1\"\r\nSubject: =?UTF-8?Q?Re:_Plans_for_Thursday_=E2=80=94_caf=C3=A9=3F?=\r\nFrom: Bob Test <bob@example.com>\r\nTo: Alice Test <test@hafa.cc>\r\n\r\n--alt\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\nNoon works. =E2=98=95\r\n--alt\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n<p>Noon works. &#9749;</p>\r\n--alt--\r\n",
+        "format": "binary",
+        "to": [
+          "alice"
+        ],
+        "signers": [
+          "carol"
+        ]
+      },
+      "decryptionKey": "alice",
+      "verificationKeys": [
+        "carol"
+      ],
+      "expect": {
+        "kind": "pgp-mime",
+        "signature": "valid",
+        "protectedHeaders": {
+          "subject": "Re: Plans for Thursday — café?",
+          "from": "carol@example.org",
+          "to": "Alice Test <test@hafa.cc>"
+        },
+        "mismatchedHeaders": [
+          "from"
+        ],
+        "type": "multipart/alternative",
+        "text": "Noon works. ☕"
+      }
+    },
+    {
+      "name": "signed by the inner From's key: inner From wins over the outer one",
+      "raw": "From: Team list <team@lists.example.com>\r\nTo: Alice Test <test@hafa.cc>\r\nSubject: ...\r\nMIME-Version: 1.0\r\nContent-Type: multipart/encrypted; protocol=\"application/pgp-encrypted\";\r\n boundary=\"=_fx_enc\"\r\n\r\nThis is an OpenPGP/MIME encrypted message (RFC 4880 and 3156)\r\n--=_fx_enc\r\nContent-Type: application/pgp-encrypted\r\nContent-Description: PGP/MIME version identification\r\n\r\nVersion: 1\r\n\r\n--=_fx_enc\r\nContent-Type: application/octet-stream; name=\"encrypted.asc\"\r\nContent-Description: OpenPGP encrypted message\r\nContent-Disposition: inline; filename=\"encrypted.asc\"\r\n\r\n{{pgp}}\r\n--=_fx_enc--\r\n",
+      "pgp": {
+        "data": "Content-Type: multipart/alternative; boundary=\"alt\"; protected-headers=\"v1\"\r\nSubject: =?UTF-8?Q?Re:_Plans_for_Thursday_=E2=80=94_caf=C3=A9=3F?=\r\nFrom: Bob Test <bob@example.com>\r\nTo: Alice Test <test@hafa.cc>\r\n\r\n--alt\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\nNoon works. =E2=98=95\r\n--alt\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n<p>Noon works. &#9749;</p>\r\n--alt--\r\n",
+        "format": "binary",
+        "to": [
+          "alice"
+        ],
+        "signers": [
+          "bob"
+        ]
+      },
+      "decryptionKey": "alice",
+      "verificationKeys": [
+        "bob"
+      ],
+      "expect": {
+        "kind": "pgp-mime",
+        "signature": "valid",
+        "protectedHeaders": {
+          "subject": "Re: Plans for Thursday — café?",
+          "from": "Bob Test <bob@example.com>",
+          "to": "Alice Test <test@hafa.cc>"
+        },
+        "mismatchedHeaders": [],
+        "type": "multipart/alternative",
+        "text": "Noon works. ☕"
+      }
+    },
+    {
+      "name": "two signatures: the one by a known key decides",
+      "raw": "From: Bob Test <bob@example.com>\r\nTo: Alice Test <test@hafa.cc>\r\nSubject: ...\r\nMIME-Version: 1.0\r\nContent-Type: multipart/encrypted; protocol=\"application/pgp-encrypted\";\r\n boundary=\"=_fx_enc\"\r\n\r\nThis is an OpenPGP/MIME encrypted message (RFC 4880 and 3156)\r\n--=_fx_enc\r\nContent-Type: application/pgp-encrypted\r\nContent-Description: PGP/MIME version identification\r\n\r\nVersion: 1\r\n\r\n--=_fx_enc\r\nContent-Type: application/octet-stream; name=\"encrypted.asc\"\r\nContent-Description: OpenPGP encrypted message\r\nContent-Disposition: inline; filename=\"encrypted.asc\"\r\n\r\n{{pgp}}\r\n--=_fx_enc--\r\n",
+      "pgp": {
+        "data": "Content-Type: multipart/alternative; boundary=\"alt\"; protected-headers=\"v1\"\r\nSubject: =?UTF-8?Q?Re:_Plans_for_Thursday_=E2=80=94_caf=C3=A9=3F?=\r\nFrom: Bob Test <bob@example.com>\r\nTo: Alice Test <test@hafa.cc>\r\n\r\n--alt\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\nNoon works. =E2=98=95\r\n--alt\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n<p>Noon works. &#9749;</p>\r\n--alt--\r\n",
+        "format": "binary",
+        "to": [
+          "alice"
+        ],
+        "signers": [
+          "carol",
+          "bob"
+        ]
+      },
+      "decryptionKey": "alice",
+      "verificationKeys": [
+        "bob"
+      ],
+      "expect": {
+        "kind": "pgp-mime",
+        "signature": "valid",
+        "protectedHeaders": {
+          "subject": "Re: Plans for Thursday — café?",
+          "from": "Bob Test <bob@example.com>",
+          "to": "Alice Test <test@hafa.cc>"
+        },
+        "mismatchedHeaders": [],
+        "type": "multipart/alternative",
+        "text": "Noon works. ☕"
+      }
+    },
+    {
+      "name": "PGP/MIME wrapped by a mailing list footer",
+      "raw": "From: Bob Test <bob@example.com>\r\nTo: Alice Test <test@hafa.cc>\r\nSubject: ...\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=\"list\"\r\n\r\n--list\r\nContent-Type: multipart/encrypted; protocol=\"application/pgp-encrypted\";\r\n boundary=\"=_fx_enc\"\r\n\r\nThis is an OpenPGP/MIME encrypted message (RFC 4880 and 3156)\r\n--=_fx_enc\r\nContent-Type: application/pgp-encrypted\r\nContent-Description: PGP/MIME version identification\r\n\r\nVersion: 1\r\n\r\n--=_fx_enc\r\nContent-Type: application/octet-stream; name=\"encrypted.asc\"\r\nContent-Description: OpenPGP encrypted message\r\nContent-Disposition: inline; filename=\"encrypted.asc\"\r\n\r\n{{pgp}}\r\n--=_fx_enc--\r\n--list\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n_______________________________________________\r\nTeam mailing list\r\n--list--\r\n",
+      "pgp": {
+        "data": "Content-Type: multipart/alternative; boundary=\"alt\"; protected-headers=\"v1\"\r\nSubject: =?UTF-8?Q?Re:_Plans_for_Thursday_=E2=80=94_caf=C3=A9=3F?=\r\nFrom: Bob Test <bob@example.com>\r\nTo: Alice Test <test@hafa.cc>\r\n\r\n--alt\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\nNoon works. =E2=98=95\r\n--alt\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n<p>Noon works. &#9749;</p>\r\n--alt--\r\n",
+        "format": "binary",
+        "to": [
+          "alice"
+        ],
+        "signers": [
+          "bob"
+        ]
+      },
+      "decryptionKey": "alice",
+      "verificationKeys": [
+        "bob"
+      ],
+      "expect": {
+        "kind": "pgp-mime",
+        "signature": "valid",
+        "protectedHeaders": {
+          "subject": "Re: Plans for Thursday — café?",
+          "from": "Bob Test <bob@example.com>",
+          "to": "Alice Test <test@hafa.cc>"
+        },
+        "mismatchedHeaders": [],
+        "type": "multipart/alternative",
+        "text": "Noon works. ☕"
+      }
+    },
+    {
+      "name": "encrypted to another key",
+      "raw": "From: Bob Test <bob@example.com>\r\nTo: Alice Test <test@hafa.cc>\r\nSubject: Not yours\r\nMIME-Version: 1.0\r\nContent-Type: multipart/encrypted; protocol=\"application/pgp-encrypted\";\r\n boundary=\"=_fx_enc\"\r\n\r\nThis is an OpenPGP/MIME encrypted message (RFC 4880 and 3156)\r\n--=_fx_enc\r\nContent-Type: application/pgp-encrypted\r\nContent-Description: PGP/MIME version identification\r\n\r\nVersion: 1\r\n\r\n--=_fx_enc\r\nContent-Type: application/octet-stream; name=\"encrypted.asc\"\r\nContent-Description: OpenPGP encrypted message\r\nContent-Disposition: inline; filename=\"encrypted.asc\"\r\n\r\n{{pgp}}\r\n--=_fx_enc--\r\n",
+      "pgp": {
+        "data": "Content-Type: multipart/alternative; boundary=\"alt\"; protected-headers=\"v1\"\r\nSubject: =?UTF-8?Q?Re:_Plans_for_Thursday_=E2=80=94_caf=C3=A9=3F?=\r\nFrom: Bob Test <bob@example.com>\r\nTo: Alice Test <test@hafa.cc>\r\n\r\n--alt\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\nNoon works. =E2=98=95\r\n--alt\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n<p>Noon works. &#9749;</p>\r\n--alt--\r\n",
+        "format": "binary",
+        "to": [
+          "carol"
+        ],
+        "signers": [
+          "bob"
+        ]
+      },
+      "decryptionKey": "alice",
+      "verificationKeys": [
+        "bob"
+      ],
+      "expect": {
+        "error": "wrong-key"
+      }
+    },
+    {
+      "name": "not encrypted",
+      "raw": "From: bob@example.com\r\nSubject: hi\r\n\r\nHello\r\n",
+      "decryptionKey": "alice",
+      "verificationKeys": [],
+      "expect": {
+        "error": "not-encrypted"
+      }
+    }
+  ],
+  "headerDecode": [
+    {
+      "value": "=?UTF-8?B?Q2Fmw6k=?= au lait",
+      "expect": "Café au lait"
+    },
+    {
+      "value": "=?ISO-8859-1?Q?caf=E9_cr=E8me?=",
+      "expect": "café crème"
+    },
+    {
+      "value": "=?UTF-8?B?Q?=",
+      "expect": "=?UTF-8?B?Q?="
+    },
+    {
+      "value": "Hi =?UTF-8?B?Q?= =?UTF-8?B?w6k=?= there",
+      "expect": "Hi =?UTF-8?B?Q?=é there"
+    },
+    {
+      "value": "=?UTF-8?B?***?= plain",
+      "expect": "=?UTF-8?B?***?= plain"
+    }
+  ]
+}

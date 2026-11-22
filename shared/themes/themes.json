@@ -1,0 +1,295 @@
+{
+  "_doc": {
+    "about": "Color themes both apps draw from: web (shared/src/themes.ts, CSS variables named --color-<token>) and Android (read from assets by :core ThemePalette). A theme's colors in a mode are neutral[mode] overlaid by the theme's own [mode] tokens, plus avatar-<n>/on-avatar-<n> from avatars[mode] and label-<tone> from labelTones[mode].",
+    "labelTone": "labelTone(hex): the Gmail label color's HSL; saturation below 0.15 is gray, else by hue in degrees: <15 red, <40 orange, <70 yellow, <160 green, <195 teal, <255 blue, <290 purple, <345 pink, else red. Unparseable or missing is gray. Cases in shared/testdata/theme-fixtures.json.",
+    "avatarIndex": "avatarIndex(email, count): over the lower-cased address's code points, hash = (hash * 31 + codePoint) mod 2^32 starting from 0; the index is hash mod count."
+  },
+  "default": "green",
+  "neutral": {
+    "light": {
+      "bg": "#f1eee8",
+      "sidebar": "#e9e5dd",
+      "sidebar-hover": "#dfd9ce",
+      "surface": "#fffdf9",
+      "surface-raised": "#fffdf9",
+      "surface-muted": "#f3f0ea",
+      "surface-hover": "#f3efe8",
+      "field": "#fffdf9",
+      "text": "#23211d",
+      "text-secondary": "#57524a",
+      "muted": "#6c665c",
+      "border": "#e6e1d7",
+      "border-strong": "#cbc3b4",
+      "separator": "#eee9e0",
+      "snackbar": "#2b2925",
+      "on-snackbar": "#f1eee8",
+      "snackbar-hover": "#3d3a34",
+      "snooze": "#94661c",
+      "snooze-soft": "#f4e9d4",
+      "on-snooze": "#ffffff",
+      "on-snooze-soft": "#7a5414",
+      "done": "#2f6b4a",
+      "done-soft": "#e0ede5",
+      "on-done": "#ffffff",
+      "danger": "#b0402d",
+      "danger-soft": "#f6e3dd",
+      "on-danger": "#ffffff",
+      "scrim": "#2b2925"
+    },
+    "dark": {
+      "bg": "#161513",
+      "sidebar": "#100f0e",
+      "sidebar-hover": "#22201d",
+      "surface": "#201e1b",
+      "surface-raised": "#28251f",
+      "surface-muted": "#2a2724",
+      "surface-hover": "#2a2723",
+      "field": "#201e1b",
+      "text": "#eeeae2",
+      "text-secondary": "#bcb6aa",
+      "muted": "#958f84",
+      "border": "#2f2c28",
+      "border-strong": "#4a453e",
+      "separator": "#2a2723",
+      "snackbar": "#3a3631",
+      "on-snackbar": "#eeeae2",
+      "snackbar-hover": "#4a453e",
+      "snooze": "#e0b264",
+      "snooze-soft": "#3a2f1c",
+      "on-snooze": "#2a1d05",
+      "on-snooze-soft": "#e6c07c",
+      "done": "#7cc29e",
+      "done-soft": "#1e3329",
+      "on-done": "#0d2117",
+      "danger": "#f08a78",
+      "danger-soft": "#3d1f1a",
+      "on-danger": "#2e0e0a",
+      "scrim": "#000000"
+    }
+  },
+  "themes": [
+    {
+      "id": "green",
+      "name": "Fern",
+      "light": {
+        "accent": "#2e6b4f",
+        "accent-strong": "#24573f",
+        "accent-soft": "#e0ede5",
+        "on-accent": "#ffffff",
+        "focus": "#2e6b4f",
+        "snackbar-accent": "#a3d8bc"
+      },
+      "dark": {
+        "accent": "#7cc29e",
+        "accent-strong": "#a3d8bc",
+        "accent-soft": "#1e3329",
+        "on-accent": "#0d2117",
+        "focus": "#7cc29e",
+        "snackbar-accent": "#a3d8bc"
+      },
+      "emailLink": {
+        "light": "#24573f",
+        "dark": "#a3d8bc"
+      }
+    },
+    {
+      "id": "blue",
+      "name": "Harbor",
+      "light": {
+        "accent": "#2f5d8f",
+        "accent-strong": "#264c75",
+        "accent-soft": "#e1e8f1",
+        "on-accent": "#ffffff",
+        "focus": "#2f5d8f",
+        "snackbar-accent": "#b5cdec"
+      },
+      "dark": {
+        "accent": "#8fb4e0",
+        "accent-strong": "#b5cdec",
+        "accent-soft": "#1d2a3a",
+        "on-accent": "#0c1a2b",
+        "focus": "#8fb4e0",
+        "snackbar-accent": "#b5cdec"
+      },
+      "emailLink": {
+        "light": "#264c75",
+        "dark": "#b5cdec"
+      }
+    },
+    {
+      "id": "plum",
+      "name": "Plum",
+      "light": {
+        "accent": "#7a3f68",
+        "accent-strong": "#643354",
+        "accent-soft": "#f0e2ea",
+        "on-accent": "#ffffff",
+        "focus": "#7a3f68",
+        "snackbar-accent": "#e6bfd9"
+      },
+      "dark": {
+        "accent": "#d49cc2",
+        "accent-strong": "#e6bfd9",
+        "accent-soft": "#35202e",
+        "on-accent": "#2a0f22",
+        "focus": "#d49cc2",
+        "snackbar-accent": "#e6bfd9"
+      },
+      "emailLink": {
+        "light": "#643354",
+        "dark": "#e6bfd9"
+      }
+    },
+    {
+      "id": "clay",
+      "name": "Clay",
+      "light": {
+        "accent": "#a24b2a",
+        "accent-strong": "#853c21",
+        "accent-soft": "#f5e3da",
+        "on-accent": "#ffffff",
+        "focus": "#a24b2a",
+        "snackbar-accent": "#f2b9a4"
+      },
+      "dark": {
+        "accent": "#e9967a",
+        "accent-strong": "#f2b9a4",
+        "accent-soft": "#3a2219",
+        "on-accent": "#2b1006",
+        "focus": "#e9967a",
+        "snackbar-accent": "#f2b9a4"
+      },
+      "emailLink": {
+        "light": "#853c21",
+        "dark": "#f2b9a4"
+      }
+    },
+    {
+      "id": "slate",
+      "name": "Slate",
+      "light": {
+        "accent": "#4a5560",
+        "accent-strong": "#3b444d",
+        "accent-soft": "#e5e7e8",
+        "on-accent": "#ffffff",
+        "focus": "#4a5560",
+        "snackbar-accent": "#c8d0d8"
+      },
+      "dark": {
+        "accent": "#a9b4bf",
+        "accent-strong": "#c8d0d8",
+        "accent-soft": "#262b30",
+        "on-accent": "#12171c",
+        "focus": "#a9b4bf",
+        "snackbar-accent": "#c8d0d8"
+      },
+      "emailLink": {
+        "light": "#3b444d",
+        "dark": "#c8d0d8"
+      }
+    }
+  ],
+  "avatars": {
+    "light": [
+      [
+        "#dce8df",
+        "#24573f"
+      ],
+      [
+        "#ece3d1",
+        "#6b5532"
+      ],
+      [
+        "#dde4ee",
+        "#3b4e6b"
+      ],
+      [
+        "#ecdfe5",
+        "#6b3b52"
+      ],
+      [
+        "#e4e0ee",
+        "#4a3f6b"
+      ],
+      [
+        "#dbe9e7",
+        "#2f5a56"
+      ]
+    ],
+    "dark": [
+      [
+        "#22352a",
+        "#a3d8bc"
+      ],
+      [
+        "#3a3122",
+        "#e3cfa6"
+      ],
+      [
+        "#243041",
+        "#afc4e3"
+      ],
+      [
+        "#3a2630",
+        "#e3b2c8"
+      ],
+      [
+        "#2c2840",
+        "#c3b8e6"
+      ],
+      [
+        "#1f3331",
+        "#a6d6d0"
+      ]
+    ]
+  },
+  "labelTones": {
+    "order": [
+      "red",
+      "orange",
+      "yellow",
+      "green",
+      "teal",
+      "blue",
+      "purple",
+      "pink",
+      "gray"
+    ],
+    "light": {
+      "red": "#b5533f",
+      "orange": "#b8692e",
+      "yellow": "#a0742b",
+      "green": "#4f7d4a",
+      "teal": "#3f7f78",
+      "blue": "#4a6a96",
+      "purple": "#6f5a96",
+      "pink": "#a0567a",
+      "gray": "#8a8377"
+    },
+    "dark": {
+      "red": "#e08a76",
+      "orange": "#e3a06a",
+      "yellow": "#d6a95c",
+      "green": "#93c08a",
+      "teal": "#7fc0b8",
+      "blue": "#8fb0dc",
+      "purple": "#b3a2dc",
+      "pink": "#dc9cbc",
+      "gray": "#a8a196"
+    }
+  },
+  "email": {
+    "_doc": "Message bodies. Light: drawn as sent on white. Dark: the mail's own colors are turned (shared/src/dark-mail.ts): light backgrounds go dark and dark text goes light, keeping hue, then text is made to reach 4.5:1 on what is behind it. `dark` is the page, unset text and quote colors; unset links take the theme's `emailLink.dark`. Pictures are drawn as sent, dimmed by `dim`.",
+    "dim": "brightness(0.9)",
+    "light": {
+      "background": "#ffffff",
+      "text": "#23211d",
+      "quote": "#e6e1d7"
+    },
+    "dark": {
+      "background": "#201e1b",
+      "text": "#eeeae2",
+      "quote": "#4a453e"
+    }
+  }
+}

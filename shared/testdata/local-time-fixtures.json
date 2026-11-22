@@ -1,0 +1,39 @@
+{
+  "_comment": "Local wall times with no zone (YYYY-MM-DDTHH:mm:ss), as snoozeUntil is stored, read in `zone`. toIso: an instant as wall time (milliseconds dropped). toEpoch: the instant a wall time names; a time skipped by a clock change moves forward by the gap, a repeated one takes the earlier instant. isLocalIso: only real calendar dates and times count (leap days included; a time a clock change skips is still valid). Run by shared/src/local-time.spec.ts and Android :core LocalTimeTest.",
+  "zone": "America/New_York",
+  "toIso": [
+    { "name": "a morning in winter time", "epoch": 1794492000000, "iso": "2026-11-12T09:00:00" },
+    { "name": "late evening in summer time", "epoch": 1783223999000, "iso": "2026-07-04T23:59:59" },
+    { "name": "milliseconds are dropped", "epoch": 1794470400123, "iso": "2026-11-12T03:00:00" },
+    { "name": "the first 01:30 of the fall-back night", "epoch": 1793511000000, "iso": "2026-11-01T01:30:00" },
+    { "name": "the second 01:30 of the fall-back night", "epoch": 1793514600000, "iso": "2026-11-01T01:30:00" }
+  ],
+  "toEpoch": [
+    { "name": "a morning in winter time", "iso": "2026-11-12T09:00:00", "epoch": 1794492000000 },
+    { "name": "late evening in summer time", "iso": "2026-07-04T23:59:59", "epoch": 1783223999000 },
+    { "name": "new year", "iso": "2027-01-01T00:00:00", "epoch": 1798779600000 },
+    { "name": "a time the spring-forward skips moves forward by the gap", "iso": "2026-03-08T02:30:00", "epoch": 1772955000000 },
+    { "name": "a repeated fall-back time takes the earlier instant", "iso": "2026-11-01T01:30:00", "epoch": 1793511000000 }
+  ],
+  "isLocalIso": [
+    { "value": "2026-11-12T09:00:00", "valid": true },
+    { "value": "2026-11-12T09:00", "valid": false },
+    { "value": "2026-11-12T09:00:00Z", "valid": false },
+    { "value": "2026-11-12T09:00:00.000", "valid": false },
+    { "value": "2026-11-12 09:00:00", "valid": false },
+    { "value": "2028-02-29T09:00:00", "valid": true },
+    { "value": "2000-02-29T09:00:00", "valid": true },
+    { "value": "2026-12-31T23:59:59", "valid": true },
+    { "value": "2026-03-08T02:30:00", "valid": true },
+    { "value": "2026-13-01T09:00:00", "valid": false },
+    { "value": "2026-00-10T09:00:00", "valid": false },
+    { "value": "2026-11-00T09:00:00", "valid": false },
+    { "value": "2026-02-30T09:00:00", "valid": false },
+    { "value": "2026-02-29T09:00:00", "valid": false },
+    { "value": "1900-02-29T09:00:00", "valid": false },
+    { "value": "2026-04-31T09:00:00", "valid": false },
+    { "value": "2026-11-12T24:00:00", "valid": false },
+    { "value": "2026-11-12T09:60:00", "valid": false },
+    { "value": "2026-11-12T09:00:60", "valid": false }
+  ]
+}

@@ -1,0 +1,210 @@
+{
+  "_doc": "The important mark and focus mode (shared/src/focus.ts, Android :core Focus.kt). `mark`: importantChange(labelIds, important). `sections`: focusSections over sections (and `heldPins`, the focused thread's held pinning, when given) whose entries are threads ({id, labels}), todos ({todo: id, pinned}) or bundles ({bundle: labelId, threads: [ids]}); `expect` lists each remaining section's entries (a thread by id, a todo as \"todo:<id>\", a bundle by its label) and how many entries were hidden. `query`: focusQuery(query), the Gmail query focus mode lists the inbox with, given the view's own query.",
+  "mark": [
+    {
+      "name": "mark important",
+      "labelIds": ["INBOX", "UNREAD"],
+      "important": true,
+      "expect": { "add": ["IMPORTANT"], "remove": [] }
+    },
+    {
+      "name": "mark not important",
+      "labelIds": ["IMPORTANT", "INBOX"],
+      "important": false,
+      "expect": { "add": [], "remove": ["IMPORTANT"] }
+    },
+    {
+      "name": "already important",
+      "labelIds": ["IMPORTANT", "INBOX"],
+      "important": true,
+      "expect": { "add": [], "remove": [] }
+    },
+    {
+      "name": "already not important",
+      "labelIds": ["INBOX"],
+      "important": false,
+      "expect": { "add": [], "remove": [] }
+    }
+  ],
+  "sections": [
+    {
+      "name": "only pinned threads stay",
+      "openId": null,
+      "sections": [
+        {
+          "key": "today",
+          "entries": [
+            { "id": "a", "labels": ["INBOX", "STARRED"] },
+            { "id": "b", "labels": ["INBOX"] },
+            { "id": "c", "labels": ["INBOX", "STARRED", "UNREAD"] }
+          ]
+        }
+      ],
+      "expect": {
+        "sections": [{ "key": "today", "entries": ["a", "c"] }],
+        "hidden": 1
+      }
+    },
+    {
+      "name": "important but not pinned is hidden",
+      "openId": null,
+      "sections": [
+        {
+          "key": "today",
+          "entries": [
+            { "id": "i1", "labels": ["IMPORTANT", "INBOX"] },
+            { "id": "i2", "labels": ["IMPORTANT", "INBOX", "STARRED"] }
+          ]
+        }
+      ],
+      "expect": {
+        "sections": [{ "key": "today", "entries": ["i2"] }],
+        "hidden": 1
+      }
+    },
+    {
+      "name": "only pinned todos stay",
+      "openId": null,
+      "sections": [
+        {
+          "key": "pinned",
+          "entries": [
+            { "todo": "t1", "pinned": true },
+            { "id": "p", "labels": ["INBOX", "STARRED"] }
+          ]
+        },
+        { "key": "today", "entries": [{ "todo": "t2", "pinned": false }] }
+      ],
+      "expect": {
+        "sections": [{ "key": "pinned", "entries": ["todo:t1", "p"] }],
+        "hidden": 1
+      }
+    },
+    {
+      "name": "bundles are hidden",
+      "openId": null,
+      "sections": [
+        {
+          "key": "today",
+          "entries": [
+            { "bundle": "Label_1", "threads": ["x1", "x2"] },
+            { "id": "y", "labels": ["INBOX", "STARRED"] }
+          ]
+        }
+      ],
+      "expect": {
+        "sections": [{ "key": "today", "entries": ["y"] }],
+        "hidden": 1
+      }
+    },
+    {
+      "name": "a bundle holding the open thread stays",
+      "openId": "x2",
+      "sections": [
+        {
+          "key": "today",
+          "entries": [
+            { "bundle": "Label_1", "threads": ["x1", "x2"] },
+            { "bundle": "Label_2", "threads": ["z"] }
+          ]
+        }
+      ],
+      "expect": {
+        "sections": [{ "key": "today", "entries": ["Label_1"] }],
+        "hidden": 1
+      }
+    },
+    {
+      "name": "a section left empty is dropped",
+      "openId": null,
+      "sections": [
+        {
+          "key": "pinned",
+          "entries": [{ "id": "a", "labels": ["INBOX", "STARRED"] }]
+        },
+        {
+          "key": "yesterday",
+          "entries": [
+            { "id": "b", "labels": ["INBOX"] },
+            { "todo": "t", "pinned": false }
+          ]
+        }
+      ],
+      "expect": {
+        "sections": [{ "key": "pinned", "entries": ["a"] }],
+        "hidden": 2
+      }
+    },
+    {
+      "name": "the open thread stays though not pinned",
+      "openId": "b",
+      "sections": [
+        {
+          "key": "today",
+          "entries": [
+            { "id": "a", "labels": ["INBOX"] },
+            { "id": "b", "labels": ["INBOX"] }
+          ]
+        }
+      ],
+      "expect": {
+        "sections": [{ "key": "today", "entries": ["b"] }],
+        "hidden": 1
+      }
+    },
+    {
+      "name": "the focused thread unpinned stays while its pinning is held",
+      "openId": null,
+      "heldPins": { "a": true },
+      "sections": [
+        {
+          "key": "pinned",
+          "entries": [
+            { "id": "a", "labels": ["INBOX"] },
+            { "id": "b", "labels": ["INBOX", "STARRED"] }
+          ]
+        },
+        { "key": "today", "entries": [{ "id": "c", "labels": ["INBOX"] }] }
+      ],
+      "expect": {
+        "sections": [{ "key": "pinned", "entries": ["a", "b"] }],
+        "hidden": 1
+      }
+    },
+    {
+      "name": "a held pinning of false hides nothing pinned",
+      "openId": null,
+      "heldPins": { "b": false },
+      "sections": [
+        {
+          "key": "pinned",
+          "entries": [{ "id": "b", "labels": ["INBOX", "STARRED"] }]
+        }
+      ],
+      "expect": {
+        "sections": [{ "key": "pinned", "entries": ["b"] }],
+        "hidden": 0
+      }
+    },
+    {
+      "name": "nothing pinned leaves no sections",
+      "openId": null,
+      "sections": [
+        {
+          "key": "today",
+          "entries": [{ "id": "a", "labels": ["IMPORTANT", "INBOX"] }]
+        }
+      ],
+      "expect": { "sections": [], "hidden": 1 }
+    }
+  ],
+  "query": [
+    { "name": "the inbox alone", "query": "", "expect": "is:starred" },
+    {
+      "name": "joined to the view's own query",
+      "query": "-label:news -category:promotions",
+      "expect": "-label:news -category:promotions is:starred"
+    },
+    { "name": "blank query", "query": "   ", "expect": "is:starred" }
+  ]
+}

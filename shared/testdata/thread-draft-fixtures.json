@@ -1,0 +1,686 @@
+{
+  "_doc": "Drafts in an open thread (shared/src/thread-drafts.ts, Android :core ThreadDrafts.kt). `entries`: threadEntries(messages, local, outbox), `outbox` (absent: none) the Gmail message ids of drafts the Outbox holds: those show nowhere, Gmail's copy or the device's, unless the device holds the draft as sending. `messages` are Gmail's, oldest first, as {id, draft}; `local` are the device's drafts of the thread as {localId, messageId, state, updatedAt}, state one of draft, deleted, sending. `expect` lists what shows, in order: {kind: message|draft, id} for Gmail's copy, {kind: local, localId, sending} for the device's. `snippet`: draftSnippet(markdown), a draft's first words as plain text (at most 200 characters).",
+  "entries": [
+    {
+      "name": "nothing",
+      "messages": [],
+      "local": [],
+      "expect": []
+    },
+    {
+      "name": "messages only",
+      "messages": [
+        {
+          "id": "m1",
+          "draft": false
+        },
+        {
+          "id": "m2",
+          "draft": false
+        }
+      ],
+      "local": [],
+      "expect": [
+        {
+          "kind": "message",
+          "id": "m1"
+        },
+        {
+          "kind": "message",
+          "id": "m2"
+        }
+      ]
+    },
+    {
+      "name": "a draft only Gmail has stays in its place",
+      "messages": [
+        {
+          "id": "m1",
+          "draft": false
+        },
+        {
+          "id": "d1",
+          "draft": true
+        },
+        {
+          "id": "m2",
+          "draft": false
+        }
+      ],
+      "local": [],
+      "expect": [
+        {
+          "kind": "message",
+          "id": "m1"
+        },
+        {
+          "kind": "draft",
+          "id": "d1"
+        },
+        {
+          "kind": "message",
+          "id": "m2"
+        }
+      ]
+    },
+    {
+      "name": "the device's copy replaces Gmail's by message id",
+      "messages": [
+        {
+          "id": "m1",
+          "draft": false
+        },
+        {
+          "id": "d1",
+          "draft": true
+        }
+      ],
+      "local": [
+        {
+          "localId": "a",
+          "messageId": "d1",
+          "state": "draft",
+          "updatedAt": 5
+        }
+      ],
+      "expect": [
+        {
+          "kind": "message",
+          "id": "m1"
+        },
+        {
+          "kind": "local",
+          "localId": "a",
+          "sending": false
+        }
+      ]
+    },
+    {
+      "name": "a deleted draft is hidden at once",
+      "messages": [
+        {
+          "id": "m1",
+          "draft": false
+        },
+        {
+          "id": "d1",
+          "draft": true
+        }
+      ],
+      "local": [
+        {
+          "localId": "a",
+          "messageId": "d1",
+          "state": "deleted",
+          "updatedAt": 5
+        }
+      ],
+      "expect": [
+        {
+          "kind": "message",
+          "id": "m1"
+        }
+      ]
+    },
+    {
+      "name": "a deleted draft Gmail no longer has shows nothing",
+      "messages": [
+        {
+          "id": "m1",
+          "draft": false
+        }
+      ],
+      "local": [
+        {
+          "localId": "a",
+          "messageId": "d1",
+          "state": "deleted",
+          "updatedAt": 5
+        }
+      ],
+      "expect": [
+        {
+          "kind": "message",
+          "id": "m1"
+        }
+      ]
+    },
+    {
+      "name": "a deleted draft never saved shows nothing",
+      "messages": [
+        {
+          "id": "m1",
+          "draft": false
+        }
+      ],
+      "local": [
+        {
+          "localId": "a",
+          "messageId": null,
+          "state": "deleted",
+          "updatedAt": 5
+        }
+      ],
+      "expect": [
+        {
+          "kind": "message",
+          "id": "m1"
+        }
+      ]
+    },
+    {
+      "name": "sending: shown as sending in the draft's place",
+      "messages": [
+        {
+          "id": "m1",
+          "draft": false
+        },
+        {
+          "id": "d1",
+          "draft": true
+        }
+      ],
+      "local": [
+        {
+          "localId": "a",
+          "messageId": "d1",
+          "state": "sending",
+          "updatedAt": 5
+        }
+      ],
+      "expect": [
+        {
+          "kind": "message",
+          "id": "m1"
+        },
+        {
+          "kind": "local",
+          "localId": "a",
+          "sending": true
+        }
+      ]
+    },
+    {
+      "name": "sent: Gmail's copy replaces the one being sent",
+      "messages": [
+        {
+          "id": "m1",
+          "draft": false
+        },
+        {
+          "id": "d1",
+          "draft": false
+        }
+      ],
+      "local": [
+        {
+          "localId": "a",
+          "messageId": "d1",
+          "state": "sending",
+          "updatedAt": 5
+        }
+      ],
+      "expect": [
+        {
+          "kind": "message",
+          "id": "m1"
+        },
+        {
+          "kind": "message",
+          "id": "d1"
+        }
+      ]
+    },
+    {
+      "name": "sent elsewhere: Gmail's sent message wins over a draft here",
+      "messages": [
+        {
+          "id": "d1",
+          "draft": false
+        }
+      ],
+      "local": [
+        {
+          "localId": "a",
+          "messageId": "d1",
+          "state": "draft",
+          "updatedAt": 5
+        }
+      ],
+      "expect": [
+        {
+          "kind": "message",
+          "id": "d1"
+        }
+      ]
+    },
+    {
+      "name": "a sent message can't be deleted as a draft",
+      "messages": [
+        {
+          "id": "d1",
+          "draft": false
+        }
+      ],
+      "local": [
+        {
+          "localId": "a",
+          "messageId": "d1",
+          "state": "deleted",
+          "updatedAt": 5
+        }
+      ],
+      "expect": [
+        {
+          "kind": "message",
+          "id": "d1"
+        }
+      ]
+    },
+    {
+      "name": "drafts Gmail doesn't have yet go at the end",
+      "messages": [
+        {
+          "id": "m1",
+          "draft": false
+        },
+        {
+          "id": "m2",
+          "draft": false
+        }
+      ],
+      "local": [
+        {
+          "localId": "a",
+          "messageId": null,
+          "state": "draft",
+          "updatedAt": 5
+        }
+      ],
+      "expect": [
+        {
+          "kind": "message",
+          "id": "m1"
+        },
+        {
+          "kind": "message",
+          "id": "m2"
+        },
+        {
+          "kind": "local",
+          "localId": "a",
+          "sending": false
+        }
+      ]
+    },
+    {
+      "name": "saved before but missing from the thread fetched: at the end",
+      "messages": [
+        {
+          "id": "m1",
+          "draft": false
+        }
+      ],
+      "local": [
+        {
+          "localId": "a",
+          "messageId": "d9",
+          "state": "draft",
+          "updatedAt": 5
+        }
+      ],
+      "expect": [
+        {
+          "kind": "message",
+          "id": "m1"
+        },
+        {
+          "kind": "local",
+          "localId": "a",
+          "sending": false
+        }
+      ]
+    },
+    {
+      "name": "sending before Gmail has the draft: at the end",
+      "messages": [
+        {
+          "id": "m1",
+          "draft": false
+        }
+      ],
+      "local": [
+        {
+          "localId": "a",
+          "messageId": null,
+          "state": "sending",
+          "updatedAt": 5
+        }
+      ],
+      "expect": [
+        {
+          "kind": "message",
+          "id": "m1"
+        },
+        {
+          "kind": "local",
+          "localId": "a",
+          "sending": true
+        }
+      ]
+    },
+    {
+      "name": "unsynced drafts oldest change first, ties by id",
+      "messages": [
+        {
+          "id": "m1",
+          "draft": false
+        }
+      ],
+      "local": [
+        {
+          "localId": "c",
+          "messageId": null,
+          "state": "draft",
+          "updatedAt": 9
+        },
+        {
+          "localId": "b",
+          "messageId": null,
+          "state": "sending",
+          "updatedAt": 3
+        },
+        {
+          "localId": "a",
+          "messageId": null,
+          "state": "draft",
+          "updatedAt": 9
+        }
+      ],
+      "expect": [
+        {
+          "kind": "message",
+          "id": "m1"
+        },
+        {
+          "kind": "local",
+          "localId": "b",
+          "sending": true
+        },
+        {
+          "kind": "local",
+          "localId": "a",
+          "sending": false
+        },
+        {
+          "kind": "local",
+          "localId": "c",
+          "sending": false
+        }
+      ]
+    },
+    {
+      "name": "a mix: in place, hidden, Gmail-only and unsynced",
+      "messages": [
+        {
+          "id": "m1",
+          "draft": false
+        },
+        {
+          "id": "d1",
+          "draft": true
+        },
+        {
+          "id": "m2",
+          "draft": false
+        },
+        {
+          "id": "d2",
+          "draft": true
+        },
+        {
+          "id": "d3",
+          "draft": true
+        }
+      ],
+      "local": [
+        {
+          "localId": "x",
+          "messageId": "d2",
+          "state": "deleted",
+          "updatedAt": 1
+        },
+        {
+          "localId": "y",
+          "messageId": "d3",
+          "state": "draft",
+          "updatedAt": 2
+        },
+        {
+          "localId": "z",
+          "messageId": null,
+          "state": "draft",
+          "updatedAt": 3
+        }
+      ],
+      "expect": [
+        {
+          "kind": "message",
+          "id": "m1"
+        },
+        {
+          "kind": "draft",
+          "id": "d1"
+        },
+        {
+          "kind": "message",
+          "id": "m2"
+        },
+        {
+          "kind": "local",
+          "localId": "y",
+          "sending": false
+        },
+        {
+          "kind": "local",
+          "localId": "z",
+          "sending": false
+        }
+      ]
+    },
+    {
+      "name": "a scheduled reply only Gmail has leaves the thread",
+      "messages": [
+        {
+          "id": "m1",
+          "draft": false
+        },
+        {
+          "id": "d1",
+          "draft": true
+        }
+      ],
+      "local": [],
+      "outbox": [
+        "d1"
+      ],
+      "expect": [
+        {
+          "kind": "message",
+          "id": "m1"
+        }
+      ]
+    },
+    {
+      "name": "a scheduled reply this device holds leaves the thread",
+      "messages": [
+        {
+          "id": "m1",
+          "draft": false
+        },
+        {
+          "id": "d1",
+          "draft": true
+        }
+      ],
+      "local": [
+        {
+          "localId": "l1",
+          "messageId": "d1",
+          "state": "draft",
+          "updatedAt": 5
+        }
+      ],
+      "outbox": [
+        "d1"
+      ],
+      "expect": [
+        {
+          "kind": "message",
+          "id": "m1"
+        }
+      ]
+    },
+    {
+      "name": "a scheduled reply whose Gmail copy isn't listed yet leaves the thread too",
+      "messages": [
+        {
+          "id": "m1",
+          "draft": false
+        }
+      ],
+      "local": [
+        {
+          "localId": "l1",
+          "messageId": "d1",
+          "state": "draft",
+          "updatedAt": 5
+        }
+      ],
+      "outbox": [
+        "d1"
+      ],
+      "expect": [
+        {
+          "kind": "message",
+          "id": "m1"
+        }
+      ]
+    },
+    {
+      "name": "a send waiting out its undo shows as sending",
+      "messages": [
+        {
+          "id": "m1",
+          "draft": false
+        },
+        {
+          "id": "d1",
+          "draft": true
+        }
+      ],
+      "local": [
+        {
+          "localId": "l1",
+          "messageId": "d1",
+          "state": "sending",
+          "updatedAt": 5
+        }
+      ],
+      "outbox": [
+        "d1"
+      ],
+      "expect": [
+        {
+          "kind": "message",
+          "id": "m1"
+        },
+        {
+          "kind": "local",
+          "localId": "l1",
+          "sending": true
+        }
+      ]
+    },
+    {
+      "name": "other drafts of the thread still show",
+      "messages": [
+        {
+          "id": "m1",
+          "draft": false
+        },
+        {
+          "id": "d1",
+          "draft": true
+        },
+        {
+          "id": "d2",
+          "draft": true
+        }
+      ],
+      "local": [
+        {
+          "localId": "l2",
+          "messageId": null,
+          "state": "draft",
+          "updatedAt": 9
+        }
+      ],
+      "outbox": [
+        "d1"
+      ],
+      "expect": [
+        {
+          "kind": "message",
+          "id": "m1"
+        },
+        {
+          "kind": "draft",
+          "id": "d2"
+        },
+        {
+          "kind": "local",
+          "localId": "l2",
+          "sending": false
+        }
+      ]
+    }
+  ],
+  "snippet": [
+    {
+      "name": "plain text",
+      "markdown": "Thanks, see you then",
+      "expect": "Thanks, see you then"
+    },
+    {
+      "name": "styles left out",
+      "markdown": "Hi **Sam**, _really_ ~~not~~ `now`",
+      "expect": "Hi Sam, really not now"
+    },
+    {
+      "name": "lines joined",
+      "markdown": "Hi,\n\n> quoted\n# Heading\nbye",
+      "expect": "Hi, quoted Heading bye"
+    },
+    {
+      "name": "links keep their text, images go",
+      "markdown": "see [the lease](https://x.io) ![logo](cid:a1) here",
+      "expect": "see the lease here"
+    },
+    {
+      "name": "escapes dropped",
+      "markdown": "1\\. not a list",
+      "expect": "1. not a list"
+    },
+    {
+      "name": "empty",
+      "markdown": "  \n ",
+      "expect": ""
+    },
+    {
+      "name": "cut at 200",
+      "markdown": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "expect": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    }
+  ]
+}

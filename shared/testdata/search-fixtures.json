@@ -1,0 +1,2006 @@
+{
+  "_doc": {
+    "about": "Search field chips and completion every client must match: web (shared/src/search.ts) and Android :core. Offsets are UTF-16 code units, like JavaScript and Kotlin strings.",
+    "parse": "parseQuery(text, cursor). Tokens split at whitespace outside \"quotes\" and (…)/{…} groups. A token is a chip when it is [-]operator:value with a known operator (case-insensitive, stored lower-case), a non-empty value that is either bare (no quotes or brackets) or one closed \"quoted\" value (stored without quotes, trimmed), every quote and group closed, and the cursor not inside or touching it (cursor < start or > end). A token right before or after a token that is exactly 'OR' (upper-case, top level) never becomes a chip, so the operator keeps its place in the OR. A chip is removed with the whitespace up to the next token; the last token is removed with trailing whitespace if any, else with the whitespace before it (back to the previous token, or the previous removal). cursor in the result is mapped into free (one inside removed text moves to where that text was); with cursor null it is free.length and context is null. context: the token with start <= cursor <= end (or, when none, {operator, prefix '', start = end = cursor}); typed = token text up to the cursor; a leading '-' sets negated. No ':' in typed: operator context if the rest is letters/underscores (prefix = rest; end = just after the token's colon if it has one, else the token end), else null. With ':': the name must be an operator (else null); prefix = what follows, an opening quote dropped; value = all the token holds after its colon, past the cursor too, an opening quote dropped; null if it then holds a quote or bracket; start/end = the whole token. With tags (the search field), a token that is one whole #tag as todos have them (optionally after -) is a chip too, operator \"#\" and the tag's name as its value; without, it stays free text.",
+    "format": "formatChip: [-]operator:value; the value in double quotes (inner quotes dropped) when it holds whitespace, a quote or a bracket. A tag chip ({operator: \"#\"}) is [-]#name.",
+    "query": "queryText(chips, free): formatted chips then trimmed free text, joined by single spaces, empties left out.",
+    "completions": "completions(context, { now, timeZone, labels, contacts }). Operators: OPERATORS in order whose name starts with prefix (case-insensitive); label and value 'name:', detail OPERATOR_DETAILS. Fixed lists (in, is, has, category, larger/smaller/size, older_than/newer_than) filtered by prefix on value (ages also on label); detail null. after/before: today, yesterday, last week = 0, 1, 7 calendar days back from now's date in timeZone, value yyyy/mm/dd, detail = value, kept when label or value starts with prefix. label: names whose labelQueryValue (lower-case, runs of whitespace or '/' as '-') starts with prefix, or with any part (split on whitespace and '/') starting with it; value labelQueryValue(name). from/to/cc/bcc/deliveredto: contacts whose email or name starts with prefix, or any name word does; label name (or email when nameless), value email, detail email (null when nameless). Labels and contacts keep the caller's order, at most 8. Other operators: none. With nothing typed, operators are only from, to, subject, has and is.",
+    "apply": "applyCompletion(text, context, candidate). Operator: replace [start, end) with ('-' if negated) + value; cursor after it. Value: replace [start, end) with formatChip({operator, value, negated}) plus a space unless the text after already starts with whitespace; cursor one past the chip.",
+    "unchip": "unchip(chips, index, free): chip removed; free = its formatted text, then a space and the left-trimmed free text when that is non-empty; cursor = formatted length.",
+    "local": "isLocalChip: is:snoozed, is:todo and in:outbox (value case-insensitive, negated or not).",
+    "help": "The search help both apps list: every operator in OPERATORS order, its detail (OPERATOR_DETAILS) and one example (OPERATOR_EXAMPLES); common is COMMON_OPERATORS. own is OWN_TERMS: our own terms and what each lists.",
+    "awaitsValue": "awaitsValue(parseQuery(text, cursor).context): true when the context is a value with nothing after the colon, past the cursor too (an operator alone, or only an opening quote). There Enter completes the highlighted suggestion, else the first, else searches without that operator (withoutOperator); elsewhere Enter searches unless a suggestion is highlighted.",
+    "withoutOperator": "withoutOperator(free, parseQuery(text, cursor).context): the free text with the operator under the cursor taken out, one space left between the words either side.",
+    "gmailQuery": "gmailQueryText(chips, free): queryText with the local chips left out, is:pinned as is:starred, is:done as -in:inbox and -is:done as in:inbox."
+  },
+  "parse": [
+    {
+      "name": "a chip forms once the cursor moves past it",
+      "text": "from:maya hello",
+      "cursor": 15,
+      "expect": {
+        "chips": [
+          {
+            "operator": "from",
+            "value": "maya",
+            "negated": false
+          }
+        ],
+        "free": "hello",
+        "cursor": 5,
+        "context": {
+          "kind": "operator",
+          "prefix": "hello",
+          "negated": false,
+          "start": 0,
+          "end": 5
+        }
+      }
+    },
+    {
+      "name": "the operator under the cursor stays text",
+      "text": "from:maya",
+      "cursor": 9,
+      "expect": {
+        "chips": [],
+        "free": "from:maya",
+        "cursor": 9,
+        "context": {
+          "kind": "value",
+          "operator": "from",
+          "prefix": "maya",
+          "value": "maya",
+          "negated": false,
+          "start": 0,
+          "end": 9
+        }
+      }
+    },
+    {
+      "name": "typing the space finishes it",
+      "text": "from:maya ",
+      "cursor": 10,
+      "expect": {
+        "chips": [
+          {
+            "operator": "from",
+            "value": "maya",
+            "negated": false
+          }
+        ],
+        "free": "",
+        "cursor": 0,
+        "context": {
+          "kind": "operator",
+          "prefix": "",
+          "negated": false,
+          "start": 0,
+          "end": 0
+        }
+      }
+    },
+    {
+      "name": "quoted values",
+      "text": "subject:\"lunch plans\" is:unread ",
+      "cursor": 32,
+      "expect": {
+        "chips": [
+          {
+            "operator": "subject",
+            "value": "lunch plans",
+            "negated": false
+          },
+          {
+            "operator": "is",
+            "value": "unread",
+            "negated": false
+          }
+        ],
+        "free": "",
+        "cursor": 0,
+        "context": {
+          "kind": "operator",
+          "prefix": "",
+          "negated": false,
+          "start": 0,
+          "end": 0
+        }
+      }
+    },
+    {
+      "name": "an open quote is still being typed",
+      "text": "from:\"maya ch",
+      "cursor": 13,
+      "expect": {
+        "chips": [],
+        "free": "from:\"maya ch",
+        "cursor": 13,
+        "context": {
+          "kind": "value",
+          "operator": "from",
+          "prefix": "maya ch",
+          "value": "maya ch",
+          "negated": false,
+          "start": 0,
+          "end": 13
+        }
+      }
+    },
+    {
+      "name": "negated chip",
+      "text": "-in:spam report",
+      "cursor": 15,
+      "expect": {
+        "chips": [
+          {
+            "operator": "in",
+            "value": "spam",
+            "negated": true
+          }
+        ],
+        "free": "report",
+        "cursor": 6,
+        "context": {
+          "kind": "operator",
+          "prefix": "report",
+          "negated": false,
+          "start": 0,
+          "end": 6
+        }
+      }
+    },
+    {
+      "name": "groups, OR and negated words stay text",
+      "text": "{from:a from:b} subject:(x y) OR -foo",
+      "cursor": null,
+      "expect": {
+        "chips": [],
+        "free": "{from:a from:b} subject:(x y) OR -foo",
+        "cursor": 37,
+        "context": null
+      }
+    },
+    {
+      "name": "unknown operators stay text; a last chip takes the space before it",
+      "text": "foo:bar from:x",
+      "cursor": null,
+      "expect": {
+        "chips": [
+          {
+            "operator": "from",
+            "value": "x",
+            "negated": false
+          }
+        ],
+        "free": "foo:bar",
+        "cursor": 7,
+        "context": null
+      }
+    },
+    {
+      "name": "a chip between words",
+      "text": "hello from:x world",
+      "cursor": 18,
+      "expect": {
+        "chips": [
+          {
+            "operator": "from",
+            "value": "x",
+            "negated": false
+          }
+        ],
+        "free": "hello world",
+        "cursor": 11,
+        "context": {
+          "kind": "operator",
+          "prefix": "world",
+          "negated": false,
+          "start": 6,
+          "end": 11
+        }
+      }
+    },
+    {
+      "name": "cursor inside an operator name",
+      "text": "from:x tail",
+      "cursor": 2,
+      "expect": {
+        "chips": [],
+        "free": "from:x tail",
+        "cursor": 2,
+        "context": {
+          "kind": "operator",
+          "prefix": "fr",
+          "negated": false,
+          "start": 0,
+          "end": 5
+        }
+      }
+    },
+    {
+      "name": "cursor inside a value",
+      "text": "from:maya",
+      "cursor": 7,
+      "expect": {
+        "chips": [],
+        "free": "from:maya",
+        "cursor": 7,
+        "context": {
+          "kind": "value",
+          "operator": "from",
+          "prefix": "ma",
+          "value": "maya",
+          "negated": false,
+          "start": 0,
+          "end": 9
+        }
+      }
+    },
+    {
+      "name": "an operator without a value stays text",
+      "text": "from: hello",
+      "cursor": null,
+      "expect": {
+        "chips": [],
+        "free": "from: hello",
+        "cursor": 11,
+        "context": null
+      }
+    },
+    {
+      "name": "operators are case-insensitive, values kept as typed",
+      "text": "FROM:Maya Is:Unread x",
+      "cursor": 21,
+      "expect": {
+        "chips": [
+          {
+            "operator": "from",
+            "value": "Maya",
+            "negated": false
+          },
+          {
+            "operator": "is",
+            "value": "Unread",
+            "negated": false
+          }
+        ],
+        "free": "x",
+        "cursor": 1,
+        "context": {
+          "kind": "operator",
+          "prefix": "x",
+          "negated": false,
+          "start": 0,
+          "end": 1
+        }
+      }
+    },
+    {
+      "name": "sizes",
+      "text": "larger:5M smaller:10M ",
+      "cursor": 22,
+      "expect": {
+        "chips": [
+          {
+            "operator": "larger",
+            "value": "5M",
+            "negated": false
+          },
+          {
+            "operator": "smaller",
+            "value": "10M",
+            "negated": false
+          }
+        ],
+        "free": "",
+        "cursor": 0,
+        "context": {
+          "kind": "operator",
+          "prefix": "",
+          "negated": false,
+          "start": 0,
+          "end": 0
+        }
+      }
+    },
+    {
+      "name": "cursor at the start of an operator keeps it text",
+      "text": "from:a to:b",
+      "cursor": 0,
+      "expect": {
+        "chips": [
+          {
+            "operator": "to",
+            "value": "b",
+            "negated": false
+          }
+        ],
+        "free": "from:a",
+        "cursor": 0,
+        "context": {
+          "kind": "operator",
+          "prefix": "",
+          "negated": false,
+          "start": 0,
+          "end": 5
+        }
+      }
+    },
+    {
+      "name": "a lone minus starts a negated operator",
+      "text": "-",
+      "cursor": 1,
+      "expect": {
+        "chips": [],
+        "free": "-",
+        "cursor": 1,
+        "context": {
+          "kind": "operator",
+          "prefix": "",
+          "negated": true,
+          "start": 0,
+          "end": 1
+        }
+      }
+    },
+    {
+      "name": "no completion inside a group value",
+      "text": "subject:(fo",
+      "cursor": 11,
+      "expect": {
+        "chips": [],
+        "free": "subject:(fo",
+        "cursor": 11,
+        "context": null
+      }
+    },
+    {
+      "name": "a quoted phrase, then a word",
+      "text": "\"exact phrase\" more",
+      "cursor": 19,
+      "expect": {
+        "chips": [],
+        "free": "\"exact phrase\" more",
+        "cursor": 19,
+        "context": {
+          "kind": "operator",
+          "prefix": "more",
+          "negated": false,
+          "start": 15,
+          "end": 19
+        }
+      }
+    },
+    {
+      "name": "no completion inside a quoted phrase",
+      "text": "\"exact phr",
+      "cursor": 10,
+      "expect": {
+        "chips": [],
+        "free": "\"exact phr",
+        "cursor": 10,
+        "context": null
+      }
+    },
+    {
+      "name": "our own chips",
+      "text": "is:snoozed in:outbox ",
+      "cursor": 21,
+      "expect": {
+        "chips": [
+          {
+            "operator": "is",
+            "value": "snoozed",
+            "negated": false
+          },
+          {
+            "operator": "in",
+            "value": "outbox",
+            "negated": false
+          }
+        ],
+        "free": "",
+        "cursor": 0,
+        "context": {
+          "kind": "operator",
+          "prefix": "",
+          "negated": false,
+          "start": 0,
+          "end": 0
+        }
+      }
+    },
+    {
+      "name": "trailing space after free text is kept for typing on",
+      "text": "hello from:x ",
+      "cursor": 13,
+      "expect": {
+        "chips": [
+          {
+            "operator": "from",
+            "value": "x",
+            "negated": false
+          }
+        ],
+        "free": "hello ",
+        "cursor": 6,
+        "context": {
+          "kind": "operator",
+          "prefix": "",
+          "negated": false,
+          "start": 6,
+          "end": 6
+        }
+      }
+    },
+    {
+      "name": "several chips in a row, cursor at the end",
+      "text": "from:a to:b cc:c",
+      "cursor": null,
+      "expect": {
+        "chips": [
+          {
+            "operator": "from",
+            "value": "a",
+            "negated": false
+          },
+          {
+            "operator": "to",
+            "value": "b",
+            "negated": false
+          },
+          {
+            "operator": "cc",
+            "value": "c",
+            "negated": false
+          }
+        ],
+        "free": "",
+        "cursor": 0,
+        "context": null
+      }
+    },
+    {
+      "name": "operators on both sides of OR stay text",
+      "text": "from:a OR from:b",
+      "cursor": null,
+      "expect": {
+        "chips": [],
+        "free": "from:a OR from:b",
+        "cursor": 16,
+        "context": null
+      }
+    },
+    {
+      "name": "an operator before OR keeps its place among the words",
+      "text": "hello from:alice OR world",
+      "cursor": null,
+      "expect": {
+        "chips": [],
+        "free": "hello from:alice OR world",
+        "cursor": 25,
+        "context": null
+      }
+    },
+    {
+      "name": "an operator after OR stays text while typing",
+      "text": "OR from:b ",
+      "cursor": 10,
+      "expect": {
+        "chips": [],
+        "free": "OR from:b ",
+        "cursor": 10,
+        "context": {
+          "kind": "operator",
+          "prefix": "",
+          "negated": false,
+          "start": 10,
+          "end": 10
+        }
+      }
+    },
+    {
+      "name": "only operators beside OR stay text",
+      "text": "from:a hello OR world to:b",
+      "cursor": null,
+      "expect": {
+        "chips": [
+          {
+            "operator": "from",
+            "value": "a",
+            "negated": false
+          },
+          {
+            "operator": "to",
+            "value": "b",
+            "negated": false
+          }
+        ],
+        "free": "hello OR world",
+        "cursor": 14,
+        "context": null
+      }
+    },
+    {
+      "name": "lower-case or is a word, not OR",
+      "text": "from:a or from:b",
+      "cursor": null,
+      "expect": {
+        "chips": [
+          {
+            "operator": "from",
+            "value": "a",
+            "negated": false
+          },
+          {
+            "operator": "from",
+            "value": "b",
+            "negated": false
+          }
+        ],
+        "free": "or",
+        "cursor": 2,
+        "context": null
+      }
+    },
+    {
+      "name": "a cursor in the space a chip takes with it moves to where the chip was",
+      "text": "from:maya   hello",
+      "cursor": 11,
+      "expect": {
+        "chips": [
+          {
+            "operator": "from",
+            "value": "maya",
+            "negated": false
+          }
+        ],
+        "free": "hello",
+        "cursor": 0,
+        "context": {
+          "kind": "operator",
+          "prefix": "",
+          "negated": false,
+          "start": 0,
+          "end": 5
+        }
+      }
+    },
+    {
+      "name": "a finished #tag is a chip in the field",
+      "text": "#receipts lunch",
+      "cursor": 15,
+      "tags": true,
+      "expect": {
+        "chips": [
+          {
+            "operator": "#",
+            "value": "receipts",
+            "negated": false
+          }
+        ],
+        "free": "lunch",
+        "cursor": 5,
+        "context": {
+          "kind": "operator",
+          "prefix": "lunch",
+          "negated": false,
+          "start": 0,
+          "end": 5
+        }
+      }
+    },
+    {
+      "name": "a #tag being typed stays text",
+      "text": "lunch #rec",
+      "cursor": 10,
+      "tags": true,
+      "expect": {
+        "chips": [],
+        "free": "lunch #rec",
+        "cursor": 10,
+        "context": null
+      }
+    },
+    {
+      "name": "a negated #tag is a chip, a nested one too",
+      "text": "-#home #work/projects ",
+      "cursor": 22,
+      "tags": true,
+      "expect": {
+        "chips": [
+          {
+            "operator": "#",
+            "value": "home",
+            "negated": true
+          },
+          {
+            "operator": "#",
+            "value": "work/projects",
+            "negated": false
+          }
+        ],
+        "free": "",
+        "cursor": 0,
+        "context": {
+          "kind": "operator",
+          "prefix": "",
+          "negated": false,
+          "start": 0,
+          "end": 0
+        }
+      }
+    },
+    {
+      "name": "a #tag beside OR stays text",
+      "text": "#home OR #work",
+      "cursor": null,
+      "tags": true,
+      "expect": {
+        "chips": [],
+        "free": "#home OR #work",
+        "cursor": 14,
+        "context": null
+      }
+    },
+    {
+      "name": "a token with more than its tag stays text",
+      "text": "#home, a#b #2024",
+      "cursor": null,
+      "tags": true,
+      "expect": {
+        "chips": [],
+        "free": "#home, a#b #2024",
+        "cursor": 16,
+        "context": null
+      }
+    },
+    {
+      "name": "a query read for searching keeps #tags in the free text",
+      "text": "#home from:ana",
+      "cursor": null,
+      "expect": {
+        "chips": [
+          {
+            "operator": "from",
+            "value": "ana",
+            "negated": false
+          }
+        ],
+        "free": "#home",
+        "cursor": 5,
+        "context": null
+      }
+    }
+  ],
+  "format": [
+    {
+      "chip": {
+        "operator": "from",
+        "value": "maya@example.com",
+        "negated": false
+      },
+      "expect": "from:maya@example.com"
+    },
+    {
+      "chip": {
+        "operator": "from",
+        "value": "Maya Chen",
+        "negated": false
+      },
+      "expect": "from:\"Maya Chen\""
+    },
+    {
+      "chip": {
+        "operator": "subject",
+        "value": "say \"hi\" now",
+        "negated": true
+      },
+      "expect": "-subject:\"say hi now\""
+    },
+    {
+      "chip": {
+        "operator": "filename",
+        "value": "report(1).pdf",
+        "negated": false
+      },
+      "expect": "filename:\"report(1).pdf\""
+    },
+    {
+      "chip": {
+        "operator": "#",
+        "value": "work/projects",
+        "negated": true
+      },
+      "expect": "-#work/projects"
+    }
+  ],
+  "query": [
+    {
+      "chips": [
+        {
+          "operator": "from",
+          "value": "maya",
+          "negated": false
+        },
+        {
+          "operator": "is",
+          "value": "unread",
+          "negated": true
+        }
+      ],
+      "free": " report ",
+      "expect": "from:maya -is:unread report"
+    },
+    {
+      "chips": [],
+      "free": "  ",
+      "expect": ""
+    },
+    {
+      "chips": [
+        {
+          "operator": "subject",
+          "value": "lunch plans",
+          "negated": false
+        }
+      ],
+      "free": "",
+      "expect": "subject:\"lunch plans\""
+    },
+    {
+      "chips": [
+        {
+          "operator": "from",
+          "value": "a",
+          "negated": false
+        }
+      ],
+      "free": "OR from:b",
+      "expect": "from:a OR from:b"
+    },
+    {
+      "chips": [
+        {
+          "operator": "#",
+          "value": "home",
+          "negated": false
+        },
+        {
+          "operator": "is",
+          "value": "done",
+          "negated": false
+        }
+      ],
+      "free": "milk",
+      "expect": "#home is:done milk"
+    }
+  ],
+  "completions": [
+    {
+      "name": "nothing typed offers the common operators",
+      "context": {
+        "kind": "operator",
+        "prefix": "",
+        "negated": false,
+        "start": 0,
+        "end": 0
+      },
+      "now": "2026-11-04T06:30:00Z",
+      "timeZone": "America/New_York",
+      "expect": [
+        {
+          "label": "from:",
+          "value": "from:",
+          "detail": "Sender"
+        },
+        {
+          "label": "to:",
+          "value": "to:",
+          "detail": "Recipient"
+        },
+        {
+          "label": "subject:",
+          "value": "subject:",
+          "detail": "Words in the subject"
+        },
+        {
+          "label": "has:",
+          "value": "has:",
+          "detail": "Attachment, Drive file…"
+        },
+        {
+          "label": "is:",
+          "value": "is:",
+          "detail": "State: unread, starred, snoozed, done…"
+        }
+      ]
+    },
+    {
+      "name": "operators by prefix",
+      "context": {
+        "kind": "operator",
+        "prefix": "s",
+        "negated": false,
+        "start": 0,
+        "end": 1
+      },
+      "now": "2026-11-04T06:30:00Z",
+      "timeZone": "America/New_York",
+      "expect": [
+        {
+          "label": "subject:",
+          "value": "subject:",
+          "detail": "Words in the subject"
+        },
+        {
+          "label": "smaller:",
+          "value": "smaller:",
+          "detail": "Smaller than a size"
+        },
+        {
+          "label": "size:",
+          "value": "size:",
+          "detail": "Larger than a size in bytes"
+        }
+      ]
+    },
+    {
+      "name": "operator prefix is case-insensitive",
+      "context": {
+        "kind": "operator",
+        "prefix": "C",
+        "negated": true,
+        "start": 0,
+        "end": 2
+      },
+      "now": "2026-11-04T06:30:00Z",
+      "timeZone": "America/New_York",
+      "expect": [
+        {
+          "label": "cc:",
+          "value": "cc:",
+          "detail": "Copied"
+        },
+        {
+          "label": "category:",
+          "value": "category:",
+          "detail": "Inbox category"
+        }
+      ]
+    },
+    {
+      "name": "a plain word completes to nothing",
+      "context": {
+        "kind": "operator",
+        "prefix": "meeting",
+        "negated": false,
+        "start": 0,
+        "end": 7
+      },
+      "now": "2026-11-04T06:30:00Z",
+      "timeZone": "America/New_York",
+      "expect": []
+    },
+    {
+      "name": "mailboxes",
+      "context": {
+        "kind": "value",
+        "operator": "in",
+        "prefix": "",
+        "negated": false,
+        "start": 0,
+        "end": 3
+      },
+      "now": "2026-11-04T06:30:00Z",
+      "timeZone": "America/New_York",
+      "expect": [
+        {
+          "label": "inbox",
+          "value": "inbox",
+          "detail": null
+        },
+        {
+          "label": "sent",
+          "value": "sent",
+          "detail": null
+        },
+        {
+          "label": "drafts",
+          "value": "drafts",
+          "detail": null
+        },
+        {
+          "label": "outbox",
+          "value": "outbox",
+          "detail": null
+        },
+        {
+          "label": "spam",
+          "value": "spam",
+          "detail": null
+        },
+        {
+          "label": "trash",
+          "value": "trash",
+          "detail": null
+        },
+        {
+          "label": "anywhere",
+          "value": "anywhere",
+          "detail": null
+        }
+      ]
+    },
+    {
+      "name": "is: values",
+      "context": {
+        "kind": "value",
+        "operator": "is",
+        "prefix": "s",
+        "negated": false,
+        "start": 0,
+        "end": 4
+      },
+      "now": "2026-11-04T06:30:00Z",
+      "timeZone": "America/New_York",
+      "expect": [
+        {
+          "label": "starred",
+          "value": "starred",
+          "detail": null
+        },
+        {
+          "label": "snoozed",
+          "value": "snoozed",
+          "detail": null
+        }
+      ]
+    },
+    {
+      "name": "is: todo",
+      "context": {
+        "kind": "value",
+        "operator": "is",
+        "prefix": "t",
+        "negated": false,
+        "start": 0,
+        "end": 4
+      },
+      "now": "2026-11-04T06:30:00Z",
+      "timeZone": "America/New_York",
+      "expect": [
+        {
+          "label": "todo",
+          "value": "todo",
+          "detail": null
+        }
+      ]
+    },
+    {
+      "name": "is: done and pinned, ours",
+      "context": {
+        "kind": "value",
+        "operator": "is",
+        "prefix": "",
+        "negated": false,
+        "start": 0,
+        "end": 3
+      },
+      "now": "2026-11-04T06:30:00Z",
+      "timeZone": "America/New_York",
+      "expect": [
+        {
+          "label": "unread",
+          "value": "unread",
+          "detail": null
+        },
+        {
+          "label": "read",
+          "value": "read",
+          "detail": null
+        },
+        {
+          "label": "starred",
+          "value": "starred",
+          "detail": null
+        },
+        {
+          "label": "pinned",
+          "value": "pinned",
+          "detail": null
+        },
+        {
+          "label": "snoozed",
+          "value": "snoozed",
+          "detail": null
+        },
+        {
+          "label": "done",
+          "value": "done",
+          "detail": null
+        },
+        {
+          "label": "todo",
+          "value": "todo",
+          "detail": null
+        },
+        {
+          "label": "important",
+          "value": "important",
+          "detail": null
+        },
+        {
+          "label": "muted",
+          "value": "muted",
+          "detail": null
+        }
+      ]
+    },
+    {
+      "name": "has: values",
+      "context": {
+        "kind": "value",
+        "operator": "has",
+        "prefix": "D",
+        "negated": false,
+        "start": 0,
+        "end": 5
+      },
+      "now": "2026-11-04T06:30:00Z",
+      "timeZone": "America/New_York",
+      "expect": [
+        {
+          "label": "drive",
+          "value": "drive",
+          "detail": null
+        },
+        {
+          "label": "document",
+          "value": "document",
+          "detail": null
+        }
+      ]
+    },
+    {
+      "name": "sizes",
+      "context": {
+        "kind": "value",
+        "operator": "larger",
+        "prefix": "",
+        "negated": false,
+        "start": 0,
+        "end": 7
+      },
+      "now": "2026-11-04T06:30:00Z",
+      "timeZone": "America/New_York",
+      "expect": [
+        {
+          "label": "1M",
+          "value": "1M",
+          "detail": null
+        },
+        {
+          "label": "5M",
+          "value": "5M",
+          "detail": null
+        },
+        {
+          "label": "10M",
+          "value": "10M",
+          "detail": null
+        },
+        {
+          "label": "25M",
+          "value": "25M",
+          "detail": null
+        }
+      ]
+    },
+    {
+      "name": "ages match on label too",
+      "context": {
+        "kind": "value",
+        "operator": "older_than",
+        "prefix": "1 m",
+        "negated": false,
+        "start": 0,
+        "end": 14
+      },
+      "now": "2026-11-04T06:30:00Z",
+      "timeZone": "America/New_York",
+      "expect": [
+        {
+          "label": "1 month",
+          "value": "1m",
+          "detail": null
+        }
+      ]
+    },
+    {
+      "name": "date shortcuts in New York",
+      "context": {
+        "kind": "value",
+        "operator": "after",
+        "prefix": "",
+        "negated": false,
+        "start": 0,
+        "end": 6
+      },
+      "now": "2026-11-04T06:30:00Z",
+      "timeZone": "America/New_York",
+      "expect": [
+        {
+          "label": "today",
+          "value": "2026/11/04",
+          "detail": "2026/11/04"
+        },
+        {
+          "label": "yesterday",
+          "value": "2026/11/03",
+          "detail": "2026/11/03"
+        },
+        {
+          "label": "last week",
+          "value": "2026/10/28",
+          "detail": "2026/10/28"
+        }
+      ]
+    },
+    {
+      "name": "date shortcuts count in the given zone (still the 3rd in Los Angeles)",
+      "context": {
+        "kind": "value",
+        "operator": "before",
+        "prefix": "y",
+        "negated": false,
+        "start": 0,
+        "end": 8
+      },
+      "now": "2026-11-04T06:30:00Z",
+      "timeZone": "America/Los_Angeles",
+      "expect": [
+        {
+          "label": "yesterday",
+          "value": "2026/11/02",
+          "detail": "2026/11/02"
+        }
+      ]
+    },
+    {
+      "name": "date shortcuts across a month end",
+      "context": {
+        "kind": "value",
+        "operator": "after",
+        "prefix": "",
+        "negated": false,
+        "start": 0,
+        "end": 6
+      },
+      "now": "2026-03-01T12:00:00Z",
+      "timeZone": "UTC",
+      "expect": [
+        {
+          "label": "today",
+          "value": "2026/03/01",
+          "detail": "2026/03/01"
+        },
+        {
+          "label": "yesterday",
+          "value": "2026/02/28",
+          "detail": "2026/02/28"
+        },
+        {
+          "label": "last week",
+          "value": "2026/02/22",
+          "detail": "2026/02/22"
+        }
+      ]
+    },
+    {
+      "name": "date shortcuts match a typed date",
+      "context": {
+        "kind": "value",
+        "operator": "after",
+        "prefix": "2026/11/0",
+        "negated": false,
+        "start": 0,
+        "end": 15
+      },
+      "now": "2026-11-04T06:30:00Z",
+      "timeZone": "America/New_York",
+      "expect": [
+        {
+          "label": "today",
+          "value": "2026/11/04",
+          "detail": "2026/11/04"
+        },
+        {
+          "label": "yesterday",
+          "value": "2026/11/03",
+          "detail": "2026/11/03"
+        }
+      ]
+    },
+    {
+      "name": "labels by name or part",
+      "context": {
+        "kind": "value",
+        "operator": "label",
+        "prefix": "pro",
+        "negated": false,
+        "start": 0,
+        "end": 9
+      },
+      "now": "2026-11-04T06:30:00Z",
+      "timeZone": "America/New_York",
+      "labels": [
+        "Receipts",
+        "Work/Projects",
+        "Work/Hiring",
+        "Travel plans"
+      ],
+      "expect": [
+        {
+          "label": "Work/Projects",
+          "value": "work-projects",
+          "detail": null
+        }
+      ]
+    },
+    {
+      "name": "labels by query form",
+      "context": {
+        "kind": "value",
+        "operator": "label",
+        "prefix": "travel-p",
+        "negated": false,
+        "start": 0,
+        "end": 14
+      },
+      "now": "2026-11-04T06:30:00Z",
+      "timeZone": "America/New_York",
+      "labels": [
+        "Receipts",
+        "Work/Projects",
+        "Work/Hiring",
+        "Travel plans"
+      ],
+      "expect": [
+        {
+          "label": "Travel plans",
+          "value": "travel-plans",
+          "detail": null
+        }
+      ]
+    },
+    {
+      "name": "labels keep the caller's order",
+      "context": {
+        "kind": "value",
+        "operator": "label",
+        "prefix": "W",
+        "negated": false,
+        "start": 0,
+        "end": 7
+      },
+      "now": "2026-11-04T06:30:00Z",
+      "timeZone": "America/New_York",
+      "labels": [
+        "Receipts",
+        "Work/Projects",
+        "Work/Hiring",
+        "Travel plans"
+      ],
+      "expect": [
+        {
+          "label": "Work/Projects",
+          "value": "work-projects",
+          "detail": null
+        },
+        {
+          "label": "Work/Hiring",
+          "value": "work-hiring",
+          "detail": null
+        }
+      ]
+    },
+    {
+      "name": "contacts by name word",
+      "context": {
+        "kind": "value",
+        "operator": "from",
+        "prefix": "ch",
+        "negated": false,
+        "start": 0,
+        "end": 7
+      },
+      "now": "2026-11-04T06:30:00Z",
+      "timeZone": "America/New_York",
+      "contacts": [
+        {
+          "name": "Maya Chen",
+          "email": "maya.chen@gmail.example.com"
+        },
+        {
+          "name": "Sam Ortiz",
+          "email": "sam@ortiz.example"
+        },
+        {
+          "name": "",
+          "email": "billing@stripe.example"
+        }
+      ],
+      "expect": [
+        {
+          "label": "Maya Chen",
+          "value": "maya.chen@gmail.example.com",
+          "detail": "maya.chen@gmail.example.com"
+        }
+      ]
+    },
+    {
+      "name": "contacts by full name and by address",
+      "context": {
+        "kind": "value",
+        "operator": "to",
+        "prefix": "maya c",
+        "negated": false,
+        "start": 0,
+        "end": 10
+      },
+      "now": "2026-11-04T06:30:00Z",
+      "timeZone": "America/New_York",
+      "contacts": [
+        {
+          "name": "Maya Chen",
+          "email": "maya.chen@gmail.example.com"
+        },
+        {
+          "name": "Sam Ortiz",
+          "email": "sam@ortiz.example"
+        },
+        {
+          "name": "",
+          "email": "billing@stripe.example"
+        }
+      ],
+      "expect": [
+        {
+          "label": "Maya Chen",
+          "value": "maya.chen@gmail.example.com",
+          "detail": "maya.chen@gmail.example.com"
+        }
+      ]
+    },
+    {
+      "name": "a nameless contact",
+      "context": {
+        "kind": "value",
+        "operator": "deliveredto",
+        "prefix": "bill",
+        "negated": false,
+        "start": 0,
+        "end": 16
+      },
+      "now": "2026-11-04T06:30:00Z",
+      "timeZone": "America/New_York",
+      "contacts": [
+        {
+          "name": "Maya Chen",
+          "email": "maya.chen@gmail.example.com"
+        },
+        {
+          "name": "Sam Ortiz",
+          "email": "sam@ortiz.example"
+        },
+        {
+          "name": "",
+          "email": "billing@stripe.example"
+        }
+      ],
+      "expect": [
+        {
+          "label": "billing@stripe.example",
+          "value": "billing@stripe.example",
+          "detail": null
+        }
+      ]
+    },
+    {
+      "name": "no hooks, no candidates",
+      "context": {
+        "kind": "value",
+        "operator": "from",
+        "prefix": "",
+        "negated": false,
+        "start": 0,
+        "end": 5
+      },
+      "now": "2026-11-04T06:30:00Z",
+      "timeZone": "America/New_York",
+      "expect": []
+    },
+    {
+      "name": "free-form values complete to nothing",
+      "context": {
+        "kind": "value",
+        "operator": "subject",
+        "prefix": "",
+        "negated": false,
+        "start": 0,
+        "end": 8
+      },
+      "now": "2026-11-04T06:30:00Z",
+      "timeZone": "America/New_York",
+      "expect": []
+    }
+  ],
+  "apply": [
+    {
+      "name": "operator",
+      "text": "hello fr",
+      "context": {
+        "kind": "operator",
+        "prefix": "fr",
+        "negated": false,
+        "start": 6,
+        "end": 8
+      },
+      "candidate": {
+        "label": "from:",
+        "value": "from:",
+        "detail": "Sender"
+      },
+      "expect": {
+        "text": "hello from:",
+        "cursor": 11
+      }
+    },
+    {
+      "name": "negated operator",
+      "text": "-fr",
+      "context": {
+        "kind": "operator",
+        "prefix": "fr",
+        "negated": true,
+        "start": 0,
+        "end": 3
+      },
+      "candidate": {
+        "label": "from:",
+        "value": "from:",
+        "detail": "Sender"
+      },
+      "expect": {
+        "text": "-from:",
+        "cursor": 6
+      }
+    },
+    {
+      "name": "operator name in front of a value",
+      "text": "fr:x",
+      "context": {
+        "kind": "operator",
+        "prefix": "fr",
+        "negated": false,
+        "start": 0,
+        "end": 3
+      },
+      "candidate": {
+        "label": "from:",
+        "value": "from:",
+        "detail": "Sender"
+      },
+      "expect": {
+        "text": "from:x",
+        "cursor": 5
+      }
+    },
+    {
+      "name": "value finishes the chip",
+      "text": "in:sp",
+      "context": {
+        "kind": "value",
+        "operator": "in",
+        "prefix": "sp",
+        "negated": false,
+        "start": 0,
+        "end": 5
+      },
+      "candidate": {
+        "label": "spam",
+        "value": "spam",
+        "detail": null
+      },
+      "expect": {
+        "text": "in:spam ",
+        "cursor": 8
+      }
+    },
+    {
+      "name": "value replaces an open quote",
+      "text": "-from:\"maya",
+      "context": {
+        "kind": "value",
+        "operator": "from",
+        "prefix": "maya",
+        "negated": true,
+        "start": 0,
+        "end": 11
+      },
+      "candidate": {
+        "label": "Maya Chen",
+        "value": "maya.chen@gmail.example.com",
+        "detail": "maya.chen@gmail.example.com"
+      },
+      "expect": {
+        "text": "-from:maya.chen@gmail.example.com ",
+        "cursor": 34
+      }
+    },
+    {
+      "name": "value before more text reuses its space",
+      "text": "after:to world",
+      "context": {
+        "kind": "value",
+        "operator": "after",
+        "prefix": "to",
+        "negated": false,
+        "start": 0,
+        "end": 8
+      },
+      "candidate": {
+        "label": "today",
+        "value": "2026/11/04",
+        "detail": "2026/11/04"
+      },
+      "expect": {
+        "text": "after:2026/11/04 world",
+        "cursor": 17
+      }
+    },
+    {
+      "name": "value with spaces is quoted",
+      "text": "subject:lu",
+      "context": {
+        "kind": "value",
+        "operator": "subject",
+        "prefix": "lu",
+        "negated": false,
+        "start": 0,
+        "end": 10
+      },
+      "candidate": {
+        "label": "lunch plans",
+        "value": "lunch plans",
+        "detail": null
+      },
+      "expect": {
+        "text": "subject:\"lunch plans\" ",
+        "cursor": 22
+      }
+    }
+  ],
+  "unchip": [
+    {
+      "chips": [
+        {
+          "operator": "from",
+          "value": "maya",
+          "negated": false
+        },
+        {
+          "operator": "is",
+          "value": "unread",
+          "negated": false
+        }
+      ],
+      "index": 0,
+      "free": "hello",
+      "expect": {
+        "chips": [
+          {
+            "operator": "is",
+            "value": "unread",
+            "negated": false
+          }
+        ],
+        "free": "from:maya hello",
+        "cursor": 9
+      }
+    },
+    {
+      "chips": [
+        {
+          "operator": "subject",
+          "value": "lunch plans",
+          "negated": true
+        }
+      ],
+      "index": 0,
+      "free": "",
+      "expect": {
+        "chips": [],
+        "free": "-subject:\"lunch plans\"",
+        "cursor": 22
+      }
+    }
+  ],
+  "local": [
+    {
+      "chip": {
+        "operator": "is",
+        "value": "snoozed",
+        "negated": false
+      },
+      "expect": true
+    },
+    {
+      "chip": {
+        "operator": "is",
+        "value": "Snoozed",
+        "negated": true
+      },
+      "expect": true
+    },
+    {
+      "chip": {
+        "operator": "is",
+        "value": "todo",
+        "negated": false
+      },
+      "expect": true
+    },
+    {
+      "chip": {
+        "operator": "is",
+        "value": "Todo",
+        "negated": true
+      },
+      "expect": true
+    },
+    {
+      "chip": {
+        "operator": "in",
+        "value": "outbox",
+        "negated": false
+      },
+      "expect": true
+    },
+    {
+      "chip": {
+        "operator": "is",
+        "value": "unread",
+        "negated": false
+      },
+      "expect": false
+    },
+    {
+      "chip": {
+        "operator": "in",
+        "value": "snoozed",
+        "negated": false
+      },
+      "expect": false
+    },
+    {
+      "chip": {
+        "operator": "is",
+        "value": "done",
+        "negated": false
+      },
+      "expect": false
+    },
+    {
+      "chip": {
+        "operator": "is",
+        "value": "pinned",
+        "negated": false
+      },
+      "expect": false
+    },
+    {
+      "chip": {
+        "operator": "#",
+        "value": "todo",
+        "negated": false
+      },
+      "expect": false
+    }
+  ],
+  "help": {
+    "common": [
+      "from",
+      "to",
+      "subject",
+      "has",
+      "is"
+    ],
+    "operators": [
+      {
+        "operator": "from",
+        "detail": "Sender",
+        "example": "from:maya@example.com"
+      },
+      {
+        "operator": "to",
+        "detail": "Recipient",
+        "example": "to:me"
+      },
+      {
+        "operator": "cc",
+        "detail": "Copied",
+        "example": "cc:team@example.com"
+      },
+      {
+        "operator": "bcc",
+        "detail": "Blind-copied",
+        "example": "bcc:alex"
+      },
+      {
+        "operator": "subject",
+        "detail": "Words in the subject",
+        "example": "subject:invoice"
+      },
+      {
+        "operator": "in",
+        "detail": "Mailbox",
+        "example": "in:snoozed"
+      },
+      {
+        "operator": "is",
+        "detail": "State: unread, starred, snoozed, done…",
+        "example": "is:unread"
+      },
+      {
+        "operator": "has",
+        "detail": "Attachment, Drive file…",
+        "example": "has:attachment"
+      },
+      {
+        "operator": "label",
+        "detail": "Label",
+        "example": "label:receipts"
+      },
+      {
+        "operator": "filename",
+        "detail": "Attachment name or type",
+        "example": "filename:pdf"
+      },
+      {
+        "operator": "after",
+        "detail": "Sent after a date",
+        "example": "after:2026/01/31"
+      },
+      {
+        "operator": "before",
+        "detail": "Sent before a date",
+        "example": "before:2026/06/01"
+      },
+      {
+        "operator": "older_than",
+        "detail": "Older than (1d, 2m, 1y)",
+        "example": "older_than:1y"
+      },
+      {
+        "operator": "newer_than",
+        "detail": "Newer than (1d, 2m, 1y)",
+        "example": "newer_than:2d"
+      },
+      {
+        "operator": "larger",
+        "detail": "Larger than a size",
+        "example": "larger:10M"
+      },
+      {
+        "operator": "smaller",
+        "detail": "Smaller than a size",
+        "example": "smaller:1M"
+      },
+      {
+        "operator": "size",
+        "detail": "Larger than a size in bytes",
+        "example": "size:500000"
+      },
+      {
+        "operator": "list",
+        "detail": "Mailing list",
+        "example": "list:news@example.com"
+      },
+      {
+        "operator": "deliveredto",
+        "detail": "Delivered to an address",
+        "example": "deliveredto:user@hafa.cc"
+      },
+      {
+        "operator": "category",
+        "detail": "Inbox category",
+        "example": "category:promotions"
+      }
+    ],
+    "own": [
+      {
+        "term": "is:snoozed",
+        "detail": "Snoozed mail and todos"
+      },
+      {
+        "term": "is:pinned",
+        "detail": "Pinned mail and todos, as is:starred"
+      },
+      {
+        "term": "is:done",
+        "detail": "Mail out of the inbox and done todos"
+      },
+      {
+        "term": "is:todo",
+        "detail": "Only todos"
+      },
+      {
+        "term": "in:outbox",
+        "detail": "Mail waiting to be sent"
+      }
+    ]
+  },
+  "awaitsValue": [
+    {
+      "name": "an operator with no value",
+      "text": "in:",
+      "cursor": 3,
+      "expect": true
+    },
+    {
+      "name": "a negated operator with no value",
+      "text": "-from:",
+      "cursor": 6,
+      "expect": true
+    },
+    {
+      "name": "after other words",
+      "text": "hello label:",
+      "cursor": 12,
+      "expect": true
+    },
+    {
+      "name": "only an opening quote",
+      "text": "subject:\"",
+      "cursor": 9,
+      "expect": true
+    },
+    {
+      "name": "a value begun",
+      "text": "in:sp",
+      "cursor": 5,
+      "expect": false
+    },
+    {
+      "name": "an operator name still being typed",
+      "text": "in",
+      "cursor": 2,
+      "expect": false
+    },
+    {
+      "name": "the cursor past a space",
+      "text": "hello ",
+      "cursor": 6,
+      "expect": false
+    },
+    {
+      "name": "the cursor on another token",
+      "text": "in: hello",
+      "cursor": 9,
+      "expect": false
+    },
+    {
+      "name": "an unknown operator",
+      "text": "foo:",
+      "cursor": 4,
+      "expect": false
+    },
+    {
+      "name": "no cursor",
+      "text": "in:",
+      "cursor": null,
+      "expect": false
+    },
+    {
+      "name": "a value past the cursor",
+      "text": "in:spam",
+      "cursor": 3,
+      "expect": false
+    },
+    {
+      "name": "a quoted value past the cursor",
+      "text": "subject:\"hi\"",
+      "cursor": 9,
+      "expect": false
+    }
+  ],
+  "withoutOperator": [
+    {
+      "name": "alone",
+      "text": "in:",
+      "cursor": 3,
+      "expect": ""
+    },
+    {
+      "name": "after words",
+      "text": "hello label:",
+      "cursor": 12,
+      "expect": "hello"
+    },
+    {
+      "name": "between words",
+      "text": "hello from: world",
+      "cursor": 10,
+      "expect": "hello world"
+    },
+    {
+      "name": "before words",
+      "text": "-to: world",
+      "cursor": 4,
+      "expect": "world"
+    }
+  ],
+  "gmailQuery": [
+    {
+      "chips": [
+        {
+          "operator": "is",
+          "value": "pinned",
+          "negated": false
+        },
+        {
+          "operator": "is",
+          "value": "snoozed",
+          "negated": false
+        },
+        {
+          "operator": "from",
+          "value": "ana",
+          "negated": false
+        }
+      ],
+      "free": "milk",
+      "expect": "is:starred from:ana milk"
+    },
+    {
+      "chips": [
+        {
+          "operator": "is",
+          "value": "Done",
+          "negated": false
+        }
+      ],
+      "free": "",
+      "expect": "-in:inbox"
+    },
+    {
+      "chips": [
+        {
+          "operator": "is",
+          "value": "done",
+          "negated": true
+        },
+        {
+          "operator": "is",
+          "value": "todo",
+          "negated": true
+        }
+      ],
+      "free": "",
+      "expect": "in:inbox"
+    },
+    {
+      "chips": [
+        {
+          "operator": "is",
+          "value": "pinned",
+          "negated": true
+        }
+      ],
+      "free": "",
+      "expect": "-is:starred"
+    }
+  ]
+}

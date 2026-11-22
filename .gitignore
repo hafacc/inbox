@@ -1,0 +1,59 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+out/
+.svelte-kit/
+*.tsbuildinfo
+
+# Firebase
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+*-debug.log
+.firebaserc.local
+
+# Environment
+.env
+.env.*
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Coverage
+coverage/
+
+# One-time local setup scripts (not part of the repo); the type check wrapper is part of it
+/scripts/*
+!/scripts/typecheck.ts
+
+# Android
+.gradle/
+build/
+local.properties
+*.keystore
+*.jks
+keystore.properties
+
+# Functions build output
+functions/lib/
+
+# Functions deploy params: public values only (client id, KMS key name)
+!functions/.env.hafa-inbox
+
+# Wrangler local state
+.wrangler/
+.dev.vars
+
+# Local setup notes
+docs/private/

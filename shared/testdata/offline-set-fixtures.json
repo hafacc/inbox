@@ -1,0 +1,1477 @@
+{
+  "days": [
+    {
+      "name": "a day count in range stays",
+      "value": 10,
+      "expect": 10
+    },
+    {
+      "name": "below zero is zero",
+      "value": -3,
+      "expect": 0
+    },
+    {
+      "name": "past the most is the most",
+      "value": 45,
+      "expect": 30
+    },
+    {
+      "name": "a fraction is cut to whole days",
+      "value": 2.7,
+      "expect": 2
+    },
+    {
+      "name": "text is the default",
+      "value": "x",
+      "expect": 30
+    },
+    {
+      "name": "missing is the default",
+      "value": null,
+      "expect": 30
+    }
+  ],
+  "tier": [
+    {
+      "name": "in the inbox",
+      "thread": {
+        "id": "a",
+        "labelIds": [
+          "INBOX"
+        ],
+        "newestAt": 1665440000000,
+        "openedAt": null,
+        "encrypted": false
+      },
+      "snoozed": false,
+      "days": 30,
+      "now": 1700000000000,
+      "expect": "inbox"
+    },
+    {
+      "name": "pinned in the inbox",
+      "thread": {
+        "id": "a",
+        "labelIds": [
+          "INBOX",
+          "STARRED"
+        ],
+        "newestAt": 1665440000000,
+        "openedAt": null,
+        "encrypted": false
+      },
+      "snoozed": false,
+      "days": 30,
+      "now": 1700000000000,
+      "expect": "inbox"
+    },
+    {
+      "name": "pinned out of the inbox is like any other",
+      "thread": {
+        "id": "a",
+        "labelIds": [
+          "STARRED"
+        ],
+        "newestAt": 1665440000000,
+        "openedAt": null,
+        "encrypted": false
+      },
+      "snoozed": false,
+      "days": 30,
+      "now": 1700000000000,
+      "expect": null
+    },
+    {
+      "name": "pinned out of the inbox with recent mail is recent",
+      "thread": {
+        "id": "a",
+        "labelIds": [
+          "STARRED"
+        ],
+        "newestAt": 1699827200000,
+        "openedAt": null,
+        "encrypted": false
+      },
+      "snoozed": false,
+      "days": 30,
+      "now": 1700000000000,
+      "expect": "recent"
+    },
+    {
+      "name": "pinned out of the inbox opened lately is opened",
+      "thread": {
+        "id": "a",
+        "labelIds": [
+          "STARRED"
+        ],
+        "newestAt": 1665440000000,
+        "openedAt": 1699740800000,
+        "encrypted": false
+      },
+      "snoozed": false,
+      "days": 30,
+      "now": 1700000000000,
+      "expect": "opened"
+    },
+    {
+      "name": "snoozed",
+      "thread": {
+        "id": "a",
+        "labelIds": [],
+        "newestAt": 1665440000000,
+        "openedAt": null,
+        "encrypted": false
+      },
+      "snoozed": true,
+      "days": 0,
+      "now": 1700000000000,
+      "expect": "inbox"
+    },
+    {
+      "name": "recent mail",
+      "thread": {
+        "id": "a",
+        "labelIds": [
+          "SENT"
+        ],
+        "newestAt": 1699913600000,
+        "openedAt": null,
+        "encrypted": false
+      },
+      "snoozed": false,
+      "days": 30,
+      "now": 1700000000000,
+      "expect": "recent"
+    },
+    {
+      "name": "exactly the days ago counts",
+      "thread": {
+        "id": "a",
+        "labelIds": [],
+        "newestAt": 1697408000000,
+        "openedAt": null,
+        "encrypted": false
+      },
+      "snoozed": false,
+      "days": 30,
+      "now": 1700000000000,
+      "expect": "recent"
+    },
+    {
+      "name": "just past the days doesn't",
+      "thread": {
+        "id": "a",
+        "labelIds": [],
+        "newestAt": 1697407999999,
+        "openedAt": null,
+        "encrypted": false
+      },
+      "snoozed": false,
+      "days": 30,
+      "now": 1700000000000,
+      "expect": null
+    },
+    {
+      "name": "recent spam isn't saved",
+      "thread": {
+        "id": "a",
+        "labelIds": [
+          "SPAM"
+        ],
+        "newestAt": 1699913600000,
+        "openedAt": null,
+        "encrypted": false
+      },
+      "snoozed": false,
+      "days": 30,
+      "now": 1700000000000,
+      "expect": null
+    },
+    {
+      "name": "recent trash opened is kept as opened",
+      "thread": {
+        "id": "a",
+        "labelIds": [
+          "TRASH"
+        ],
+        "newestAt": 1699913600000,
+        "openedAt": 1699827200000,
+        "encrypted": false
+      },
+      "snoozed": false,
+      "days": 30,
+      "now": 1700000000000,
+      "expect": "opened"
+    },
+    {
+      "name": "old mail opened lately",
+      "thread": {
+        "id": "a",
+        "labelIds": [],
+        "newestAt": 1682720000000,
+        "openedAt": 1699568000000,
+        "encrypted": false
+      },
+      "snoozed": false,
+      "days": 30,
+      "now": 1700000000000,
+      "expect": "opened"
+    },
+    {
+      "name": "old mail opened long ago",
+      "thread": {
+        "id": "a",
+        "labelIds": [],
+        "newestAt": 1682720000000,
+        "openedAt": 1696544000000,
+        "encrypted": false
+      },
+      "snoozed": false,
+      "days": 30,
+      "now": 1700000000000,
+      "expect": null
+    },
+    {
+      "name": "no days keeps no recent mail",
+      "thread": {
+        "id": "a",
+        "labelIds": [],
+        "newestAt": 1700000000000,
+        "openedAt": null,
+        "encrypted": false
+      },
+      "snoozed": false,
+      "days": 0,
+      "now": 1700000000000,
+      "expect": null
+    },
+    {
+      "name": "no days keeps nothing opened",
+      "thread": {
+        "id": "a",
+        "labelIds": [],
+        "newestAt": 1700000000000,
+        "openedAt": 1700000000000,
+        "encrypted": false
+      },
+      "snoozed": false,
+      "days": 0,
+      "now": 1700000000000,
+      "expect": null
+    },
+    {
+      "name": "fewer days",
+      "thread": {
+        "id": "a",
+        "labelIds": [],
+        "newestAt": 1699308800000,
+        "openedAt": null,
+        "encrypted": false
+      },
+      "snoozed": false,
+      "days": 7,
+      "now": 1700000000000,
+      "expect": null
+    },
+    {
+      "name": "encrypted mail of any age",
+      "thread": {
+        "id": "a",
+        "labelIds": [],
+        "newestAt": 1622240000000,
+        "openedAt": null,
+        "encrypted": true
+      },
+      "snoozed": false,
+      "days": 30,
+      "now": 1700000000000,
+      "expect": "encrypted"
+    },
+    {
+      "name": "encrypted mail with no days",
+      "thread": {
+        "id": "a",
+        "labelIds": [
+          "SENT"
+        ],
+        "newestAt": 1622240000000,
+        "openedAt": null,
+        "encrypted": true
+      },
+      "snoozed": false,
+      "days": 0,
+      "now": 1700000000000,
+      "expect": "encrypted"
+    },
+    {
+      "name": "encrypted mail in the inbox is the inbox",
+      "thread": {
+        "id": "a",
+        "labelIds": [
+          "INBOX"
+        ],
+        "newestAt": 1622240000000,
+        "openedAt": null,
+        "encrypted": true
+      },
+      "snoozed": false,
+      "days": 30,
+      "now": 1700000000000,
+      "expect": "inbox"
+    },
+    {
+      "name": "encrypted spam isn't saved",
+      "thread": {
+        "id": "a",
+        "labelIds": [
+          "SPAM"
+        ],
+        "newestAt": 1699913600000,
+        "openedAt": null,
+        "encrypted": true
+      },
+      "snoozed": false,
+      "days": 30,
+      "now": 1700000000000,
+      "expect": null
+    },
+    {
+      "name": "encrypted trash opened lately is opened",
+      "thread": {
+        "id": "a",
+        "labelIds": [
+          "TRASH"
+        ],
+        "newestAt": 1622240000000,
+        "openedAt": 1699913600000,
+        "encrypted": true
+      },
+      "snoozed": false,
+      "days": 30,
+      "now": 1700000000000,
+      "expect": "opened"
+    },
+    {
+      "name": "an old thread with a draft",
+      "thread": {
+        "id": "a",
+        "labelIds": [
+          "DRAFT"
+        ],
+        "newestAt": 1665440000000,
+        "openedAt": null,
+        "encrypted": false
+      },
+      "snoozed": false,
+      "days": 30,
+      "now": 1700000000000,
+      "expect": "draft"
+    },
+    {
+      "name": "a draft is kept with no days",
+      "thread": {
+        "id": "a",
+        "labelIds": [
+          "SENT",
+          "DRAFT"
+        ],
+        "newestAt": 1665440000000,
+        "openedAt": null,
+        "encrypted": false
+      },
+      "snoozed": false,
+      "days": 0,
+      "now": 1700000000000,
+      "expect": "draft"
+    },
+    {
+      "name": "a draft in the inbox is the inbox",
+      "thread": {
+        "id": "a",
+        "labelIds": [
+          "INBOX",
+          "DRAFT"
+        ],
+        "newestAt": 1665440000000,
+        "openedAt": null,
+        "encrypted": false
+      },
+      "snoozed": false,
+      "days": 0,
+      "now": 1700000000000,
+      "expect": "inbox"
+    },
+    {
+      "name": "a draft beats encryption",
+      "thread": {
+        "id": "a",
+        "labelIds": [
+          "DRAFT"
+        ],
+        "newestAt": 1665440000000,
+        "openedAt": null,
+        "encrypted": true
+      },
+      "snoozed": false,
+      "days": 0,
+      "now": 1700000000000,
+      "expect": "draft"
+    }
+  ],
+  "plan": [
+    {
+      "name": "inbox, then recent newest first, then opened most recent first",
+      "threads": [
+        {
+          "id": "i1",
+          "labelIds": [
+            "INBOX"
+          ],
+          "newestAt": 1699568000000,
+          "openedAt": null,
+          "encrypted": false
+        },
+        {
+          "id": "i2",
+          "labelIds": [
+            "INBOX",
+            "UNREAD"
+          ],
+          "newestAt": 1699913600000,
+          "openedAt": null,
+          "encrypted": false
+        },
+        {
+          "id": "r1",
+          "labelIds": [
+            "SENT"
+          ],
+          "newestAt": 1699827200000,
+          "openedAt": null,
+          "encrypted": false
+        },
+        {
+          "id": "r2",
+          "labelIds": [
+            "Label_1"
+          ],
+          "newestAt": 1699136000000,
+          "openedAt": 1698272000000,
+          "encrypted": false
+        },
+        {
+          "id": "o1",
+          "labelIds": [],
+          "newestAt": 1691360000000,
+          "openedAt": 1699913600000,
+          "encrypted": false
+        },
+        {
+          "id": "o2",
+          "labelIds": [
+            "TRASH"
+          ],
+          "newestAt": 1699740800000,
+          "openedAt": 1699740800000,
+          "encrypted": false
+        },
+        {
+          "id": "x",
+          "labelIds": [],
+          "newestAt": 1691360000000,
+          "openedAt": null,
+          "encrypted": false
+        },
+        {
+          "id": "p",
+          "labelIds": [
+            "STARRED"
+          ],
+          "newestAt": 1682720000000,
+          "openedAt": null,
+          "encrypted": false
+        }
+      ],
+      "snoozed": [],
+      "days": 30,
+      "now": 1700000000000,
+      "cap": 10,
+      "encryptedCap": 10,
+      "expect": {
+        "keep": [
+          "i2",
+          "i1",
+          "r1",
+          "r2",
+          "o1",
+          "o2"
+        ],
+        "drop": [
+          "x",
+          "p"
+        ]
+      }
+    },
+    {
+      "name": "past the cap the opened go first",
+      "threads": [
+        {
+          "id": "i1",
+          "labelIds": [
+            "INBOX"
+          ],
+          "newestAt": 1699568000000,
+          "openedAt": null,
+          "encrypted": false
+        },
+        {
+          "id": "i2",
+          "labelIds": [
+            "INBOX",
+            "UNREAD"
+          ],
+          "newestAt": 1699913600000,
+          "openedAt": null,
+          "encrypted": false
+        },
+        {
+          "id": "r1",
+          "labelIds": [
+            "SENT"
+          ],
+          "newestAt": 1699827200000,
+          "openedAt": null,
+          "encrypted": false
+        },
+        {
+          "id": "r2",
+          "labelIds": [
+            "Label_1"
+          ],
+          "newestAt": 1699136000000,
+          "openedAt": 1698272000000,
+          "encrypted": false
+        },
+        {
+          "id": "o1",
+          "labelIds": [],
+          "newestAt": 1691360000000,
+          "openedAt": 1699913600000,
+          "encrypted": false
+        },
+        {
+          "id": "o2",
+          "labelIds": [
+            "TRASH"
+          ],
+          "newestAt": 1699740800000,
+          "openedAt": 1699740800000,
+          "encrypted": false
+        },
+        {
+          "id": "x",
+          "labelIds": [],
+          "newestAt": 1691360000000,
+          "openedAt": null,
+          "encrypted": false
+        },
+        {
+          "id": "p",
+          "labelIds": [
+            "STARRED"
+          ],
+          "newestAt": 1682720000000,
+          "openedAt": null,
+          "encrypted": false
+        }
+      ],
+      "snoozed": [],
+      "days": 30,
+      "now": 1700000000000,
+      "cap": 4,
+      "encryptedCap": 10,
+      "expect": {
+        "keep": [
+          "i2",
+          "i1",
+          "r1",
+          "r2"
+        ],
+        "drop": [
+          "x",
+          "p",
+          "o1",
+          "o2"
+        ]
+      }
+    },
+    {
+      "name": "then the oldest recent",
+      "threads": [
+        {
+          "id": "i1",
+          "labelIds": [
+            "INBOX"
+          ],
+          "newestAt": 1699568000000,
+          "openedAt": null,
+          "encrypted": false
+        },
+        {
+          "id": "i2",
+          "labelIds": [
+            "INBOX",
+            "UNREAD"
+          ],
+          "newestAt": 1699913600000,
+          "openedAt": null,
+          "encrypted": false
+        },
+        {
+          "id": "r1",
+          "labelIds": [
+            "SENT"
+          ],
+          "newestAt": 1699827200000,
+          "openedAt": null,
+          "encrypted": false
+        },
+        {
+          "id": "r2",
+          "labelIds": [
+            "Label_1"
+          ],
+          "newestAt": 1699136000000,
+          "openedAt": 1698272000000,
+          "encrypted": false
+        },
+        {
+          "id": "o1",
+          "labelIds": [],
+          "newestAt": 1691360000000,
+          "openedAt": 1699913600000,
+          "encrypted": false
+        },
+        {
+          "id": "o2",
+          "labelIds": [
+            "TRASH"
+          ],
+          "newestAt": 1699740800000,
+          "openedAt": 1699740800000,
+          "encrypted": false
+        },
+        {
+          "id": "x",
+          "labelIds": [],
+          "newestAt": 1691360000000,
+          "openedAt": null,
+          "encrypted": false
+        },
+        {
+          "id": "p",
+          "labelIds": [
+            "STARRED"
+          ],
+          "newestAt": 1682720000000,
+          "openedAt": null,
+          "encrypted": false
+        }
+      ],
+      "snoozed": [],
+      "days": 30,
+      "now": 1700000000000,
+      "cap": 3,
+      "encryptedCap": 10,
+      "expect": {
+        "keep": [
+          "i2",
+          "i1",
+          "r1"
+        ],
+        "drop": [
+          "x",
+          "p",
+          "r2",
+          "o1",
+          "o2"
+        ]
+      }
+    },
+    {
+      "name": "the inbox is kept past the cap",
+      "threads": [
+        {
+          "id": "i1",
+          "labelIds": [
+            "INBOX"
+          ],
+          "newestAt": 1699568000000,
+          "openedAt": null,
+          "encrypted": false
+        },
+        {
+          "id": "i2",
+          "labelIds": [
+            "INBOX",
+            "UNREAD"
+          ],
+          "newestAt": 1699913600000,
+          "openedAt": null,
+          "encrypted": false
+        },
+        {
+          "id": "r1",
+          "labelIds": [
+            "SENT"
+          ],
+          "newestAt": 1699827200000,
+          "openedAt": null,
+          "encrypted": false
+        },
+        {
+          "id": "r2",
+          "labelIds": [
+            "Label_1"
+          ],
+          "newestAt": 1699136000000,
+          "openedAt": 1698272000000,
+          "encrypted": false
+        },
+        {
+          "id": "o1",
+          "labelIds": [],
+          "newestAt": 1691360000000,
+          "openedAt": 1699913600000,
+          "encrypted": false
+        },
+        {
+          "id": "o2",
+          "labelIds": [
+            "TRASH"
+          ],
+          "newestAt": 1699740800000,
+          "openedAt": 1699740800000,
+          "encrypted": false
+        },
+        {
+          "id": "x",
+          "labelIds": [],
+          "newestAt": 1691360000000,
+          "openedAt": null,
+          "encrypted": false
+        },
+        {
+          "id": "p",
+          "labelIds": [
+            "STARRED"
+          ],
+          "newestAt": 1682720000000,
+          "openedAt": null,
+          "encrypted": false
+        }
+      ],
+      "snoozed": [],
+      "days": 30,
+      "now": 1700000000000,
+      "cap": 1,
+      "encryptedCap": 10,
+      "expect": {
+        "keep": [
+          "i2",
+          "i1"
+        ],
+        "drop": [
+          "x",
+          "p",
+          "r1",
+          "r2",
+          "o1",
+          "o2"
+        ]
+      }
+    },
+    {
+      "name": "drafts are kept past the cap after the inbox, newest first",
+      "threads": [
+        {
+          "id": "i1",
+          "labelIds": [
+            "INBOX"
+          ],
+          "newestAt": 1699568000000,
+          "openedAt": null,
+          "encrypted": false
+        },
+        {
+          "id": "d1",
+          "labelIds": [
+            "DRAFT"
+          ],
+          "newestAt": 1600000000000,
+          "openedAt": null,
+          "encrypted": false
+        },
+        {
+          "id": "d2",
+          "labelIds": [
+            "SENT",
+            "DRAFT"
+          ],
+          "newestAt": 1699913600000,
+          "openedAt": null,
+          "encrypted": false
+        },
+        {
+          "id": "r1",
+          "labelIds": [
+            "SENT"
+          ],
+          "newestAt": 1699827200000,
+          "openedAt": null,
+          "encrypted": false
+        },
+        {
+          "id": "o1",
+          "labelIds": [],
+          "newestAt": 1691360000000,
+          "openedAt": 1699913600000,
+          "encrypted": false
+        }
+      ],
+      "snoozed": [],
+      "days": 30,
+      "now": 1700000000000,
+      "cap": 2,
+      "encryptedCap": 10,
+      "expect": {
+        "keep": [
+          "i1",
+          "d2",
+          "d1"
+        ],
+        "drop": [
+          "r1",
+          "o1"
+        ]
+      }
+    },
+    {
+      "name": "drafts are kept with no days",
+      "threads": [
+        {
+          "id": "d1",
+          "labelIds": [
+            "DRAFT"
+          ],
+          "newestAt": 1600000000000,
+          "openedAt": null,
+          "encrypted": false
+        },
+        {
+          "id": "x",
+          "labelIds": [
+            "SENT"
+          ],
+          "newestAt": 1699913600000,
+          "openedAt": null,
+          "encrypted": false
+        }
+      ],
+      "snoozed": [],
+      "days": 0,
+      "now": 1700000000000,
+      "cap": 10,
+      "encryptedCap": 10,
+      "expect": {
+        "keep": [
+          "d1"
+        ],
+        "drop": [
+          "x"
+        ]
+      }
+    },
+    {
+      "name": "a snoozed thread joins the inbox by date",
+      "threads": [
+        {
+          "id": "i1",
+          "labelIds": [
+            "INBOX"
+          ],
+          "newestAt": 1699568000000,
+          "openedAt": null,
+          "encrypted": false
+        },
+        {
+          "id": "i2",
+          "labelIds": [
+            "INBOX",
+            "UNREAD"
+          ],
+          "newestAt": 1699913600000,
+          "openedAt": null,
+          "encrypted": false
+        },
+        {
+          "id": "r1",
+          "labelIds": [
+            "SENT"
+          ],
+          "newestAt": 1699827200000,
+          "openedAt": null,
+          "encrypted": false
+        },
+        {
+          "id": "r2",
+          "labelIds": [
+            "Label_1"
+          ],
+          "newestAt": 1699136000000,
+          "openedAt": 1698272000000,
+          "encrypted": false
+        },
+        {
+          "id": "o1",
+          "labelIds": [],
+          "newestAt": 1691360000000,
+          "openedAt": 1699913600000,
+          "encrypted": false
+        },
+        {
+          "id": "o2",
+          "labelIds": [
+            "TRASH"
+          ],
+          "newestAt": 1699740800000,
+          "openedAt": 1699740800000,
+          "encrypted": false
+        },
+        {
+          "id": "x",
+          "labelIds": [],
+          "newestAt": 1691360000000,
+          "openedAt": null,
+          "encrypted": false
+        },
+        {
+          "id": "p",
+          "labelIds": [
+            "STARRED"
+          ],
+          "newestAt": 1682720000000,
+          "openedAt": null,
+          "encrypted": false
+        }
+      ],
+      "snoozed": [
+        "x"
+      ],
+      "days": 30,
+      "now": 1700000000000,
+      "cap": 10,
+      "encryptedCap": 10,
+      "expect": {
+        "keep": [
+          "i2",
+          "i1",
+          "x",
+          "r1",
+          "r2",
+          "o1",
+          "o2"
+        ],
+        "drop": [
+          "p"
+        ]
+      }
+    },
+    {
+      "name": "no days keeps only the inbox",
+      "threads": [
+        {
+          "id": "i1",
+          "labelIds": [
+            "INBOX"
+          ],
+          "newestAt": 1699568000000,
+          "openedAt": null,
+          "encrypted": false
+        },
+        {
+          "id": "i2",
+          "labelIds": [
+            "INBOX",
+            "UNREAD"
+          ],
+          "newestAt": 1699913600000,
+          "openedAt": null,
+          "encrypted": false
+        },
+        {
+          "id": "r1",
+          "labelIds": [
+            "SENT"
+          ],
+          "newestAt": 1699827200000,
+          "openedAt": null,
+          "encrypted": false
+        },
+        {
+          "id": "r2",
+          "labelIds": [
+            "Label_1"
+          ],
+          "newestAt": 1699136000000,
+          "openedAt": 1698272000000,
+          "encrypted": false
+        },
+        {
+          "id": "o1",
+          "labelIds": [],
+          "newestAt": 1691360000000,
+          "openedAt": 1699913600000,
+          "encrypted": false
+        },
+        {
+          "id": "o2",
+          "labelIds": [
+            "TRASH"
+          ],
+          "newestAt": 1699740800000,
+          "openedAt": 1699740800000,
+          "encrypted": false
+        },
+        {
+          "id": "x",
+          "labelIds": [],
+          "newestAt": 1691360000000,
+          "openedAt": null,
+          "encrypted": false
+        },
+        {
+          "id": "p",
+          "labelIds": [
+            "STARRED"
+          ],
+          "newestAt": 1682720000000,
+          "openedAt": null,
+          "encrypted": false
+        }
+      ],
+      "snoozed": [],
+      "days": 0,
+      "now": 1700000000000,
+      "cap": 10,
+      "encryptedCap": 10,
+      "expect": {
+        "keep": [
+          "i2",
+          "i1"
+        ],
+        "drop": [
+          "r1",
+          "r2",
+          "o1",
+          "o2",
+          "x",
+          "p"
+        ]
+      }
+    },
+    {
+      "name": "encrypted mail after the inbox, newest first, apart from the cap",
+      "threads": [
+        {
+          "id": "i1",
+          "labelIds": [
+            "INBOX"
+          ],
+          "newestAt": 1699568000000,
+          "openedAt": null,
+          "encrypted": true
+        },
+        {
+          "id": "e1",
+          "labelIds": [],
+          "newestAt": 1665440000000,
+          "openedAt": null,
+          "encrypted": true
+        },
+        {
+          "id": "e2",
+          "labelIds": [
+            "SENT"
+          ],
+          "newestAt": 1699827200000,
+          "openedAt": null,
+          "encrypted": true
+        },
+        {
+          "id": "e3",
+          "labelIds": [],
+          "newestAt": 1674080000000,
+          "openedAt": 1699913600000,
+          "encrypted": true
+        },
+        {
+          "id": "e4",
+          "labelIds": [],
+          "newestAt": 1656800000000,
+          "openedAt": null,
+          "encrypted": true
+        },
+        {
+          "id": "r1",
+          "labelIds": [
+            "SENT"
+          ],
+          "newestAt": 1699913600000,
+          "openedAt": null,
+          "encrypted": false
+        }
+      ],
+      "snoozed": [],
+      "days": 30,
+      "now": 1700000000000,
+      "cap": 2,
+      "encryptedCap": 10,
+      "expect": {
+        "keep": [
+          "i1",
+          "e2",
+          "e3",
+          "e1",
+          "e4",
+          "r1"
+        ],
+        "drop": []
+      }
+    },
+    {
+      "name": "encrypted mail past its cap is weighed as recent or opened mail",
+      "threads": [
+        {
+          "id": "i1",
+          "labelIds": [
+            "INBOX"
+          ],
+          "newestAt": 1699568000000,
+          "openedAt": null,
+          "encrypted": true
+        },
+        {
+          "id": "e1",
+          "labelIds": [],
+          "newestAt": 1665440000000,
+          "openedAt": null,
+          "encrypted": true
+        },
+        {
+          "id": "e2",
+          "labelIds": [
+            "SENT"
+          ],
+          "newestAt": 1699827200000,
+          "openedAt": null,
+          "encrypted": true
+        },
+        {
+          "id": "e3",
+          "labelIds": [],
+          "newestAt": 1674080000000,
+          "openedAt": 1699913600000,
+          "encrypted": true
+        },
+        {
+          "id": "e4",
+          "labelIds": [],
+          "newestAt": 1656800000000,
+          "openedAt": null,
+          "encrypted": true
+        },
+        {
+          "id": "r1",
+          "labelIds": [
+            "SENT"
+          ],
+          "newestAt": 1699913600000,
+          "openedAt": null,
+          "encrypted": false
+        }
+      ],
+      "snoozed": [],
+      "days": 30,
+      "now": 1700000000000,
+      "cap": 10,
+      "encryptedCap": 1,
+      "expect": {
+        "keep": [
+          "i1",
+          "e2",
+          "r1",
+          "e3"
+        ],
+        "drop": [
+          "e1",
+          "e4"
+        ]
+      }
+    },
+    {
+      "name": "encrypted mail is kept with no days",
+      "threads": [
+        {
+          "id": "i1",
+          "labelIds": [
+            "INBOX"
+          ],
+          "newestAt": 1699568000000,
+          "openedAt": null,
+          "encrypted": true
+        },
+        {
+          "id": "e1",
+          "labelIds": [],
+          "newestAt": 1665440000000,
+          "openedAt": null,
+          "encrypted": true
+        },
+        {
+          "id": "e2",
+          "labelIds": [
+            "SENT"
+          ],
+          "newestAt": 1699827200000,
+          "openedAt": null,
+          "encrypted": true
+        },
+        {
+          "id": "e3",
+          "labelIds": [],
+          "newestAt": 1674080000000,
+          "openedAt": 1699913600000,
+          "encrypted": true
+        },
+        {
+          "id": "e4",
+          "labelIds": [],
+          "newestAt": 1656800000000,
+          "openedAt": null,
+          "encrypted": true
+        },
+        {
+          "id": "r1",
+          "labelIds": [
+            "SENT"
+          ],
+          "newestAt": 1699913600000,
+          "openedAt": null,
+          "encrypted": false
+        }
+      ],
+      "snoozed": [],
+      "days": 0,
+      "now": 1700000000000,
+      "cap": 10,
+      "encryptedCap": 10,
+      "expect": {
+        "keep": [
+          "i1",
+          "e2",
+          "e3",
+          "e1",
+          "e4"
+        ],
+        "drop": [
+          "r1"
+        ]
+      }
+    },
+    {
+      "name": "equal dates go by id",
+      "threads": [
+        {
+          "id": "b",
+          "labelIds": [
+            "INBOX"
+          ],
+          "newestAt": 1699913600000,
+          "openedAt": null,
+          "encrypted": false
+        },
+        {
+          "id": "a",
+          "labelIds": [
+            "INBOX"
+          ],
+          "newestAt": 1699913600000,
+          "openedAt": null,
+          "encrypted": false
+        }
+      ],
+      "snoozed": [],
+      "days": 30,
+      "now": 1700000000000,
+      "cap": 10,
+      "encryptedCap": 10,
+      "expect": {
+        "keep": [
+          "a",
+          "b"
+        ],
+        "drop": []
+      }
+    }
+  ],
+  "queries": [
+    {
+      "name": "the inbox, then drafts, then the days, then encrypted mail",
+      "days": 30,
+      "expect": [
+        {
+          "query": "in:inbox",
+          "cap": null
+        },
+        {
+          "query": "in:draft",
+          "cap": null
+        },
+        {
+          "query": "newer_than:30d",
+          "cap": 3000
+        },
+        {
+          "query": "{filename:encrypted.asc \"BEGIN PGP MESSAGE\"}",
+          "cap": 10000
+        }
+      ]
+    },
+    {
+      "name": "no days lists the inbox, drafts and encrypted mail",
+      "days": 0,
+      "expect": [
+        {
+          "query": "in:inbox",
+          "cap": null
+        },
+        {
+          "query": "in:draft",
+          "cap": null
+        },
+        {
+          "query": "{filename:encrypted.asc \"BEGIN PGP MESSAGE\"}",
+          "cap": 10000
+        }
+      ]
+    }
+  ],
+  "eviction": [
+    {
+      "name": "least recently used go past the cap",
+      "usage": [
+        [
+          "a",
+          3
+        ],
+        [
+          "b",
+          1
+        ],
+        [
+          "c",
+          2
+        ]
+      ],
+      "cap": 1,
+      "expect": [
+        "b",
+        "c"
+      ]
+    },
+    {
+      "name": "nothing goes within the cap",
+      "usage": [
+        [
+          "a",
+          1
+        ]
+      ],
+      "cap": 1,
+      "expect": []
+    }
+  ],
+  "prune": [
+    {
+      "name": "expired first, then the least recently used past the cap",
+      "keys": [
+        "a",
+        "b",
+        "c",
+        "search:x",
+        "untracked"
+      ],
+      "usage": {
+        "a": 30,
+        "b": 10,
+        "c": 20,
+        "search:x": 5
+      },
+      "cap": 2,
+      "expiredPrefix": "search:",
+      "kept": [],
+      "expect": [
+        "search:x",
+        "untracked",
+        "b"
+      ]
+    },
+    {
+      "name": "kept keys never go and don't count",
+      "keys": [
+        "a",
+        "b",
+        "c",
+        "d"
+      ],
+      "usage": {
+        "a": 1,
+        "b": 2,
+        "c": 3,
+        "d": 4
+      },
+      "cap": 2,
+      "expiredPrefix": null,
+      "kept": [
+        "a",
+        "b"
+      ],
+      "expect": []
+    },
+    {
+      "name": "kept keys leave room for others only up to the cap",
+      "keys": [
+        "a",
+        "b",
+        "c",
+        "d"
+      ],
+      "usage": {
+        "a": 1,
+        "b": 2,
+        "c": 3,
+        "d": 4
+      },
+      "cap": 1,
+      "expiredPrefix": null,
+      "kept": [
+        "d"
+      ],
+      "expect": [
+        "a",
+        "b"
+      ]
+    }
+  ]
+}

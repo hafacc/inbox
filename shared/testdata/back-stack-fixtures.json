@@ -1,0 +1,224 @@
+{
+ "_doc": "What Back does on web and Android (shared/src/back-stack.ts, Android :core BackStack.kt). Views are view keys (inbox, done, todos, outbox, label:<id>, search:<query>, settings:<page>). `backStep`: from startBack(start), each step's event through backStep, with the effect it returns (null for anything but Back), and the stack at the end. `viewStep`: viewStep(previous, current, next).",
+ "backStep": [
+  {
+   "name": "Back from a view returns to the one the user came from, then leaves the app",
+   "start": "inbox",
+   "steps": [
+    {"event": {"type": "view", "view": "todos"}, "effect": null},
+    {"event": {"type": "back"}, "effect": {"kind": "view", "view": "inbox"}},
+    {"event": {"type": "back"}, "effect": {"kind": "leave"}}
+   ],
+   "stack": {"views": ["inbox"], "layers": []}
+  },
+  {
+   "name": "Back returns to the view before, not always Inbox",
+   "start": "inbox",
+   "steps": [
+    {"event": {"type": "view", "view": "snoozed"}, "effect": null},
+    {"event": {"type": "view", "view": "done"}, "effect": null},
+    {"event": {"type": "back"}, "effect": {"kind": "view", "view": "snoozed"}},
+    {"event": {"type": "back"}, "effect": {"kind": "view", "view": "inbox"}}
+   ],
+   "stack": {"views": ["inbox"], "layers": []}
+  },
+  {
+   "name": "picking the view shown before goes back to it rather than stacking it again",
+   "start": "inbox",
+   "steps": [
+    {"event": {"type": "view", "view": "done"}, "effect": null},
+    {"event": {"type": "view", "view": "inbox"}, "effect": null},
+    {"event": {"type": "back"}, "effect": {"kind": "leave"}}
+   ],
+   "stack": {"views": ["inbox"], "layers": []}
+  },
+  {
+   "name": "another view after going back stacks on the one gone back to",
+   "start": "inbox",
+   "steps": [
+    {"event": {"type": "view", "view": "done"}, "effect": null},
+    {"event": {"type": "back"}, "effect": {"kind": "view", "view": "inbox"}},
+    {"event": {"type": "view", "view": "sent"}, "effect": null},
+    {"event": {"type": "back"}, "effect": {"kind": "view", "view": "inbox"}}
+   ],
+   "stack": {"views": ["inbox"], "layers": []}
+  },
+  {
+   "name": "layers close before the view, the one opened last first",
+   "start": "inbox",
+   "steps": [
+    {"event": {"type": "view", "view": "done"}, "effect": null},
+    {"event": {"type": "open", "layer": "bundle"}, "effect": null},
+    {"event": {"type": "open", "layer": "thread"}, "effect": null},
+    {"event": {"type": "open", "layer": "menu"}, "effect": null},
+    {"event": {"type": "back"}, "effect": {"kind": "close", "layer": "menu"}},
+    {"event": {"type": "back"}, "effect": {"kind": "close", "layer": "thread"}},
+    {"event": {"type": "back"}, "effect": {"kind": "close", "layer": "bundle"}},
+    {"event": {"type": "back"}, "effect": {"kind": "view", "view": "inbox"}}
+   ],
+   "stack": {"views": ["inbox"], "layers": []}
+  },
+  {
+   "name": "a selection made in search results clears before search closes",
+   "start": "inbox",
+   "steps": [
+    {"event": {"type": "open", "layer": "search"}, "effect": null},
+    {"event": {"type": "view", "view": "search:from:ann"}, "effect": null},
+    {"event": {"type": "open", "layer": "selection"}, "effect": null},
+    {"event": {"type": "back"}, "effect": {"kind": "close", "layer": "selection"}},
+    {"event": {"type": "back"}, "effect": {"kind": "close", "layer": "search"}},
+    {"event": {"type": "view", "view": "inbox"}, "effect": null},
+    {"event": {"type": "back"}, "effect": {"kind": "leave"}}
+   ],
+   "stack": {"views": ["inbox"], "layers": []}
+  },
+  {
+   "name": "a layer closed by other means takes no Back",
+   "start": "inbox",
+   "steps": [
+    {"event": {"type": "open", "layer": "selection"}, "effect": null},
+    {"event": {"type": "close", "layer": "selection"}, "effect": null},
+    {"event": {"type": "back"}, "effect": {"kind": "leave"}}
+   ],
+   "stack": {"views": ["inbox"], "layers": []}
+  },
+  {
+   "name": "a layer closed under another leaves the one on top to Back",
+   "start": "inbox",
+   "steps": [
+    {"event": {"type": "open", "layer": "bundle"}, "effect": null},
+    {"event": {"type": "open", "layer": "thread"}, "effect": null},
+    {"event": {"type": "close", "layer": "bundle"}, "effect": null},
+    {"event": {"type": "back"}, "effect": {"kind": "close", "layer": "thread"}},
+    {"event": {"type": "back"}, "effect": {"kind": "leave"}}
+   ],
+   "stack": {"views": ["inbox"], "layers": []}
+  },
+  {
+   "name": "a layer opening while one of its kind is open keeps its place",
+   "start": "inbox",
+   "steps": [
+    {"event": {"type": "open", "layer": "bundle"}, "effect": null},
+    {"event": {"type": "open", "layer": "thread"}, "effect": null},
+    {"event": {"type": "open", "layer": "bundle"}, "effect": null},
+    {"event": {"type": "back"}, "effect": {"kind": "close", "layer": "thread"}},
+    {"event": {"type": "back"}, "effect": {"kind": "close", "layer": "bundle"}}
+   ],
+   "stack": {"views": ["inbox"], "layers": []}
+  },
+  {
+   "name": "a todo being edited closes first",
+   "start": "todos",
+   "steps": [
+    {"event": {"type": "open", "layer": "todo"}, "effect": null},
+    {"event": {"type": "back"}, "effect": {"kind": "close", "layer": "todo"}},
+    {"event": {"type": "back"}, "effect": {"kind": "leave"}}
+   ],
+   "stack": {"views": ["todos"], "layers": []}
+  },
+  {
+   "name": "settings pages stack: Back from a page opened from another returns to it",
+   "start": "inbox",
+   "steps": [
+    {"event": {"type": "view", "view": "settings:general"}, "effect": null},
+    {"event": {"type": "view", "view": "settings:filters"}, "effect": null},
+    {"event": {"type": "back"}, "effect": {"kind": "view", "view": "settings:general"}},
+    {"event": {"type": "back"}, "effect": {"kind": "view", "view": "inbox"}}
+   ],
+   "stack": {"views": ["inbox"], "layers": []}
+  },
+  {
+   "name": "a search started from the Filters page closes back to it",
+   "start": "inbox",
+   "steps": [
+    {"event": {"type": "view", "view": "settings:general"}, "effect": null},
+    {"event": {"type": "view", "view": "settings:filters"}, "effect": null},
+    {"event": {"type": "open", "layer": "search"}, "effect": null},
+    {"event": {"type": "view", "view": "search:from:ann"}, "effect": null},
+    {"event": {"type": "back"}, "effect": {"kind": "close", "layer": "search"}},
+    {"event": {"type": "view", "view": "settings:filters"}, "effect": null},
+    {"event": {"type": "back"}, "effect": {"kind": "view", "view": "settings:general"}}
+   ],
+   "stack": {"views": ["inbox", "settings:general"], "layers": []}
+  },
+  {
+   "name": "one search replaces another",
+   "start": "inbox",
+   "steps": [
+    {"event": {"type": "view", "view": "done"}, "effect": null},
+    {"event": {"type": "view", "view": "search:a"}, "effect": null},
+    {"event": {"type": "view", "view": "search:b"}, "effect": null},
+    {"event": {"type": "back"}, "effect": {"kind": "view", "view": "done"}}
+   ],
+   "stack": {"views": ["inbox", "done"], "layers": []}
+  },
+  {
+   "name": "a view picked from the side menu: the app closes the menu, and Back returns to the view before",
+   "start": "done",
+   "steps": [
+    {"event": {"type": "open", "layer": "menu"}, "effect": null},
+    {"event": {"type": "view", "view": "todos"}, "effect": null},
+    {"event": {"type": "close", "layer": "menu"}, "effect": null},
+    {"event": {"type": "back"}, "effect": {"kind": "view", "view": "done"}},
+    {"event": {"type": "back"}, "effect": {"kind": "leave"}}
+   ],
+   "stack": {"views": ["done"], "layers": []}
+  },
+  {
+   "name": "a view picked from an open thread (a label chip) closes it: Back returns to the view without it",
+   "start": "inbox",
+   "steps": [
+    {"event": {"type": "open", "layer": "thread"}, "effect": null},
+    {"event": {"type": "view", "view": "label:Label_7"}, "effect": null},
+    {"event": {"type": "close", "layer": "thread"}, "effect": null},
+    {"event": {"type": "back"}, "effect": {"kind": "view", "view": "inbox"}},
+    {"event": {"type": "back"}, "effect": {"kind": "leave"}}
+   ],
+   "stack": {"views": ["inbox"], "layers": []}
+  },
+  {
+   "name": "an app opened on a view (a link, a reload) leaves from it",
+   "start": "label:Label_7",
+   "steps": [
+    {"event": {"type": "open", "layer": "thread"}, "effect": null},
+    {"event": {"type": "back"}, "effect": {"kind": "close", "layer": "thread"}},
+    {"event": {"type": "back"}, "effect": {"kind": "leave"}}
+   ],
+   "stack": {"views": ["label:Label_7"], "layers": []}
+  },
+  {
+   "name": "the same view again changes nothing",
+   "start": "inbox",
+   "steps": [
+    {"event": {"type": "view", "view": "done"}, "effect": null},
+    {"event": {"type": "view", "view": "done"}, "effect": null},
+    {"event": {"type": "back"}, "effect": {"kind": "view", "view": "inbox"}}
+   ],
+   "stack": {"views": ["inbox"], "layers": []}
+  },
+  {
+   "name": "the Outbox and settings are views like any other",
+   "start": "inbox",
+   "steps": [
+    {"event": {"type": "view", "view": "outbox"}, "effect": null},
+    {"event": {"type": "view", "view": "settings:general"}, "effect": null},
+    {"event": {"type": "view", "view": "done"}, "effect": null},
+    {"event": {"type": "back"}, "effect": {"kind": "view", "view": "settings:general"}},
+    {"event": {"type": "back"}, "effect": {"kind": "view", "view": "outbox"}},
+    {"event": {"type": "back"}, "effect": {"kind": "view", "view": "inbox"}}
+   ],
+   "stack": {"views": ["inbox"], "layers": []}
+  }
+ ],
+ "viewStep": [
+  {"name": "same view", "previous": null, "current": "inbox", "next": "inbox", "expect": "none"},
+  {"name": "the view before", "previous": "inbox", "current": "done", "next": "inbox", "expect": "back"},
+  {"name": "a new view", "previous": "inbox", "current": "done", "next": "sent", "expect": "push"},
+  {"name": "a first move", "previous": null, "current": "inbox", "next": "done", "expect": "push"},
+  {"name": "settings to settings", "previous": "inbox", "current": "settings:general", "next": "settings:filters", "expect": "push"},
+  {"name": "search to search", "previous": "inbox", "current": "search:a", "next": "search:b", "expect": "replace"},
+  {"name": "settings to search", "previous": "inbox", "current": "settings:filters", "next": "search:a", "expect": "push"},
+  {"name": "back to the settings page before", "previous": "settings:general", "current": "settings:filters", "next": "settings:general", "expect": "back"},
+  {"name": "label to label", "previous": "inbox", "current": "label:A", "next": "label:B", "expect": "push"}
+ ]
+}

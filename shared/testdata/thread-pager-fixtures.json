@@ -1,0 +1,28 @@
+{
+  "_doc": "Swiping an open thread sideways to its neighbor (shared/src/thread-pager.ts, Android :core ThreadPager.kt). `starts` {x, width, expect}: a swipe from within 24 of either edge is left to Back. `offset` {dx, hasPrevious, hasNext, expect}: the thread follows the finger, a third as far toward a side with no thread. `step` {dx, width, velocity, hasPrevious, hasNext, expect}: let go past 28% of the width, or flung its own way at 600/s once past 30, it moves; leftward is the next thread.",
+  "starts": [
+    { "name": "the middle", "x": 180, "width": 360, "expect": true },
+    { "name": "the left edge", "x": 10, "width": 360, "expect": false },
+    { "name": "just inside the left edge", "x": 24, "width": 360, "expect": true },
+    { "name": "the right edge", "x": 350, "width": 360, "expect": false },
+    { "name": "just inside the right edge", "x": 336, "width": 360, "expect": true }
+  ],
+  "offset": [
+    { "name": "toward a next thread", "dx": -50, "hasPrevious": true, "hasNext": true, "expect": -50 },
+    { "name": "toward a previous thread", "dx": 40, "hasPrevious": true, "hasNext": false, "expect": 40 },
+    { "name": "toward no next thread", "dx": -50, "hasPrevious": true, "hasNext": false, "expect": -15 },
+    { "name": "toward no previous thread", "dx": 100, "hasPrevious": false, "hasNext": true, "expect": 30 },
+    { "name": "at rest", "dx": 0, "hasPrevious": false, "hasNext": false, "expect": 0 }
+  ],
+  "step": [
+    { "name": "leftward past the mark is the next thread", "dx": -110, "width": 360, "velocity": 0, "hasPrevious": true, "hasNext": true, "expect": "next" },
+    { "name": "rightward past the mark is the previous thread", "dx": 110, "width": 360, "velocity": 0, "hasPrevious": true, "hasNext": true, "expect": "previous" },
+    { "name": "short of the mark springs back", "dx": -90, "width": 360, "velocity": -100, "hasPrevious": true, "hasNext": true, "expect": null },
+    { "name": "a fling its own way moves", "dx": -40, "width": 360, "velocity": -900, "hasPrevious": true, "hasNext": true, "expect": "next" },
+    { "name": "a fling back the other way springs back", "dx": -110, "width": 360, "velocity": 900, "hasPrevious": true, "hasNext": true, "expect": null },
+    { "name": "a fling that has barely moved springs back", "dx": 20, "width": 360, "velocity": 900, "hasPrevious": true, "hasNext": true, "expect": null },
+    { "name": "no next thread springs back", "dx": -200, "width": 360, "velocity": -900, "hasPrevious": true, "hasNext": false, "expect": null },
+    { "name": "no previous thread springs back", "dx": 200, "width": 360, "velocity": 0, "hasPrevious": false, "hasNext": true, "expect": null },
+    { "name": "no travel", "dx": 0, "width": 360, "velocity": 0, "hasPrevious": true, "hasNext": true, "expect": null }
+  ]
+}

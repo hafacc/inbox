@@ -1,0 +1,669 @@
+{
+  "_doc": {
+    "about": "A snoozed thread's derived state, run by shared/src/thread-snooze.spec.ts and Android :core SnoozeStateTest. Times are epoch milliseconds; history ids are decimal strings compared as numbers. A doc is users/{uid}/threads/{id} as read (snoozeUntil null when cleared).",
+    "status": "snoozeStatus(doc, now, hasNewerMessage): none (no doc or cleared), woken (a newer message arrived in the inbox), snoozed (snoozeUntil after now), else lapsed.",
+    "sortDate": "inboxSortDate(lastDate, doc, status): the later of lastDate and snoozeUntil when lapsed, else lastDate.",
+    "archivedElsewhere": "snoozeArchivedElsewhere(doc, gmailLabelIds, gmailHistoryId, now, hasLocalChange): true only for a snooze still ahead, no local change on its way, Gmail's copy out of the inbox and newer than the watermark.",
+    "newerMail": "newerMail(records, watermarks): which snoozed threads a history.list scan says got newer mail, and where it arrived. Records are Gmail's, oldest first. inInbox ends the snooze; skippedInbox keeps it and shows a hint."
+  },
+  "status": [
+    {
+      "name": "no doc is not snoozed",
+      "doc": null,
+      "now": 1800000000000,
+      "hasNewerMessage": false,
+      "expect": "none"
+    },
+    {
+      "name": "a cleared snooze is not snoozed",
+      "doc": {
+        "snoozeUntil": null,
+        "snoozeWatermark": "5"
+      },
+      "now": 1800000000000,
+      "hasNewerMessage": false,
+      "expect": "none"
+    },
+    {
+      "name": "a cleared snooze stays cleared when newer mail arrives",
+      "doc": {
+        "snoozeUntil": null,
+        "snoozeWatermark": "5"
+      },
+      "now": 1800000000000,
+      "hasNewerMessage": true,
+      "expect": "none"
+    },
+    {
+      "name": "a snooze still ahead hides the thread",
+      "doc": {
+        "snoozeUntil": 1800000000001,
+        "snoozeWatermark": "5"
+      },
+      "now": 1800000000000,
+      "hasNewerMessage": false,
+      "expect": "snoozed"
+    },
+    {
+      "name": "it lapses at the moment it ends, with nothing written",
+      "doc": {
+        "snoozeUntil": 1800000000001,
+        "snoozeWatermark": "5"
+      },
+      "now": 1800000000001,
+      "hasNewerMessage": false,
+      "expect": "lapsed"
+    },
+    {
+      "name": "newer mail wakes a snooze still ahead",
+      "doc": {
+        "snoozeUntil": 1800000000001,
+        "snoozeWatermark": "5"
+      },
+      "now": 1800000000000,
+      "hasNewerMessage": true,
+      "expect": "woken"
+    },
+    {
+      "name": "newer mail counts over a lapse",
+      "doc": {
+        "snoozeUntil": 1800000000001,
+        "snoozeWatermark": "5"
+      },
+      "now": 1800000000001,
+      "hasNewerMessage": true,
+      "expect": "woken"
+    }
+  ],
+  "sortDate": [
+    {
+      "name": "a lapsed thread sorts by when it came back",
+      "lastDate": 1799999999000,
+      "doc": {
+        "snoozeUntil": 1800000000000,
+        "snoozeWatermark": "1"
+      },
+      "status": "lapsed",
+      "expect": 1800000000000
+    },
+    {
+      "name": "a lapsed thread with mail after it came back sorts by that mail",
+      "lastDate": 1800000001000,
+      "doc": {
+        "snoozeUntil": 1800000000000,
+        "snoozeWatermark": "1"
+      },
+      "status": "lapsed",
+      "expect": 1800000001000
+    },
+    {
+      "name": "a woken thread sorts by its newest message",
+      "lastDate": 1799999999000,
+      "doc": {
+        "snoozeUntil": 1800000000000,
+        "snoozeWatermark": "1"
+      },
+      "status": "woken",
+      "expect": 1799999999000
+    },
+    {
+      "name": "a snoozed thread sorts by its newest message",
+      "lastDate": 1799999999000,
+      "doc": {
+        "snoozeUntil": 1800000005000,
+        "snoozeWatermark": "1"
+      },
+      "status": "snoozed",
+      "expect": 1799999999000
+    },
+    {
+      "name": "no snooze sorts by its newest message",
+      "lastDate": 1799999999000,
+      "doc": null,
+      "status": "none",
+      "expect": 1799999999000
+    }
+  ],
+  "archivedElsewhere": [
+    {
+      "name": "Gmail shows the thread archived after the snooze",
+      "doc": {
+        "snoozeUntil": 1800000000001,
+        "snoozeWatermark": "50"
+      },
+      "gmailLabelIds": [
+        "UNREAD"
+      ],
+      "gmailHistoryId": "60",
+      "now": 1800000000000,
+      "hasLocalChange": false,
+      "expect": true
+    },
+    {
+      "name": "history ids compare as numbers, not text",
+      "doc": {
+        "snoozeUntil": 1800000000001,
+        "snoozeWatermark": "9"
+      },
+      "gmailLabelIds": [
+        "UNREAD"
+      ],
+      "gmailHistoryId": "10",
+      "now": 1800000000000,
+      "hasLocalChange": false,
+      "expect": true
+    },
+    {
+      "name": "still in the inbox, as a snoozed thread is",
+      "doc": {
+        "snoozeUntil": 1800000000001,
+        "snoozeWatermark": "50"
+      },
+      "gmailLabelIds": [
+        "INBOX"
+      ],
+      "gmailHistoryId": "60",
+      "now": 1800000000000,
+      "hasLocalChange": false,
+      "expect": false
+    },
+    {
+      "name": "the device's own change hasn't reached Gmail yet",
+      "doc": {
+        "snoozeUntil": 1800000000001,
+        "snoozeWatermark": "50"
+      },
+      "gmailLabelIds": [
+        "UNREAD"
+      ],
+      "gmailHistoryId": "60",
+      "now": 1800000000000,
+      "hasLocalChange": true,
+      "expect": false
+    },
+    {
+      "name": "Gmail's copy is the one the snooze was made on",
+      "doc": {
+        "snoozeUntil": 1800000000001,
+        "snoozeWatermark": "50"
+      },
+      "gmailLabelIds": [
+        "UNREAD"
+      ],
+      "gmailHistoryId": "50",
+      "now": 1800000000000,
+      "hasLocalChange": false,
+      "expect": false
+    },
+    {
+      "name": "Gmail's copy predates the snooze",
+      "doc": {
+        "snoozeUntil": 1800000000001,
+        "snoozeWatermark": "50"
+      },
+      "gmailLabelIds": [
+        "UNREAD"
+      ],
+      "gmailHistoryId": "49",
+      "now": 1800000000000,
+      "hasLocalChange": false,
+      "expect": false
+    },
+    {
+      "name": "no watermark to place Gmail's copy against",
+      "doc": {
+        "snoozeUntil": 1800000000001,
+        "snoozeWatermark": null
+      },
+      "gmailLabelIds": [
+        "UNREAD"
+      ],
+      "gmailHistoryId": "60",
+      "now": 1800000000000,
+      "hasLocalChange": false,
+      "expect": false
+    },
+    {
+      "name": "no history id on Gmail's copy",
+      "doc": {
+        "snoozeUntil": 1800000000001,
+        "snoozeWatermark": "50"
+      },
+      "gmailLabelIds": [
+        "UNREAD"
+      ],
+      "gmailHistoryId": null,
+      "now": 1800000000000,
+      "hasLocalChange": false,
+      "expect": false
+    },
+    {
+      "name": "a lapsed snooze has nothing to drop",
+      "doc": {
+        "snoozeUntil": 1800000000001,
+        "snoozeWatermark": "50"
+      },
+      "gmailLabelIds": [
+        "UNREAD"
+      ],
+      "gmailHistoryId": "60",
+      "now": 1800000000001,
+      "hasLocalChange": false,
+      "expect": false
+    },
+    {
+      "name": "no doc has nothing to drop",
+      "doc": null,
+      "gmailLabelIds": [
+        "UNREAD"
+      ],
+      "gmailHistoryId": "60",
+      "now": 1800000000000,
+      "hasLocalChange": false,
+      "expect": false
+    },
+    {
+      "name": "a cleared snooze has nothing to drop",
+      "doc": {
+        "snoozeUntil": null,
+        "snoozeWatermark": "50"
+      },
+      "gmailLabelIds": [
+        "UNREAD"
+      ],
+      "gmailHistoryId": "60",
+      "now": 1800000000000,
+      "hasLocalChange": false,
+      "expect": false
+    }
+  ],
+  "newerMail": [
+    {
+      "name": "a message after the watermark that arrives in the inbox ends the snooze",
+      "watermarks": {
+        "t1": "100",
+        "t2": "100"
+      },
+      "records": [
+        {
+          "id": "100",
+          "messagesAdded": [
+            {
+              "message": {
+                "id": "m1",
+                "threadId": "t1",
+                "labelIds": [
+                  "INBOX",
+                  "UNREAD"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "101",
+          "messagesAdded": [
+            {
+              "message": {
+                "id": "m2",
+                "threadId": "t2",
+                "labelIds": [
+                  "INBOX",
+                  "UNREAD"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "inInbox": [
+        "t2"
+      ],
+      "skippedInbox": []
+    },
+    {
+      "name": "drafts and the account's own sent mail don't count",
+      "watermarks": {
+        "t1": "100",
+        "t2": "100"
+      },
+      "records": [
+        {
+          "id": "101",
+          "messagesAdded": [
+            {
+              "message": {
+                "id": "m1",
+                "threadId": "t1",
+                "labelIds": [
+                  "DRAFT"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "102",
+          "messagesAdded": [
+            {
+              "message": {
+                "id": "m2",
+                "threadId": "t2",
+                "labelIds": [
+                  "SENT"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "inInbox": [],
+      "skippedInbox": []
+    },
+    {
+      "name": "a note to self that lands in the inbox ends the snooze",
+      "watermarks": {
+        "t1": "150"
+      },
+      "records": [
+        {
+          "id": "200",
+          "messagesAdded": [
+            {
+              "message": {
+                "id": "m1",
+                "threadId": "t1",
+                "labelIds": [
+                  "SENT",
+                  "INBOX"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "inInbox": [
+        "t1"
+      ],
+      "skippedInbox": []
+    },
+    {
+      "name": "a message a filter kept out of the inbox leaves the snooze alone",
+      "watermarks": {
+        "t1": "100"
+      },
+      "records": [
+        {
+          "id": "101",
+          "messagesAdded": [
+            {
+              "message": {
+                "id": "m1",
+                "threadId": "t1",
+                "labelIds": [
+                  "UNREAD",
+                  "Label_7"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "inInbox": [],
+      "skippedInbox": [
+        "t1"
+      ]
+    },
+    {
+      "name": "labels are per message: older inbox messages in the thread don't make a skipped one count",
+      "watermarks": {
+        "t1": "100"
+      },
+      "records": [
+        {
+          "id": "90",
+          "messagesAdded": [
+            {
+              "message": {
+                "id": "m0",
+                "threadId": "t1",
+                "labelIds": [
+                  "INBOX"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "101",
+          "messagesAdded": [
+            {
+              "message": {
+                "id": "m1",
+                "threadId": "t1",
+                "labelIds": [
+                  "CATEGORY_UPDATES",
+                  "UNREAD"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "inInbox": [],
+      "skippedInbox": [
+        "t1"
+      ]
+    },
+    {
+      "name": "a skipped message that gains INBOX later still doesn't end the snooze",
+      "_comment": "history.list can report a message's current labels, so m1 shows INBOX here; the later labelsAdded record shows it arrived without it.",
+      "watermarks": {
+        "t1": "100"
+      },
+      "records": [
+        {
+          "id": "101",
+          "messagesAdded": [
+            {
+              "message": {
+                "id": "m1",
+                "threadId": "t1",
+                "labelIds": [
+                  "INBOX",
+                  "Label_7"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "140",
+          "labelsAdded": [
+            {
+              "message": {
+                "id": "m1",
+                "threadId": "t1",
+                "labelIds": [
+                  "INBOX",
+                  "Label_7"
+                ]
+              },
+              "labelIds": [
+                "INBOX"
+              ]
+            }
+          ]
+        }
+      ],
+      "inInbox": [],
+      "skippedInbox": [
+        "t1"
+      ]
+    },
+    {
+      "name": "other labels added later don't change where a message arrived",
+      "watermarks": {
+        "t1": "100"
+      },
+      "records": [
+        {
+          "id": "101",
+          "messagesAdded": [
+            {
+              "message": {
+                "id": "m1",
+                "threadId": "t1",
+                "labelIds": [
+                  "INBOX",
+                  "STARRED"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "102",
+          "labelsAdded": [
+            {
+              "message": {
+                "id": "m1",
+                "threadId": "t1",
+                "labelIds": [
+                  "INBOX",
+                  "STARRED"
+                ]
+              },
+              "labelIds": [
+                "STARRED"
+              ]
+            }
+          ]
+        }
+      ],
+      "inInbox": [
+        "t1"
+      ],
+      "skippedInbox": []
+    },
+    {
+      "name": "one inbox message ends the snooze even beside a skipped one",
+      "watermarks": {
+        "t1": "100"
+      },
+      "records": [
+        {
+          "id": "101",
+          "messagesAdded": [
+            {
+              "message": {
+                "id": "m1",
+                "threadId": "t1",
+                "labelIds": [
+                  "Label_7"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "102",
+          "messagesAdded": [
+            {
+              "message": {
+                "id": "m2",
+                "threadId": "t1",
+                "labelIds": [
+                  "INBOX"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "inInbox": [
+        "t1"
+      ],
+      "skippedInbox": [
+        "t1"
+      ]
+    },
+    {
+      "name": "spam and trash neither end the snooze nor count as skipped",
+      "watermarks": {
+        "t1": "100",
+        "t2": "100"
+      },
+      "records": [
+        {
+          "id": "101",
+          "messagesAdded": [
+            {
+              "message": {
+                "id": "m1",
+                "threadId": "t1",
+                "labelIds": [
+                  "SPAM"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "102",
+          "messagesAdded": [
+            {
+              "message": {
+                "id": "m2",
+                "threadId": "t2",
+                "labelIds": [
+                  "TRASH"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "inInbox": [],
+      "skippedInbox": []
+    },
+    {
+      "name": "threads that aren't snoozed are ignored",
+      "watermarks": {
+        "t1": "100"
+      },
+      "records": [
+        {
+          "id": "101",
+          "messagesAdded": [
+            {
+              "message": {
+                "id": "m1",
+                "threadId": "t9",
+                "labelIds": [
+                  "INBOX"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "102",
+          "messagesAdded": [
+            {
+              "message": {
+                "id": "m2",
+                "threadId": "t8",
+                "labelIds": [
+                  "Label_7"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "inInbox": [],
+      "skippedInbox": []
+    }
+  ]
+}

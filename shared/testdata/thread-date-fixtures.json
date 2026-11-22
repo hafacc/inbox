@@ -1,0 +1,106 @@
+{
+  "dates": [
+    {
+      "name": "a reply of the user's leaves the thread at the latest received message",
+      "messages": [
+        { "date": 1000, "labelIds": ["INBOX"] },
+        { "date": 2000, "labelIds": ["INBOX", "UNREAD"] },
+        { "date": 3000, "labelIds": ["SENT"] }
+      ],
+      "expect": { "received": 2000, "sent": 3000 }
+    },
+    {
+      "name": "the newest date wins whatever Gmail's message order",
+      "messages": [
+        { "date": 5000, "labelIds": ["INBOX"] },
+        { "date": 1000, "labelIds": ["INBOX"] },
+        { "date": 4000, "labelIds": ["SENT"] },
+        { "date": 6000, "labelIds": ["SENT"] }
+      ],
+      "expect": { "received": 5000, "sent": 6000 }
+    },
+    {
+      "name": "a thread of only the user's messages uses its latest message",
+      "messages": [
+        { "date": 1000, "labelIds": ["SENT"] },
+        { "date": 2000, "labelIds": ["SENT"] }
+      ],
+      "expect": { "received": 2000, "sent": 2000 }
+    },
+    {
+      "name": "a thread the user never wrote in is sent-dated by its latest message",
+      "messages": [
+        { "date": 1000, "labelIds": ["INBOX"] },
+        { "date": 2000, "labelIds": ["INBOX"] }
+      ],
+      "expect": { "received": 2000, "sent": 2000 }
+    },
+    {
+      "name": "a note to self in the inbox counts as sent",
+      "messages": [
+        { "date": 1000, "labelIds": ["INBOX"] },
+        { "date": 2000, "labelIds": ["INBOX", "SENT"] }
+      ],
+      "expect": { "received": 1000, "sent": 2000 }
+    },
+    {
+      "name": "a draft doesn't move the thread",
+      "messages": [
+        { "date": 1000, "labelIds": ["INBOX"] },
+        { "date": 9000, "labelIds": ["DRAFT"] }
+      ],
+      "expect": { "received": 1000, "sent": 1000 }
+    },
+    {
+      "name": "a thread of only a draft uses the draft",
+      "messages": [{ "date": 4000, "labelIds": ["DRAFT"] }],
+      "expect": { "received": 4000, "sent": 4000 }
+    },
+    {
+      "name": "an empty thread is dated 0",
+      "messages": [],
+      "expect": { "received": 0, "sent": 0 }
+    }
+  ],
+  "order": [
+    {
+      "name": "newest first",
+      "threads": [
+        { "id": "a", "date": 1000 },
+        { "id": "b", "date": 3000 },
+        { "id": "c", "date": 2000 }
+      ],
+      "expect": [
+        { "id": "b", "date": 3000 },
+        { "id": "c", "date": 2000 },
+        { "id": "a", "date": 1000 }
+      ]
+    },
+    {
+      "name": "a thread listed twice shows once, at its newest date",
+      "threads": [
+        { "id": "a", "date": 1000 },
+        { "id": "b", "date": 2000 },
+        { "id": "a", "date": 3000 }
+      ],
+      "expect": [
+        { "id": "a", "date": 3000 },
+        { "id": "b", "date": 2000 }
+      ]
+    },
+    {
+      "name": "equal dates keep list order",
+      "threads": [
+        { "id": "a", "date": 1000 },
+        { "id": "b", "date": 1000 },
+        { "id": "a", "date": 1000 },
+        { "id": "c", "date": 1000 }
+      ],
+      "expect": [
+        { "id": "a", "date": 1000 },
+        { "id": "b", "date": 1000 },
+        { "id": "c", "date": 1000 }
+      ]
+    }
+  ]
+}
