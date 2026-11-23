@@ -44,7 +44,7 @@ class HoldMenuMotionTest {
         }
         compose.waitForIdle()
         compose.mainClock.autoAdvance = false
-        val spec = HoldMenuSpec(Offset(100f, 400f), holdWedges(listOf(pin, delete), rowHoldWedges(listOf("pin", "delete"), 40f, 400f, 360f, 800f)), "Pay rent", false, "Todo actions", {})
+        val spec = HoldMenuSpec(Offset(100f, 400f), holdWedges(listOf(pin, delete), rowHoldWedges(listOf("pin", "delete"), 40f, 400f, 360f)), "Pay rent", false, "Todo actions", {})
         compose.runOnUiThread { state?.show(spec) }
         val full = with(compose.density) { 48.dp.toPx() }
         // The frame that adds the menu, then one frame at its smallest, then growing.

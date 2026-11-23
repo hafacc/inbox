@@ -22,10 +22,7 @@ const val HOLD_SLACK = 28f
 /** Below this many dp from the screen's top a half disc opens downward. */
 const val HOLD_TOP_ROOM = 190f
 
-/** Within this many dp of the screen's bottom a row's half disc turns upward. */
-const val HOLD_BOTTOM_ROOM = 80f
-
-/** A link held this close (dp) to a side turns its half disc inward; a row's this close to the right opens leftward. */
+/** A link or a row held this close (dp) to a side turns its disc inward; a row's this close to the right opens leftward. */
 const val HOLD_SIDE_ROOM = 110f
 
 /** How far (dp) below where it pressed a finger drags, short of any wedge, before a corner button lifts to move. */
@@ -42,7 +39,7 @@ data class HoldRing(
     val outer: Float,
 )
 
-/** A row's half disc: a todo's, an email's or a bundle's. */
+/** A row's round menu: a todo's, an email's or a bundle's. */
 val ROW_RING = HoldRing(26f, 104f)
 
 /** A link's half disc. */
@@ -109,25 +106,30 @@ fun hitWedge(wedges: List<HoldArc>, centerX: Float, centerY: Float, x: Float, y:
     return if (outermost >= 0 && distance >= edge && distance < edge + HOLD_SLACK) outermost else -1
 }
 
+/** The arc, in degrees, a row's wedges share: a third of a disc. */
+const val ROW_ARC = 120f
+
 /**
- * A row's wedges around a long press at ([x], [y]) on a screen [width] by [height] dp (a todo's, an
+ * A row's wedges around a long press at ([x], [y]) on a screen [width] dp wide (a todo's, an
  * email's or a bundle's; TalkBack and the menu key press on its dot, avatar or mark): [slots] share
- * a half disc, each a quarter for two, the first above the second as it opens up and right, right
- * and down near the top, or turned upward near the bottom; near the right edge it opens leftward
- * instead, mirrored. A null slot leaves its place empty (a done todo has no Pin).
+ * [ROW_ARC] equally, the first before the second counterclockwise. It opens straight up (two
+ * slots: up and left, up and right); right and down near the top; turned 45° right near the left
+ * edge, at the bottom too; near the right edge it opens leftward instead, mirrored. A null slot
+ * leaves its place empty (a done todo has no Pin). Web's `rowHoldWedges` is the same.
  */
-fun rowHoldWedges(slots: List<String?>, x: Float, y: Float, width: Float, height: Float): List<HoldArc> {
+fun rowHoldWedges(slots: List<String?>, x: Float, y: Float, width: Float): List<HoldArc> {
+    val leftward = x > width - HOLD_SIDE_ROOM
+    val sideways = leftward || x < HOLD_SIDE_ROOM
     val facing = when {
         y <= HOLD_TOP_ROOM -> -45f
-        y > height - HOLD_BOTTOM_ROOM -> 75f
-        else -> 45f
+        sideways -> 45f
+        else -> 90f
     }
-    val leftward = x > width - HOLD_SIDE_ROOM
     val middle = if (leftward) 180f - facing else facing
-    val share = 180f / slots.size
+    val share = ROW_ARC / slots.size
     return slots.mapIndexedNotNull { index, id ->
         id?.let {
-            val from = if (leftward) middle - 90f + index * share else middle + 90f - (index + 1) * share
+            val from = if (leftward) middle - ROW_ARC / 2 + index * share else middle + ROW_ARC / 2 - (index + 1) * share
             HoldArc(it, from, from + share, ROW_RING)
         }
     }
