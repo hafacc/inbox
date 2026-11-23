@@ -31,6 +31,10 @@ richEditor = "1.2.1"
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+# The Android framework Robolectric 4.18 runs SDK 35 and 36 on (its DefaultSdkProvider); a new Robolectric may
+# name newer ones.
+robolectric-android-all-sdk35 = { group = "org.robolectric", name = "android-all-instrumented", version = "15-robolectric-14663667-2-i7" }
+robolectric-android-all-sdk36 = { group = "org.robolectric", name = "android-all-instrumented", version = "16-robolectric-13921718-2-i7" }
 androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 androidx-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 androidx-lifecycle-runtime = { group = "androidx.lifecycle", name = "lifecycle-runtime", version.ref = "lifecycle" }
