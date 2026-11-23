@@ -245,7 +245,6 @@
         press.x,
         press.y,
         window.innerWidth,
-        window.innerHeight,
       ).map((wedge) =>
         wedge.id === "pin"
           ? { ...wedge, label: "Pin all", icon: Pin }

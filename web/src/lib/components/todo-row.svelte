@@ -1,4 +1,4 @@
-<!-- @component One todo in a list: its select dot (a tap selects the row, as a thread's avatar does; a hold opens a half disc with its own Pin and Delete around the finger, a right click around the dot), its text (edited in place on a click or Enter), its repeat and snooze, and actions on hover or focus. On touch, a swipe right snoozes (or makes it active again) and left marks it done (or deletes a done one); a long press anywhere on it opens the same half disc around the finger. While anything is selected, a click selects or unselects it, shift-click selects a range, and a swipe still acts on this todo alone. -->
+<!-- @component One todo in a list: its select dot (a tap selects the row, as a thread's avatar does; a hold opens a round menu with its own Pin and Delete around the finger, a right click around the dot), its text (edited in place on a click or Enter), its repeat and snooze, and actions on hover or focus. On touch, a swipe right snoozes (or makes it active again) and left marks it done (or deletes a done one); a long press anywhere on it opens the same round menu around the finger. While anything is selected, a click selects or unselects it, shift-click selects a range, and a swipe still acts on this todo alone. -->
 <script lang="ts" module>
   import { MediaQuery } from "svelte/reactivity";
 
@@ -358,7 +358,6 @@
       x,
       y,
       window.innerWidth,
-      window.innerHeight,
     ).map((wedge) =>
       wedge.id === "pin"
         ? {

@@ -65,7 +65,7 @@ class HoldGestureTest {
                                     claim = false,
                                     onTap = null,
                                     open = {
-                                        menu.show(HoldMenuSpec(Offset(40f, 400f), holdWedges(listOf(pin, delete), rowHoldWedges(listOf("pin", "delete"), 40f, 400f, 360f, 800f)), "Row", false, "Email actions", {}))
+                                        menu.show(HoldMenuSpec(Offset(40f, 400f), holdWedges(listOf(pin, delete), rowHoldWedges(listOf("pin", "delete"), 40f, 400f, 360f)), "Row", false, "Email actions", {}))
                                         true
                                     },
                                     throughChildren = true,
