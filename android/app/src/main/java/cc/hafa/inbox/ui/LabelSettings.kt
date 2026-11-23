@@ -79,6 +79,7 @@ import cc.hafa.inbox.core.todo.TodoState
 import cc.hafa.inbox.mail.MailState
 import cc.hafa.inbox.ui.theme.fieldFrame
 import cc.hafa.inbox.ui.theme.paper
+import cc.hafa.inbox.ui.theme.rowHighlight
 
 private val DEFAULT_PREFS = LabelPrefs(sidebar = true, bundle = true, icon = null)
 
@@ -340,11 +341,16 @@ private fun UnlabeledTagsCard(state: MailState, model: MailModel) {
     }
 }
 
+// A label row's switch with its caption presses and highlights in a rounded shape, as the theme choices do.
+private val COMPACT_SWITCH_SHAPE = RoundedCornerShape(14.dp)
+
 @Composable
 private fun CompactSwitch(caption: String, description: String, checked: Boolean, onChange: (Boolean) -> Unit) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
+            .clip(COMPACT_SWITCH_SHAPE)
+            .rowHighlight(COMPACT_SWITCH_SHAPE)
             .toggleable(value = checked, role = Role.Switch, onValueChange = onChange)
             .semantics { contentDescription = description }
             .padding(horizontal = 4.dp, vertical = 6.dp),
