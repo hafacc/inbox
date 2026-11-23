@@ -84,6 +84,7 @@ class TodoListFixturesTest {
         is StyledNode.Text -> mapOf("kind" to "text", "text" to node.text)
         is StyledNode.Marker -> mapOf("kind" to "marker", "text" to node.text)
         is StyledNode.Tag -> mapOf("kind" to "tag", "text" to node.text)
+        is StyledNode.Link -> mapOf("kind" to "link", "text" to node.text, "href" to node.href)
         is StyledNode.Span -> mapOf("kind" to "span", "style" to node.style.name.lowercase(), "children" to node.children.map(::plain))
     }
 

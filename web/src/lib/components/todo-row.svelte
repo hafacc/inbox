@@ -1,4 +1,4 @@
-<!-- @component One todo in a list: its select dot (a tap selects the row, as a thread's avatar does; a hold opens a round menu with its own Pin and Delete around the finger, a right click around the dot), its text (edited in place on a click or Enter), its repeat and snooze, and actions on hover or focus. On touch, a swipe right snoozes (or makes it active again) and left marks it done (or deletes a done one); a long press anywhere on it opens the same round menu around the finger. While anything is selected, a click selects or unselects it, shift-click selects a range, and a swipe still acts on this todo alone. -->
+<!-- @component One todo in a list: its select dot (a tap selects the row, as a thread's avatar does; a hold opens a round menu with its own Pin and Delete around the finger, a right click around the dot), its text (edited in place on a click or Enter; its web addresses are links, a click on one opening it and a long touch giving the browser's link menu), its repeat and snooze, and actions on hover or focus. On touch, a swipe right snoozes (or makes it active again) and left marks it done (or deletes a done one); a long press anywhere on it opens the same round menu around the finger. While anything is selected, a click selects or unselects it, shift-click selects a range, and a swipe still acts on this todo alone. -->
 <script lang="ts" module>
   import { MediaQuery } from "svelte/reactivity";
 
@@ -143,7 +143,7 @@
     () => ({ start: startAction, end: endAction }),
     (action) => runSwipe(action),
     (pointerId, press) => openHoldMenu(press, pointerId, press, false),
-    () => !editing,
+    () => !editing && !pressOnLink,
   );
   const startStyle = $derived(
     swipe.shown.start && SWIPE_STYLE[swipe.shown.start],
@@ -214,6 +214,8 @@
       event.preventDefault();
       return;
     }
+    // A link opens as a click on it would anywhere else.
+    if ((event.target as Element).closest("a")) return;
     event.preventDefault();
     const start = {
       x: event.clientX,
@@ -329,6 +331,9 @@
         break;
     }
   }
+
+  // A press on a link in the text, which a long touch leaves to the browser's link menu.
+  let pressOnLink = false;
 
   // A press on the select dot that may become a hold, opening the todo's own Pin and Delete.
   const dotPress = new HoldPress();
@@ -448,7 +453,10 @@
   bind:this={element}
   data-todo-id={todo.id}
   data-row-key={focusKey}
-  onpointerdown={swipe.down}
+  onpointerdown={(event) => {
+    pressOnLink = (event.target as Element).closest(".todo-text a") !== null;
+    swipe.down(event);
+  }}
   onpointermove={swipe.move}
   onpointerup={swipe.up}
   onpointercancel={swipe.cancel}
@@ -632,7 +640,8 @@
           {#if text === ""}
             {"​"}
           {:else}
-            <StyledText {text} />
+            <!-- While rows are selected a tap toggles the row, so the addresses aren't links then. -->
+            <StyledText {text} links={!selecting} />
           {/if}
         </div>
       {/if}

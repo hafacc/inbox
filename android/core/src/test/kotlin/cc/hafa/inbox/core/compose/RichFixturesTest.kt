@@ -4,7 +4,7 @@ import cc.hafa.inbox.core.testing.Fixtures
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-/** Runs the `markdown` and `write` cases of `shared/testdata/rich-fixtures.json`, so Android reads and writes rich text as web does. */
+/** Runs the `markdown`, `write`, `links`, `plain` and `draft` cases of `shared/testdata/rich-fixtures.json`, so Android reads and writes rich text as web does. */
 class RichFixturesTest {
     private fun run(raw: Any?): RichRun {
         val map = raw as Map<*, *>
@@ -42,8 +42,45 @@ class RichFixturesTest {
         for (case in Fixtures.cases(Fixtures.rich, "write")) {
             val name = case["name"] as String
             val text = case["text"] as String
-            assertEquals(name, text, richToMarkdown((case["blocks"] as List<*>).map(::block)))
-            assertEquals(name, (case["reread"] as List<*>).map(::block), markdownToRich(text))
+            val blocks = (case["blocks"] as List<*>).map(::block)
+            assertEquals(name, text, richToMarkdown(blocks))
+            assertEquals(name, (case["reread"] as List<*>).map(::block), markdownToRich(text, bareLinks = false))
+            (case["html"] as String?)?.let { assertEquals(name, normalizeHtml(it), normalizeHtml(richToHtml(blocks))) }
+        }
+    }
+
+    @Test
+    fun links() {
+        for (case in Fixtures.cases(Fixtures.rich, "links")) {
+            val name = case["name"] as String
+            val runs = (markdownToRich(case["markdown"] as String).single() as RichBlock.Paragraph).runs
+            val (start, end) = (case["select"] as List<*>).map { (it as Number).toInt() }
+            val request = linkRequest(runs, start, end)
+            assertEquals(name, case["dialog"], mapOf("mode" to request.mode.wire, "text" to request.text, "href" to request.href))
+            val changed = if (case["remove"] == true) {
+                removeLink(runs, requireNotNull(runLinkAround(runs, request.start)))
+            } else {
+                saveLink(runs, request, case["text"] as String, case["href"] as String)
+            }
+            assertEquals(name, case["expect"], richToMarkdown(listOf(RichBlock.Paragraph(changed))))
+        }
+    }
+
+    @Test
+    fun plain() {
+        for (case in Fixtures.cases(Fixtures.rich, "plain")) {
+            val name = case["name"] as String
+            val markdown = case["markdown"] as String
+            val text = case["text"] as String
+            assertEquals(name, text, plainLinks(markdown))
+            assertEquals(name, markdown, draftLinks(text, markdownToHtml(markdown, bareLinks = false)))
+        }
+    }
+
+    @Test
+    fun draft() {
+        for (case in Fixtures.cases(Fixtures.rich, "draft")) {
+            assertEquals(case["name"] as String, case["markdown"], draftLinks(case["text"] as String, case["html"] as String?))
         }
     }
 }

@@ -1,5 +1,9 @@
 package cc.hafa.inbox.core.compose
 
+import cc.hafa.inbox.core.mail.findWebLinks
+import cc.hafa.inbox.core.mail.linkAddress
+import cc.hafa.inbox.core.mail.safeHref
+
 // Port of shared/src/compose/rich.ts; both run shared/testdata/rich-fixtures.json.
 
 /** An inline style, in the order runs list them and HTML nests them, outermost first. */
@@ -108,7 +112,15 @@ fun normalizeRuns(runs: List<RichRun>): List<RichRun> {
 }
 
 // A stretch of a line read before the style markers: inline code or a `[text](url)` link.
-private data class Literal(val start: Int, val end: Int, val code: String? = null, val linkText: String? = null, val href: String? = null)
+// A bare web address is [bare]: its markers style nothing.
+private data class Literal(
+    val start: Int,
+    val end: Int,
+    val code: String? = null,
+    val linkText: String? = null,
+    val href: String? = null,
+    val bare: Boolean = false,
+)
 
 // A link target: no spaces, parentheses only in balanced pairs one deep, as [runsToMarkdown] writes it.
 private const val LINK_TARGET = """(?:[^$SPACE()]|\([^$SPACE()]*\))+"""
@@ -125,7 +137,8 @@ private fun linkTarget(href: String): String {
     return if (WHOLE_LINK_TARGET.matches(spaced)) spaced else spaced.replace(PAREN) { if (it.value == "(") "%28" else "%29" }
 }
 
-private fun literals(line: String): List<Literal> {
+// A line's literals; [bare] adds its bare web addresses as links to themselves.
+private fun literals(line: String, bare: Boolean): List<Literal> {
     val found = mutableListOf<Literal>()
     var index = 0
     while (index < line.length) {
@@ -139,25 +152,36 @@ private fun literals(line: String): List<Literal> {
             }
         } else if (char == '[' && line.getOrNull(index - 1) != '!') {
             val match = LINK.find(line.substring(index))
-            if (match != null) {
-                val (text, href) = match.destructured
-                found += Literal(index, index + match.value.length, linkText = text, href = href)
+            // A link to anything but a web or mail address stays as typed.
+            val href = match?.groupValues?.get(2)?.let(::safeHref)
+            if (match != null && href != null) {
+                found += Literal(index, index + match.value.length, linkText = match.groupValues[1], href = href)
                 index += match.value.length
                 continue
             }
         }
         index++
     }
-    return found
+    // Bare web addresses outside those (and outside inline images) are links to themselves.
+    for (span in if (bare) markdownSpans(line) else emptyList()) {
+        if (span.kind != MarkdownSpanKind.URL || found.any { it.start < span.end && span.start < it.end }) continue
+        val text = line.substring(span.start, span.end)
+        val href = linkAddress(text) ?: continue
+        found += Literal(span.start, span.end, linkText = text, href = href, bare = true)
+    }
+    return found.sortedBy { it.start }
 }
 
 private val STRIKE = Regex("""~~(?=[^$SPACE~])((?:(?!~~)[^\n])*?[^$SPACE~])~~""")
 
 private data class MarkRange(val start: Int, val end: Int, val mark: RichMark)
 
-/** One line's runs: `` `code` ``, `[text](url)`, `~~strike~~`, then latr's `*bold*` and `_italic_`. */
-fun parseRuns(line: String, links: Boolean = true): List<RichRun> {
-    val found = if (links) literals(line) else literals(line).filter { it.code != null }
+/**
+ * One line's runs: `` `code` ``, `[text](url)` (only to an http, https or mailto address), and
+ * with [bare] its bare web addresses as links, `~~strike~~`, then latr's `*bold*` and `_italic_`.
+ */
+fun parseRuns(line: String, links: Boolean = true, bare: Boolean = true): List<RichRun> {
+    val found = if (links) literals(line, bare) else literals(line, false).filter { it.code != null }
     val masked = StringBuilder(line)
     for (literal in found) {
         for (at in literal.start until literal.end) masked.setCharAt(at, 'a')
@@ -186,6 +210,9 @@ fun parseRuns(line: String, links: Boolean = true): List<RichRun> {
         if (literal?.code != null) {
             runs += RichRun(literal.code, listOf(RichMark.CODE))
             index = literal.end
+        } else if (literal?.linkText != null && literal.bare) {
+            runs += RichRun(literal.linkText, marksAt(index), literal.href)
+            index = literal.end
         } else if (literal?.linkText != null) {
             val outer = marksAt(index)
             for (run in parseRuns(literal.linkText, links = false)) {
@@ -205,8 +232,13 @@ private val BULLET = Regex("""^[-*+] (.*)$""")
 private val ORDERED = Regex("""^(\d{1,9})\. (.*)$""")
 private val QUOTE = Regex("""^>(?: (.*))?$""")
 
-/** This app's markdown as rich text, a block per line (a code block per fenced stretch). */
-fun markdownToRich(markdown: String): List<RichBlock> {
+/**
+ * This app's markdown as rich text, a block per line (a code block per fenced stretch). With
+ * [bareLinks] (markdown typed elsewhere: a signature, a shared text) a bare web address is a link
+ * to itself; without it (markdown the composer wrote, which writes every link out) only a
+ * `[text](url)` is, so an address the user took a link off stays plain.
+ */
+fun markdownToRich(markdown: String, bareLinks: Boolean = true): List<RichBlock> {
     val lines = normalizeNewlines(markdown).split("\n")
     val blocks = mutableListOf<RichBlock>()
     var index = 0
@@ -226,11 +258,11 @@ fun markdownToRich(markdown: String): List<RichBlock> {
             val ordered = ORDERED.find(line)
             val quote = QUOTE.find(line)
             blocks += when {
-                heading != null -> RichBlock.Heading(heading.groupValues[1].length, parseRuns(heading.groupValues[2]))
-                bullet != null -> RichBlock.Bullet(parseRuns(bullet.groupValues[1]))
-                ordered != null -> RichBlock.Ordered(ordered.groupValues[1].toInt(), parseRuns(ordered.groupValues[2]))
-                quote != null -> RichBlock.Quote(parseRuns(quote.groupValues[1]))
-                else -> RichBlock.Paragraph(parseRuns(line))
+                heading != null -> RichBlock.Heading(heading.groupValues[1].length, parseRuns(heading.groupValues[2], bare = bareLinks))
+                bullet != null -> RichBlock.Bullet(parseRuns(bullet.groupValues[1], bare = bareLinks))
+                ordered != null -> RichBlock.Ordered(ordered.groupValues[1].toInt(), parseRuns(ordered.groupValues[2], bare = bareLinks))
+                quote != null -> RichBlock.Quote(parseRuns(quote.groupValues[1], bare = bareLinks))
+                else -> RichBlock.Paragraph(parseRuns(line, bare = bareLinks))
             }
         }
         index++
@@ -279,7 +311,10 @@ private fun styledMarkdown(runs: List<RichRun>): String {
     }
 }
 
-/** One line's runs as markdown: a link whose text is its address stays a bare URL. */
+/**
+ * One line's runs as markdown, every link written out as `[text](url)`, so the composer reading
+ * it back ([markdownToRich] without bare links) has the same links and no others.
+ */
 fun runsToMarkdown(runs: List<RichRun>): String = buildString {
     var index = 0
     while (index < runs.size) {
@@ -288,7 +323,7 @@ fun runsToMarkdown(runs: List<RichRun>): String = buildString {
         while (end < runs.size && runs[end].href == href) end++
         val group = runs.subList(index, end)
         val inner = styledMarkdown(group)
-        if (href == null || (group.size == 1 && inner == href)) append(inner) else append("[$inner](${linkTarget(href)})")
+        if (href == null) append(inner) else append("[$inner](${linkTarget(href)})")
         index = end
     }
 }
@@ -306,28 +341,24 @@ fun richToMarkdown(blocks: List<RichBlock>): String = blocks.joinToString("\n") 
 }
 
 private val IMAGE_PARTS = Regex("""^!\[([^\]]*)]\(cid:([^)]*)\)$""", RegexOption.IGNORE_CASE)
-private val WWW = Regex("""^www\.""", RegexOption.IGNORE_CASE)
-
-// Plain text as HTML: escaped, bare URLs as links (`www.` ones to `http://`), `![alt](cid:id)` as an image.
+// Plain text as HTML: escaped, `![alt](cid:id)` as an image. A web address in it is no link: the
+// runs' links are already marked.
 private fun textHtml(text: String): String = buildString {
     var at = 0
     for ((start, end, kind) in markdownSpans(text)) {
-        if ((kind != MarkdownSpanKind.URL && kind != MarkdownSpanKind.IMAGE) || start < at) continue
+        if (kind != MarkdownSpanKind.IMAGE || start < at) continue
         append(escapeHtml(text.substring(at, start)))
-        val slice = text.substring(start, end)
-        if (kind == MarkdownSpanKind.URL) {
-            val href = if (WWW.containsMatchIn(slice)) "http://$slice" else slice
-            append("<a href=\"${escapeHtml(href)}\">${escapeHtml(slice)}</a>")
-        } else {
-            val (alt, contentId) = IMAGE_PARTS.find(slice)!!.destructured
-            append("<img src=\"cid:${escapeHtml(contentId)}\" alt=\"${escapeHtml(alt)}\">")
-        }
+        val (alt, contentId) = IMAGE_PARTS.find(text.substring(start, end))!!.destructured
+        append("<img src=\"cid:${escapeHtml(contentId)}\" alt=\"${escapeHtml(alt)}\">")
         at = end
     }
     append(escapeHtml(text.substring(at)))
 }
 
-/** One line's runs as HTML: `<a href>` around each link's runs, then `<b>`, `<i>`, `<s>` and `<code>` inward. */
+/**
+ * One line's runs as HTML: `<a href>` around each link's runs (only to an http, https or mailto
+ * address), then `<b>`, `<i>`, `<s>` and `<code>` inward.
+ */
 fun runsToHtml(runs: List<RichRun>): String = buildString {
     var index = 0
     while (index < runs.size) {
@@ -340,7 +371,8 @@ fun runsToHtml(runs: List<RichRun>): String = buildString {
             inner.append(piece)
             index++
         }
-        if (href == null) append(inner) else append("<a href=\"${escapeHtml(href)}\">$inner</a>")
+        val safe = href?.let(::safeHref)
+        if (safe == null) append(inner) else append("<a href=\"${escapeHtml(safe)}\">$inner</a>")
     }
 }
 
@@ -392,6 +424,196 @@ fun richToHtml(all: List<RichBlock>): String = buildString {
                     }
                 }
             }
+        }
+    }
+}
+
+private val SCHEME_PREFIX = Regex("""^(?:https?://|mailto:)""", RegexOption.IGNORE_CASE)
+
+// An address as a link's text is compared with it: no http, https or mailto scheme, no trailing slash, lower case.
+private fun linkKey(address: String): String = address.replace(SCHEME_PREFIX, "").removeSuffix("/").lowercase()
+
+/** Whether a link's [text] is just its address [href]: equal once a scheme (http, https, mailto), a trailing slash and case are ignored. */
+fun selfNamedLink(text: String, href: String): Boolean = linkKey(text) == linkKey(href)
+
+private val EMAIL = Regex("""(?<![\w.%+-])[\w.%+-]+@[a-z0-9-]+(?:\.[a-z0-9-]+)+(?![\w-])""", RegexOption.IGNORE_CASE)
+private val IMAGE = Regex("""!\[[^\]\n]*]\(cid:[^$SPACE()]+\)""", RegexOption.IGNORE_CASE)
+
+private fun IntRange.overlapsAny(others: List<IntRange>): Boolean = others.any { it.first < last + 1 && first < it.last + 1 }
+
+// The web and email addresses in plain text, in order, as ranges.
+private fun addressSpans(text: String): List<IntRange> {
+    val spans = findWebLinks(text).map { it.start until it.end }.toMutableList()
+    for (match in EMAIL.findAll(text)) {
+        if (!match.range.overlapsAny(spans)) spans += match.range
+    }
+    return spans.sortedBy { it.first }
+}
+
+// An address in a markdown line: a `[text](url)` link ([href] set) or a bare one ([href] null).
+private data class LineAddress(val start: Int, val end: Int, val text: String, val href: String?)
+
+// A markdown line's links and its bare addresses outside them, inline code and images, in order.
+private fun lineAddresses(line: String): List<LineAddress> {
+    val found = literals(line, bare = false)
+    val hidden = found.map { it.start until it.end } + IMAGE.findAll(line).map { it.range }
+    val masked = StringBuilder(line)
+    for (range in hidden) for (index in range) masked.setCharAt(index, 'a')
+    val addresses = found.mapNotNull { literal ->
+        literal.href?.let { LineAddress(literal.start, literal.end, literal.linkText.orEmpty(), it) }
+    }.toMutableList()
+    for (span in addressSpans(masked.toString())) {
+        if (span.overlapsAny(hidden)) continue
+        addresses += LineAddress(span.first, span.last + 1, line.substring(span.first, span.last + 1), null)
+    }
+    return addresses.sortedBy { it.start }
+}
+
+// Markdown with [change] applied to each line outside fenced code blocks.
+private fun mapProseLines(markdown: String, change: (String) -> String): String {
+    var fenced = false
+    return markdown.split("\n").joinToString("\n") { line ->
+        if (fenced) {
+            fenced = line.trim() != "```"
+            line
+        } else if (line.startsWith("```")) {
+            fenced = true
+            line
+        } else {
+            change(line)
+        }
+    }
+}
+
+/**
+ * The composer's markdown as the message's plain-text part: each link whose text is just its
+ * address ([selfNamedLink]) written as that bare address, unless the line read back wouldn't find
+ * the address there (as when it runs into the next word); every other link stays `[text](url)`.
+ * [draftLinks] takes the links back from the HTML part.
+ */
+fun plainLinks(markdown: String): String = mapProseLines(markdown, ::plainLine)
+
+// One line of [plainLinks].
+private fun plainLine(line: String): String {
+    var bare = lineAddresses(line).filter { it.href != null && selfNamedLink(it.text, it.href) }
+    while (true) {
+        val spans = mutableListOf<IntRange>()
+        val text = buildString {
+            var at = 0
+            for (address in bare) {
+                append(line, at, address.start)
+                spans += length until length + address.text.length
+                append(address.text)
+                at = address.end
+            }
+            append(line, at, line.length)
+        }
+        val found = lineAddresses(text).filter { it.href == null }.map { it.start until it.end }
+        val kept = bare.filterIndexed { index, _ -> spans[index] in found }
+        if (kept.size == bare.size) return text
+        bare = kept
+    }
+}
+
+private val ENTITY = Regex("""&(?:#(\d+)|#x([0-9a-f]+)|([a-z]+));""", RegexOption.IGNORE_CASE)
+private val NAMED_ENTITIES = mapOf("amp" to "&", "lt" to "<", "gt" to ">", "quot" to "\"", "apos" to "'", "nbsp" to "\u00A0")
+private val HTML_PIECE = Regex("""<[^>]*>|[^<]+""")
+private val TAG_NAME = Regex("""^</?\s*([a-z][a-z0-9]*)""", RegexOption.IGNORE_CASE)
+private val HREF = Regex("""\shref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))""", RegexOption.IGNORE_CASE)
+private val LINE_TAGS = setOf("br", "p", "div", "li", "ul", "ol", "blockquote", "pre", "h1", "h2", "h3", "h4", "h5", "h6", "hr", "tr")
+
+// HTML text with its character references read.
+private fun unescapeHtml(text: String): String = text.replace(ENTITY) { match ->
+    val (decimal, hex, name) = match.destructured
+    when {
+        decimal.isNotEmpty() -> String(Character.toChars(decimal.toInt()))
+        hex.isNotEmpty() -> String(Character.toChars(hex.toInt(16)))
+        else -> NAMED_ENTITIES[name.lowercase()] ?: match.value
+    }
+}
+
+private class Appearance(val start: Int, val key: String, val href: String?)
+
+private class OpenAnchor(val start: Int, val href: String?, var plain: Boolean = true)
+
+// Each address's appearances in HTML's text, in order, by [linkKey]: the link's address where a
+// link of plain text that is just its address shows it, null where it shows unlinked. Text in other
+// links and in code doesn't count.
+private fun htmlAddresses(html: String): Map<String, List<String?>> {
+    val visible = StringBuilder()
+    val hidden = mutableListOf<IntRange>()
+    val appearances = mutableListOf<Appearance>()
+    var anchor: OpenAnchor? = null
+    var codeStart = 0
+    var codeDepth = 0
+    for (match in HTML_PIECE.findAll(html)) {
+        val piece = match.value
+        if (!piece.startsWith("<")) {
+            visible.append(unescapeHtml(piece))
+            continue
+        }
+        val name = TAG_NAME.find(piece)?.groupValues?.get(1)?.lowercase() ?: continue
+        val closing = piece.startsWith("</")
+        if (name == "a") {
+            if (!closing) {
+                val href = HREF.find(piece)?.groupValues?.drop(1)?.firstOrNull { it.isNotEmpty() }?.let(::unescapeHtml)
+                anchor = OpenAnchor(visible.length, href)
+            } else if (anchor != null) {
+                val span = anchor.start until visible.length
+                hidden += span
+                val text = visible.substring(anchor.start, visible.length)
+                val safe = anchor.href?.let(::safeHref)
+                if (anchor.plain && safe != null && selfNamedLink(text, safe)) appearances += Appearance(anchor.start, linkKey(text), safe)
+                anchor = null
+            }
+            continue
+        }
+        anchor?.plain = false
+        if (name == "code" || name == "pre") {
+            if (!closing) {
+                if (codeDepth == 0) codeStart = visible.length
+                codeDepth++
+            } else if (codeDepth > 0) {
+                codeDepth--
+                if (codeDepth == 0) hidden += codeStart until visible.length
+            }
+        }
+        if (name in LINE_TAGS) visible.append('\n')
+    }
+    val text = visible.toString()
+    for (span in addressSpans(text)) {
+        if (span.overlapsAny(hidden)) continue
+        appearances += Appearance(span.first, linkKey(text.substring(span.first, span.last + 1)), null)
+    }
+    return appearances.sortedBy { it.start }.groupBy({ it.key }, { it.href })
+}
+
+/**
+ * A reopened draft's [markdown] (read from its plain-text part, see [plainLinks]) with its links
+ * back from its [html] part: a bare address becomes `[address](url)` only where the HTML links it,
+ * matched by order among that address's appearances in each, so an address whose link was taken
+ * off stays plain. Links already written out stay as they are.
+ */
+fun draftLinks(markdown: String, html: String?): String {
+    if (html == null) return markdown
+    val inHtml = htmlAddresses(html)
+    val seen = mutableMapOf<String, Int>()
+    return mapProseLines(markdown) { line ->
+        buildString {
+            var at = 0
+            for (address in lineAddresses(line)) {
+                if (address.href != null && !selfNamedLink(address.text, address.href)) continue
+                val key = linkKey(address.text)
+                val index = seen[key] ?: 0
+                seen[key] = index + 1
+                val href = inHtml[key]?.getOrNull(index)
+                if (address.href == null && href != null) {
+                    append(line, at, address.start)
+                    append("[${address.text}](${linkTarget(href)})")
+                    at = address.end
+                }
+            }
+            append(line, at, line.length)
         }
     }
 }

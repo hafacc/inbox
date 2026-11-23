@@ -1,5 +1,5 @@
 /** Formatting the composer's toolbar and shortcuts apply. */
-export type FormatCommand = "bold" | "italic";
+export type FormatCommand = "bold" | "italic" | "link";
 
 /** The reference to an inline image the body holds. */
 export function imageMarkdown(filename: string, contentId: string): string {

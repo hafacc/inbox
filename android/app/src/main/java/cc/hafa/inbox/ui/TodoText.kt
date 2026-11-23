@@ -47,10 +47,15 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -66,6 +71,7 @@ import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withAnnotation
 import androidx.compose.ui.text.withStyle
@@ -73,6 +79,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import cc.hafa.inbox.core.compose.InlineStyle
+import cc.hafa.inbox.core.mail.findWebLinks
 import cc.hafa.inbox.core.theme.labelTone
 import cc.hafa.inbox.core.todo.LabelTags
 import cc.hafa.inbox.core.todo.StyledNode
@@ -88,6 +95,7 @@ private const val TAG_CHIP_ALPHA = 0.12f
 // A thin space each side of a tag, inside its chip, so the chip has room around the name.
 private const val TAG_PAD = "\u2009"
 private const val TAG_ANNOTATION = "tag"
+private const val LINK_ANNOTATION = "link"
 
 /** How `#tags` are colored: one naming a user label of [labels] in that label's tone from [tones], any other in [default]. */
 data class TagColors(
@@ -112,15 +120,23 @@ internal fun tagColors(): TagColors = TagColors(paper.accentStrong, LocalLabelTa
 /**
  * [text] as latr shows it: the first line in semibold, as a new email's subject, `*bold*` (bold) and `_italic_` spans styled
  * with their markers faded against [baseColor], and `#tags` in [tagColors] with a thin space each
- * side (their chips are drawn by [tagChips]).
+ * side (their chips are drawn by [tagChips]). With a [linkColor], its web addresses are underlined
+ * in it and carry where they lead (for [webLinkAt]); without, they are plain text, as in the editor.
  */
-fun styledTodoText(text: String, baseColor: Color, tagColors: TagColors): AnnotatedString {
+fun styledTodoText(text: String, baseColor: Color, tagColors: TagColors, linkColor: Color? = null): AnnotatedString {
     val marker = SpanStyle(color = baseColor.copy(alpha = baseColor.alpha * MARKER_ALPHA), fontWeight = FontWeight.Normal)
     fun AnnotatedString.Builder.render(nodes: List<StyledNode>) {
         for (node in nodes) {
             when (node) {
                 is StyledNode.Text -> append(node.text)
                 is StyledNode.Marker -> withStyle(marker) { append(node.text) }
+                is StyledNode.Link -> if (linkColor == null) {
+                    append(node.text)
+                } else {
+                    withAnnotation(LINK_ANNOTATION, node.href) {
+                        withStyle(SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline)) { append(node.text) }
+                    }
+                }
                 is StyledNode.Tag -> {
                     val color = tagColors.of(node.text)
                     withAnnotation(TAG_ANNOTATION, color.value.toString()) {
@@ -159,6 +175,7 @@ internal class TagPadMapping(text: String) : OffsetMapping {
                 when (node) {
                     is StyledNode.Text -> offset += node.text.length
                     is StyledNode.Marker -> offset += node.text.length
+                    is StyledNode.Link -> offset += node.text.length
                     is StyledNode.Tag -> {
                         add(offset)
                         offset += node.text.length
@@ -227,9 +244,25 @@ fun Modifier.tagChips(layout: () -> TextLayoutResult?): Modifier = drawBehind {
     }
 }
 
+/** Where the link under [position] (pixels in the text) leads, in text laid out by [styledTodoText]; null off one. */
+internal fun webLinkAt(layout: TextLayoutResult, position: Offset): String? {
+    val laidOut = layout.layoutInput.text
+    val offset = layout.getOffsetForPosition(position)
+    return listOf(offset, offset - 1).firstNotNullOfOrNull { index ->
+        if (index !in laidOut.indices || !layout.getBoundingBox(index).contains(position)) {
+            null
+        } else {
+            laidOut.getStringAnnotations(LINK_ANNOTATION, index, index + 1).firstOrNull()?.item
+        }
+    }
+}
+
 /**
  * A todo's text at rest, styled as [styledTodoText] has it. [onPress] hears where in [text] each
- * press lands, so the editor a tap opens can put the cursor there.
+ * press lands, so the editor a tap opens can put the cursor there. With [links], its web addresses
+ * work as an email's links do: a tap opens one, a hold opens the link's hold menu (Open, Copy link,
+ * Share), and TalkBack lists those among the text's actions; a press elsewhere is left to what is
+ * around it.
  */
 @Composable
 internal fun TodoText(
@@ -239,10 +272,47 @@ internal fun TodoText(
     modifier: Modifier = Modifier,
     maxLines: Int = Int.MAX_VALUE,
     onPress: ((Int) -> Unit)? = null,
+    links: Boolean = false,
 ) {
     var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
     val colors = tagColors()
     val press by rememberUpdatedState(onPress)
+    val context = LocalContext.current
+    val root = LocalView.current
+    val haptics = LocalHapticFeedback.current
+    val menu = LocalHoldMenu.current
+    val hrefs = remember(text, links) { if (links) findWebLinks(text).map { it.href } else emptyList() }
+    var placed by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    val linked = if (hrefs.isEmpty()) {
+        Modifier
+    } else {
+        Modifier
+            .onGloballyPositioned { placed = it }
+            .pointerInput(text, menu) {
+                // The link pressed, kept from the press going down to the tap or hold it becomes.
+                var pressedLink: String? = null
+                holdMenuGestures(
+                    menu ?: HoldMenuState(),
+                    haptics,
+                    claim = true,
+                    onTap = { pressedLink?.let { openWebLink(context, it) } },
+                    open = { pressedAt ->
+                        val url = pressedLink
+                        if (menu == null || url == null || pressedAt == null) {
+                            false
+                        } else {
+                            menu.show(linkMenuSpec(context, root, pressedAt, url))
+                            true
+                        }
+                    },
+                    takes = { position ->
+                        pressedLink = layout?.let { webLinkAt(it, position) }
+                        pressedLink != null
+                    },
+                ) { placed }
+            }
+            .semantics { customActions = linkAccessibilityActions(context, hrefs) }
+    }
     val pressed = if (onPress == null) {
         Modifier
     } else {
@@ -256,13 +326,13 @@ internal fun TodoText(
         }
     }
     Text(
-        styledTodoText(text, color, colors),
+        styledTodoText(text, color, colors, paper.accentStrong.takeIf { links }),
         style = style,
         color = color,
         onTextLayout = { layout = it },
         maxLines = maxLines,
         overflow = TextOverflow.Ellipsis,
-        modifier = modifier.tagChips({ layout }).then(pressed),
+        modifier = modifier.tagChips({ layout }).then(pressed).then(linked),
     )
 }
 

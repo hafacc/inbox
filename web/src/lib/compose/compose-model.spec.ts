@@ -181,7 +181,9 @@ test("an empty signature adds nothing", () => {
 });
 
 test("a saved draft reads back into a composer", () => {
-  const text = base64Url(utf8("Hi **there**\r\n\r\n-- \r\n— Jordan"));
+  const text = base64Url(
+    utf8("Hi **there** at hafa.cc, not docs.hafa.cc\r\n\r\n-- \r\n— Jordan"),
+  );
   const message: GmailMessage = {
     id: "dm1",
     threadId: "t1",
@@ -202,7 +204,14 @@ test("a saved draft reads back into a composer", () => {
             { mimeType: "text/plain", body: { size: 10, data: text } },
             {
               mimeType: "text/html",
-              body: { size: 10, data: base64Url(utf8("<p>Hi</p>")) },
+              body: {
+                size: 10,
+                data: base64Url(
+                  utf8(
+                    '<p>Hi <b>there</b> at <a href="https://hafa.cc">hafa.cc</a>, not docs.hafa.cc</p>',
+                  ),
+                ),
+              },
             },
           ],
         },
@@ -226,7 +235,8 @@ test("a saved draft reads back into a composer", () => {
     to: [{ name: "Sam Okafor", email: "sam@proton.example.net" }],
     bcc: [{ name: "", email: "me@x.example.net" }],
     subject: "Re: Lease paperwork",
-    markdown: "Hi **there**",
+    // Only the address the HTML part links is a link again.
+    markdown: "Hi **there** at [hafa.cc](https://hafa.cc), not docs.hafa.cc",
     inReplyTo: "<b@x.example.net>",
     references: ["<a@x.example.net>", "<b@x.example.net>"],
   });

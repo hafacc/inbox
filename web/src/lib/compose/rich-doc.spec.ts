@@ -11,6 +11,20 @@ import { JSDOM } from "jsdom";
 type Fixtures = {
   typing: { name: string; typed: string; html: string; text: string }[];
   markdown: { name: string; markdown: string }[];
+  links: {
+    name: string;
+    markdown: string;
+    select: [number, number];
+    dialog: {
+      mode: "edit" | "selection" | "insert";
+      text: string;
+      href: string;
+    };
+    remove?: boolean;
+    text?: string;
+    href?: string;
+    expect: string;
+  }[];
 };
 
 const fixtures = JSON.parse(
@@ -128,5 +142,44 @@ test("code blocks inside a quote or list item keep their text", () => {
     { kind: "code", text: "a\nb" },
     { kind: "bullet", runs: [{ text: "i" }] },
     { kind: "code", text: "c" },
+  ]);
+});
+
+describe("link editing fixtures (must match Android)", () => {
+  for (const fixture of fixtures.links) {
+    test(fixture.name, async () => {
+      const { markdownToRich } = await import("@inbox/shared/compose");
+      const editor = newEditor();
+      editor.commands.setContent(
+        rich.richToDoc(markdownToRich(fixture.markdown)),
+      );
+      // The paragraph's text starts at document position 1.
+      const [from, to] = fixture.select;
+      editor.commands.setTextSelection({ from: from + 1, to: to + 1 });
+      const request = rich.linkRequest(editor);
+      expect({
+        mode: request.mode,
+        text: request.text,
+        href: request.href,
+      }).toEqual(fixture.dialog);
+      if (fixture.remove) rich.removeLink(editor, request);
+      else rich.saveLink(editor, request, fixture.text!, fixture.href!);
+      const blocks = rich.docToRich(editor.getJSON());
+      editor.destroy();
+      expect(richToMarkdown(blocks)).toBe(fixture.expect);
+    });
+  }
+});
+
+test("Backspace right after a web address became a link puts it back as typed", () => {
+  const editor = newEditor();
+  typeInto(editor, "see example.com ");
+  const { view } = editor;
+  const backspace = new window.KeyboardEvent("keydown", { key: "Backspace" });
+  view.someProp("handleKeyDown", (handle) => handle(view, backspace));
+  const blocks = rich.docToRich(editor.getJSON());
+  editor.destroy();
+  expect(blocks).toEqual([
+    { kind: "paragraph", runs: [{ text: "see example.com " }] },
   ]);
 });

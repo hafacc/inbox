@@ -1,4 +1,4 @@
-<!-- @component An email's todo as one line: its text, which screen readers hear as a todo. Under the snippet of the email's row it has no actions of its own, as the row's are the email's, and a click falls through to the row. At the top of the open email (`editable`) its text opens to edit on a click; cleared out, the todo is deleted with undo, and a new one never saved just goes. -->
+<!-- @component An email's todo as one line: its text, which screen readers hear as a todo. Under the snippet of the email's row it has no actions of its own, as the row's are the email's, and a click falls through to the row. At the top of the open email (`editable`) its text opens to edit on a click, its web addresses links that open instead; cleared out, the todo is deleted with undo, and a new one never saved just goes. -->
 <script lang="ts">
   import { type EmailTodo, suggestTags } from "@inbox/shared/todos";
   import { onDestroy, untrack } from "svelte";
@@ -86,14 +86,21 @@
       class="flex-1 min-w-0 leading-5 text-text"
     />
   {:else if editable}
-    <button
-      type="button"
-      aria-label="Edit todo"
-      onclick={() => mail.todos.setEditing(todo.id)}
-      class="todo-text flex-1 min-w-0 text-left whitespace-pre-wrap break-words leading-5 text-text cursor-text"
+    <!-- A button under the text edits it; the text's links sit above the button, so a screen
+    reader or the Tab key reaches each of them as well as the button. -->
+    <div
+      class="todo-text relative flex-1 min-w-0 whitespace-pre-wrap break-words leading-5 text-text"
     >
-      <StyledText {text} />
-    </button>
+      <button
+        type="button"
+        aria-label="Edit todo"
+        onclick={() => mail.todos.setEditing(todo.id)}
+        class="absolute inset-0 rounded-md cursor-text outline-none focus-visible:ring-2 focus-visible:ring-focus"
+      ></button>
+      <span class="relative pointer-events-none [&_a]:pointer-events-auto">
+        <StyledText {text} links />
+      </span>
+    </div>
   {:else}
     <span class="todo-text flex-1 min-w-0 truncate text-text">
       <StyledText {text} />

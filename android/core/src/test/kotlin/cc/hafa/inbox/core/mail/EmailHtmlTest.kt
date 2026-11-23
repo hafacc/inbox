@@ -96,6 +96,10 @@ class EmailHtmlTest {
     fun `plain text is escaped`() {
         assertEquals("<div style=\"white-space:pre-wrap\">a &lt;b&gt; &amp; c</div>", plainTextHtml("a <b> & c"))
         assertEquals("<div style=\"white-space:pre-wrap\">  a\n\nb</div>", plainTextHtml("  a\n\nb\r\n\r\n "))
+        assertEquals(
+            "<div style=\"white-space:pre-wrap\">see <a href=\"https://example.com/a?b=1&amp;c=2\">example.com/a?b=1&amp;c=2</a>.</div>",
+            plainTextHtml("see example.com/a?b=1&c=2."),
+        )
     }
 
     @Test

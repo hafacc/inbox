@@ -18,6 +18,7 @@
   import FileIcon from "@lucide/svelte/icons/file";
   import ImageIcon from "@lucide/svelte/icons/image";
   import Italic from "@lucide/svelte/icons/italic";
+  import LinkIcon from "@lucide/svelte/icons/link";
   import Lock from "@lucide/svelte/icons/lock";
   import LockOpen from "@lucide/svelte/icons/lock-open";
   import Maximize2 from "@lucide/svelte/icons/maximize-2";
@@ -162,7 +163,7 @@
   const previewHtml = $derived(
     preview
       ? cleanMessageHtml(
-          composer.html ?? markdownToHtml(composer.markdown),
+          composer.html ?? markdownToHtml(composer.markdown, false),
           imageUrls,
         ).html
       : "",
@@ -482,7 +483,7 @@
   function onEditorKeydown(event: KeyboardEvent) {
     if (isCommandChord(event) && !event.shiftKey && !event.altKey) {
       const command = (
-        { b: "bold", i: "italic" } as Record<string, FormatCommand>
+        { b: "bold", i: "italic", k: "link" } as Record<string, FormatCommand>
       )[event.key.toLowerCase()];
       if (command) {
         event.preventDefault();
@@ -1031,6 +1032,15 @@
           class={toolButton}
         >
           <Italic class="w-4 h-4" />
+        </button>
+        <button
+          type="button"
+          aria-label={`Link (${commandKey}K)`}
+          title={chordTitle("Link", `${commandKey}K`)}
+          onclick={() => format("link")}
+          class={toolButton}
+        >
+          <LinkIcon class="w-4 h-4" />
         </button>
         <button
           type="button"

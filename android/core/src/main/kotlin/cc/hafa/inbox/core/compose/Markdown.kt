@@ -12,10 +12,13 @@ data class BodyParts(
 )
 
 /**
- * The composer's markdown as an HTML fragment, rendered from [markdownToText] so both parts start
- * from the same trimmed lines: read as rich text by [markdownToRich] and written by [richToHtml].
+ * Markdown as an HTML fragment, rendered from [markdownToText] so both parts start from the same
+ * trimmed lines: read as rich text by [markdownToRich] (bare web addresses linked with [bareLinks],
+ * as for a signature; not for the composer's own markdown, which writes its links out) and written
+ * by [richToHtml].
  */
-fun markdownToHtml(source: String): String = richToHtml(markdownToRich(markdownToText(source)))
+fun markdownToHtml(source: String, bareLinks: Boolean = true): String =
+    richToHtml(markdownToRich(markdownToText(source), bareLinks))
 
 private val TRAILING_BLANKS = Regex("[ \t]+$")
 private val EDGE_NEWLINES = Regex("^\n+|\n+$")
@@ -33,13 +36,13 @@ fun markdownToText(source: String): String =
  *
  * HTML: `<div dir="auto">` + body ([bodyHtml], the editor's HTML of it, when given) + `</div>`,
  * then `<div class="signature">` + signature + `</div>`,
- * then for a reply `<br>` and [quoteHtml]. Text: body, then a blank line, `-- `, and the
- * signature; then for a reply a blank line and [quoteText]. An empty or blank signature adds nothing.
+ * then for a reply `<br>` and [quoteHtml]. Text: body ([plainLinks]: a link whose text is its
+ * address as that bare address), then a blank line, `-- `, and the signature; then for a reply a blank line and [quoteText]. An empty or blank signature adds nothing.
  */
 fun bodyParts(body: String, signature: String?, quote: QuotedMessage? = null, bodyHtml: String? = null): BodyParts {
     val sign = if (signature == null) "" else markdownToText(signature)
-    var html = "<div dir=\"auto\">${bodyHtml ?: markdownToHtml(body)}</div>"
-    var text = markdownToText(body)
+    var html = "<div dir=\"auto\">${bodyHtml ?: markdownToHtml(body, bareLinks = false)}</div>"
+    var text = plainLinks(markdownToText(body))
     if (sign.isNotEmpty()) {
         html += "<div class=\"signature\">${markdownToHtml(sign)}</div>"
         text = "${if (text.isEmpty()) "" else "$text\n\n"}$SIGNATURE_SEPARATOR\n$sign"

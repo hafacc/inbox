@@ -1,8 +1,9 @@
 // What the composer's text means: latr's `*bold*` and `_italic_` (inline-style.ts), plus bare
-// URLs and inline images (`![alt](cid:id)`), which the styles never reach into. The composers draw
+// URLs (shared/src/web-links.ts) and inline images (`![alt](cid:id)`), which the styles never reach into. The composers draw
 // these spans as the text is typed and markdownToHtml renders them. Android :core ports this
 // (core/compose/MarkdownSpans.kt); both run shared/testdata/markdown-span-fixtures.json.
 
+import { findWebLinks } from "../web-links";
 import { parseInlineStyles } from "./inline-style";
 
 /** What a styled stretch of the composer's text is. */
@@ -24,33 +25,12 @@ export const MARKDOWN_SPAN_KINDS: readonly MarkdownSpanKind[] = [
   "marker",
 ];
 
-const ALPHANUMERIC = /[\p{L}\p{N}]/u;
 const IMAGE = /^!\[[^\]\n]*\]\(cid:[^\s()]+\)/i;
-const BARE_URL = /^(?:https?:\/\/|www\.)[^\s<]+/i;
-const TRAILING_PUNCTUATION = "?!.,:;*_~'\"";
 
-/** A bare URL's length once trailing punctuation and unmatched closing parentheses are left out. */
-function bareUrlLength(url: string): number {
-  let length = url.length;
-  for (;;) {
-    const last = url[length - 1];
-    if (last !== undefined && TRAILING_PUNCTUATION.includes(last)) {
-      length--;
-    } else if (last === ")") {
-      const kept = url.slice(0, length);
-      const opens = kept.split("(").length - 1;
-      const closes = kept.split(")").length - 1;
-      if (closes > opens) length--;
-      else return length;
-    } else {
-      return length;
-    }
-  }
-}
-
-/** Inline images and bare URLs, in order; they never overlap. */
+/** Inline images and bare URLs (web addresses, as `findWebLinks` finds them), in order; they never overlap. */
 function literalSpans(text: string): MarkdownSpan[] {
   const spans: MarkdownSpan[] = [];
+  const links = new Map(findWebLinks(text).map((link) => [link.start, link]));
   let index = 0;
   while (index < text.length) {
     const char = text[index];
@@ -63,20 +43,11 @@ function literalSpans(text: string): MarkdownSpan[] {
         continue;
       }
     }
-    if (
-      (char === "h" || char === "w" || char === "H" || char === "W") &&
-      !ALPHANUMERIC.test(text[index - 1] ?? "")
-    ) {
-      const match = BARE_URL.exec(text.slice(index));
-      if (match !== null) {
-        const length = bareUrlLength(match[0]);
-        const scheme = /^(?:https?:\/\/|www\.)/i.exec(match[0])![0].length;
-        if (length > scheme) {
-          spans.push({ start: index, end: index + length, kind: "url" });
-          index += length;
-          continue;
-        }
-      }
+    const link = links.get(index);
+    if (link !== undefined) {
+      spans.push({ start: index, end: link.end, kind: "url" });
+      index = link.end;
+      continue;
     }
     index++;
   }

@@ -4,7 +4,7 @@
     "todos": "Every todo is todo-fixtures.json's `base` with the listed fields replaced; times are epoch milliseconds, local times read in `zone`.",
     "group": "groupActive(sortForFilter(todos, 'ACTIVE'), now): each heading's label, its ids in order, whether it is Pinned, and its floor and ceiling (null when it has none).",
     "move": "planMove(todo `id`, the Active list grouped as in `group`, slot, now): `same` when the slot is where it is, null when it can't go there, else the fields that change.",
-    "plain": "styledPlain(in): the text as a closed bundle's line sums a todo up, markers dropped.",
+    "plain": "styledPlain(in): the text as a closed bundle's line sums a todo up, markers dropped and web addresses whole.",
     "held": "heldInPlace(held, previous, live): the fields of the result that differ from `base`.",
     "search": "rankBySearch(todos, query): the ids found, in order.",
     "styled": "styledTree(text): text, marker, tag and span nodes."
@@ -994,6 +994,104 @@
       ]
     },
     {
+      "in": "Read example.com/a_b_c #web",
+      "tree": [
+        {
+          "kind": "text",
+          "text": "Read "
+        },
+        {
+          "kind": "link",
+          "text": "example.com/a_b_c",
+          "href": "https://example.com/a_b_c"
+        },
+        {
+          "kind": "text",
+          "text": " "
+        },
+        {
+          "kind": "tag",
+          "text": "#web"
+        }
+      ]
+    },
+    {
+      "in": "*see https://example.com/x* and #tag",
+      "tree": [
+        {
+          "kind": "span",
+          "style": "bold",
+          "children": [
+            {
+              "kind": "marker",
+              "text": "*"
+            },
+            {
+              "kind": "text",
+              "text": "see "
+            },
+            {
+              "kind": "link",
+              "text": "https://example.com/x",
+              "href": "https://example.com/x"
+            },
+            {
+              "kind": "marker",
+              "text": "*"
+            }
+          ]
+        },
+        {
+          "kind": "text",
+          "text": " and "
+        },
+        {
+          "kind": "tag",
+          "text": "#tag"
+        }
+      ]
+    },
+    {
+      "in": "Pay bills.com, then _call_ me.",
+      "tree": [
+        {
+          "kind": "text",
+          "text": "Pay "
+        },
+        {
+          "kind": "link",
+          "text": "bills.com",
+          "href": "https://bills.com"
+        },
+        {
+          "kind": "text",
+          "text": ", then "
+        },
+        {
+          "kind": "span",
+          "style": "italic",
+          "children": [
+            {
+              "kind": "marker",
+              "text": "_"
+            },
+            {
+              "kind": "text",
+              "text": "call"
+            },
+            {
+              "kind": "marker",
+              "text": "_"
+            }
+          ]
+        },
+        {
+          "kind": "text",
+          "text": " me."
+        }
+      ]
+    },
+    {
       "in": "",
       "tree": []
     }
@@ -1001,6 +1099,7 @@
   "plain": [
     { "in": "Buy *milk* #home", "out": "Buy milk #home" },
     { "in": "Call _her_ about *#rent*", "out": "Call her about #rent" },
+    { "in": "Read https://example.com/_docs_ and _call_ me", "out": "Read https://example.com/_docs_ and call me" },
     { "in": "  _spaced_  ", "out": "spaced" }
   ]
 }

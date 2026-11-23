@@ -60,7 +60,7 @@ class RichBodyFieldTest {
     fun loadingMarkdownHoldsItsBlocks() {
         for (case in cases("markdown")) {
             val blocks = case.getJSONArray("blocks").let { array -> (0 until array.length()).map { block(array.getJSONObject(it)) } }
-            assertEquals(case.getString("name"), blocks, RichBody(case.getString("markdown")).blocks())
+            assertEquals(case.getString("name"), blocks, RichBody(case.getString("markdown"), bareLinks = true).blocks())
         }
     }
 

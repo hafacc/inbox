@@ -271,6 +271,11 @@ html.theme-fade *::after {
   font-weight: 600;
 }
 /* Headings, lists, quotes and code, in a message being written and in its preview. */
+/* A long touch on a link in the composer opens the app's link menu, not the system's. */
+.rich-editor a {
+  -webkit-touch-callout: none;
+}
+
 :where(.rendered-markdown, .rich-editor) :where(h1, h2, h3, h4, h5, h6) {
   font-weight: 600;
   margin: 6px 0 2px;

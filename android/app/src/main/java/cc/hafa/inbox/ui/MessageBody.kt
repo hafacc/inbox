@@ -17,6 +17,7 @@ import android.view.accessibility.AccessibilityNodeProvider
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.indication
@@ -42,12 +43,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.net.toUri
+import cc.hafa.inbox.core.mail.safeHref
 import cc.hafa.inbox.core.menu.HOLD_TAP
 import cc.hafa.inbox.core.menu.linkHoldWedges
 import cc.hafa.inbox.ui.theme.paper
@@ -142,12 +145,22 @@ fun MessageWebView(
     )
 }
 
-// Open [uri] in the app that takes it, the browser for a web page.
-private fun openLink(context: Context, uri: Uri) {
+/** Open [uri] in the app that takes it, the browser for a web page, its scheme in lower case; a toast says when no app can. */
+internal fun openLink(context: Context, uri: Uri) {
     try {
-        context.startActivity(Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        context.startActivity(Intent(Intent.ACTION_VIEW, uri.normalizeScheme()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     } catch (_: ActivityNotFoundException) {
-        // No app opens this kind of link; leave the message as it is.
+        Toast.makeText(context, "No app opens this link", Toast.LENGTH_SHORT).show()
+    }
+}
+
+/** Open [href], a link in a todo or the composer, as [openLink] does, when it leads to a web or mail address ([safeHref]). */
+internal fun openWebLink(context: Context, href: String) {
+    val safe = safeHref(href)
+    if (safe == null) {
+        Toast.makeText(context, "This link can't be opened", Toast.LENGTH_SHORT).show()
+    } else {
+        openLink(context, safe.toUri())
     }
 }
 
@@ -214,6 +227,41 @@ private const val MIN_ZOOM_STEP = 0.01f
 private const val LINK_BOTTOM_ROOM_DP = 40f
 
 /**
+ * The hold menu of the link to [url] pressed at [finger] (pixels in [root]): Open, Copy link and
+ * Share, its full address in the pill; [onClose] hears it close.
+ */
+internal fun linkMenuSpec(context: Context, root: View, finger: Offset, url: String, onClose: () -> Unit = {}): HoldMenuSpec {
+    val density = root.resources.displayMetrics.density
+    val fingerX = finger.x / density
+    val fingerY = finger.y / density
+    val centerY = minOf(fingerY, root.height / density - LINK_BOTTOM_ROOM_DP)
+    return HoldMenuSpec(
+        center = Offset(finger.x, centerY * density),
+        wedges = holdWedges(LINK_ITEMS, linkHoldWedges(LINK_ITEMS.map { it.id }, fingerX, fingerY, root.width / density)),
+        pill = url.removePrefix("https://").removePrefix("http://"),
+        url = true,
+        label = "Link actions",
+        onPick = { item -> runLinkAction(context, item.id, url) },
+        onClose = onClose,
+    )
+}
+
+/**
+ * TalkBack's actions for the links to [urls], as a held link in an email offers them: Open (which
+ * a tap on the link does by touch), Copy link and Share, each naming its link when there are several.
+ */
+internal fun linkAccessibilityActions(context: Context, urls: List<String>): List<CustomAccessibilityAction> =
+    urls.distinct().flatMap { url ->
+        val name = if (urls.distinct().size > 1) " ${url.removePrefix("https://").removePrefix("http://")}" else ""
+        listOf("open" to "Open link", "copy" to "Copy link", "share" to "Share").map { (id, label) ->
+            CustomAccessibilityAction("$label$name") {
+                runLinkAction(context, id, url)
+                true
+            }
+        }
+    }
+
+/**
  * A long press on a link opens [menu] at the finger, which then slides into a wedge and lets go,
  * or lets go and taps one. The message runs no JavaScript, so the link comes from the WebView's
  * own hit test; the finger's moves are watched as they pass to the page.
@@ -229,22 +277,7 @@ private fun WebView.holdLinks(menu: HoldMenuState, root: View) {
         Offset(event.rawX - rootOnScreen[0], event.rawY - rootOnScreen[1])
     }
     val show = { url: String ->
-        val density = root.resources.displayMetrics.density
-        val fingerX = finger.x / density
-        val fingerY = finger.y / density
-        val centerY = minOf(fingerY, root.height / density - LINK_BOTTOM_ROOM_DP)
-        menu.show(
-            HoldMenuSpec(
-                center = Offset(finger.x, centerY * density),
-                wedges = holdWedges(LINK_ITEMS, linkHoldWedges(LINK_ITEMS.map { it.id }, fingerX, fingerY, root.width / density)),
-                pill = url.removePrefix("https://").removePrefix("http://"),
-                url = true,
-                label = "Link actions",
-                onPick = { item -> runLinkAction(context, item.id, url) },
-                onClose = { following = false },
-            ),
-            sticky = !down,
-        )
+        menu.show(linkMenuSpec(context, root, finger, url) { following = false }, sticky = !down)
         if (down) {
             following = true
             // The list around the message mustn't scroll while the finger picks a wedge.
