@@ -480,7 +480,7 @@ private fun rememberTodoHold(
                     center = center,
                     wedges = holdWedges(
                         items,
-                        rowHoldWedges(listOf("pin".takeUnless { isDone }, "delete"), center.x / scale, center.y / scale, screen.width / scale, screen.height / scale),
+                        rowHoldWedges(listOf("pin".takeUnless { isDone }, "delete"), center.x / scale, center.y / scale, screen.width / scale),
                     ),
                     pill = current.text.lineSequence().firstOrNull().orEmpty().ifBlank { "Todo" },
                     url = false,

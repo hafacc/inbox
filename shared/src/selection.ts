@@ -339,6 +339,8 @@ const DISC_OUTER: readonly SelectionDiscAction[] = [
  * Where the corner button puts each of `available` (the actions that would change something): the
  * inner ring holds Done, Snooze and Pin, Move to inbox taking Done's place and Wake now Snooze's
  * wherever they apply; a Done or Snooze so displaced, and every other action, go on the outer ring.
+ * For todos alone (the only selection offering Delete) the inner ring holds Done alone, and
+ * Snooze (or Wake now) and Pin go on the outer ring instead, first, so Delete isn't alone there.
  */
 export function selectionDisc(
   available: readonly SelectionDiscAction[],
@@ -346,13 +348,19 @@ export function selectionDisc(
   const has = (action: SelectionDiscAction) => available.includes(action);
   const first = has("inbox") ? "inbox" : has("done") ? "done" : null;
   const second = has("wake") ? "wake" : has("snooze") ? "snooze" : null;
-  const inner = [first, second, has("pin") ? "pin" : null].filter(
-    (action): action is SelectionDiscAction => action !== null,
+  const pin: SelectionDiscAction | null = has("pin") ? "pin" : null;
+  const moved: SelectionDiscAction[] = has("delete")
+    ? [second, pin].filter(
+        (action): action is SelectionDiscAction => action !== null,
+      )
+    : [];
+  const inner = [first, second, pin].filter(
+    (action): action is SelectionDiscAction =>
+      action !== null && !moved.includes(action as SelectionDiscAction),
   );
-  return {
-    inner,
-    outer: DISC_OUTER.filter(
-      (action) => has(action) && !inner.includes(action),
-    ),
-  };
+  const rest = DISC_OUTER.filter(
+    (action) =>
+      has(action) && !inner.includes(action) && !moved.includes(action),
+  );
+  return { inner, outer: [...moved, ...rest] };
 }

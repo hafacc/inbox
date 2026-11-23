@@ -2256,7 +2256,7 @@ private fun Modifier.rowMenuHold(
             if (dot != null && root != null) {
                 val center = pressedAt ?: dot.localToRoot(Offset(dot.size.width / 2f, dot.size.height / 2f))
                 val place = { slots: List<String?> ->
-                    rowHoldWedges(slots, center.x / density, center.y / density, root.size.width / density, root.size.height / density)
+                    rowHoldWedges(slots, center.x / density, center.y / density, root.size.width / density)
                 }
                 menu.show(currentBuild(center, place), sticky = sticky)
                 true

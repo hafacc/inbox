@@ -23,7 +23,7 @@ class HoldMenuFixturesTest {
     private fun plain(wedges: List<HoldArc>): List<Triple<String, Float, Float>> = wedges.map { Triple(it.id, it.from, it.to) }
 
     private fun rowWedges(row: Map<*, *>): List<HoldArc> =
-        rowHoldWedges((row["slots"] as List<*>).map { it as String? }, number(row["x"]), number(row["y"]), number(row["width"]), number(row["height"]))
+        rowHoldWedges((row["slots"] as List<*>).map { it as String? }, number(row["x"]), number(row["y"]), number(row["width"]))
 
     private fun wedgesOf(menu: Map<*, *>): List<HoldArc> {
         val row = menu["row"] as Map<*, *>?

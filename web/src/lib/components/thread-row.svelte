@@ -191,7 +191,6 @@
         press.x,
         press.y,
         window.innerWidth,
-        window.innerHeight,
       ).map((wedge) => ({
         ...wedge,
         label: threadActionWords(wedge.id, snoozedNow),

@@ -13,9 +13,7 @@ export const HOLD_TAP_PX = 14;
 export const HOLD_SLACK_PX = 28;
 /** Above this many pixels from the window's top a half disc has room to open upward. */
 export const HOLD_TOP_ROOM_PX = 190;
-/** Within this many pixels of the window's bottom a row's half disc turns upward. */
-export const HOLD_BOTTOM_ROOM_PX = 80;
-/** A link held this close to a side turns its half disc inward; a row's this close to the right opens leftward. */
+/** A link or a row held this close to a side turns its disc inward; a row's this close to the right opens leftward. */
 export const HOLD_SIDE_ROOM_PX = 110;
 /** How far below where it pressed a finger drags, short of any wedge, before a corner button lifts to move. */
 export const CORNER_DRAG_DOWN_PX = 24;
@@ -31,7 +29,7 @@ export type HoldRing = {
   outer: number;
 };
 
-/** A row's half disc: a todo's, an email's or a bundle's. */
+/** A row's round menu: a todo's, an email's or a bundle's. */
 export const ROW_RING: HoldRing = { inner: 26, outer: 104 };
 /** A link's half disc. */
 export const LINK_RING: HoldRing = { inner: 30, outer: 108 };
@@ -128,30 +126,33 @@ export function hitWedge(
   }
 }
 
+/** The arc, in degrees, a row's wedges share: a third of a disc. */
+export const ROW_ARC = 120;
+
 /**
- * A row's wedges around a long press at `x`, `y` in a window `width` by `height` (a todo's, an
- * email's or a bundle's; the menu key and screen readers press on its dot, avatar or mark):
- * `slots` share a half disc, each a quarter for two, the first above the second as it opens up and
- * right, right and down near the top, or turned upward near the bottom; near the right edge it
- * opens leftward instead, mirrored. A null slot leaves its place empty (a done todo has no Pin).
+ * A row's wedges around a long press at `x`, `y` in a window `width` wide (a todo's, an email's or
+ * a bundle's; the menu key and screen readers press on its dot, avatar or mark): `slots` share
+ * {@link ROW_ARC} equally, the first before the second counterclockwise. It opens straight up (two
+ * slots: up and left, up and right); right and down near the top; turned 45° right near the left
+ * edge, at the bottom too; near the right edge it opens leftward instead, mirrored. A null slot
+ * leaves its place empty (a done todo has no Pin).
  */
 export function rowHoldWedges<Id extends string>(
   slots: readonly (Id | null)[],
   x: number,
   y: number,
   width: number,
-  height: number,
 ): HoldWedge<Id>[] {
-  const facing =
-    y <= HOLD_TOP_ROOM_PX ? -45 : y > height - HOLD_BOTTOM_ROOM_PX ? 75 : 45;
   const leftward = x > width - HOLD_SIDE_ROOM_PX;
+  const sideways = leftward || x < HOLD_SIDE_ROOM_PX;
+  const facing = y <= HOLD_TOP_ROOM_PX ? -45 : sideways ? 45 : 90;
   const middle = leftward ? 180 - facing : facing;
-  const share = 180 / slots.length;
+  const share = ROW_ARC / slots.length;
   return slots.flatMap((id, index) => {
     if (id === null) return [];
     const from = leftward
-      ? middle - 90 + index * share
-      : middle + 90 - (index + 1) * share;
+      ? middle - ROW_ARC / 2 + index * share
+      : middle + ROW_ARC / 2 - (index + 1) * share;
     return [{ id, from, to: from + share, ring: ROW_RING }];
   });
 }
