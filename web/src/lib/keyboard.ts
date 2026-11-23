@@ -56,7 +56,8 @@ const CONTROLS = 'button, a[href], summary, [role="button"], [role="link"]';
 /**
  * Whether a key pressed on `target` should be left alone by the single-key shortcuts: typing in a
  * text field, anything inside a menu, dialog or form, and Enter on a button or link (it clicks
- * it). Elements marked `data-shortcuts` (the list's rows) take every shortcut.
+ * it). Elements marked `data-shortcuts` (the list's rows) take every shortcut, but Enter on a link
+ * inside one (a web address in a todo's text).
  */
 export function leavesShortcuts(
   target: EventTarget | null,
@@ -65,7 +66,13 @@ export function leavesShortcuts(
   if (isEditableTarget(target)) return true;
   const element = target as Element | null;
   if (typeof element?.closest !== "function") return false;
-  if (element.closest("[data-shortcuts]") !== null) return false;
+  const row = element.closest("[data-shortcuts]");
+  if (row !== null) {
+    const link = element.closest("a[href]");
+    return (
+      key === "Enter" && link !== null && row.contains(link) && link !== row
+    );
+  }
   if (element.closest(OWN_KEYS) !== null) return true;
   return key === "Enter" && element.closest(CONTROLS) !== null;
 }

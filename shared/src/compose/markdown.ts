@@ -1,6 +1,6 @@
 import { trimLines } from "../format";
 import { type QuotedMessage, quoteHtml, quoteText } from "./quote";
-import { markdownToRich, richToHtml } from "./rich";
+import { markdownToRich, plainLinks, richToHtml } from "./rich";
 
 /** Separator line between body and signature in the plain-text part ("dash dash space"). */
 export const SIGNATURE_SEPARATOR = "-- ";
@@ -14,12 +14,13 @@ export type BodyParts = {
 };
 
 /**
- * The composer's markdown as an HTML fragment, rendered from `markdownToText(source)` so both parts
- * start from the same trimmed lines: read as rich text by `markdownToRich` and written by
- * `richToHtml`.
+ * Markdown as an HTML fragment, rendered from `markdownToText(source)` so both parts start from the
+ * same trimmed lines: read as rich text by `markdownToRich` (bare web addresses linked with
+ * `bareLinks`, as for a signature; not for the composer's own markdown, which writes its links
+ * out) and written by `richToHtml`.
  */
-export function markdownToHtml(source: string): string {
-  return richToHtml(markdownToRich(markdownToText(source)));
+export function markdownToHtml(source: string, bareLinks = true): string {
+  return richToHtml(markdownToRich(markdownToText(source), bareLinks));
 }
 
 /** Markdown as its plain-text alternative: the source as typed, LF breaks, trailing spaces and blank lines trimmed. */
@@ -33,7 +34,7 @@ export function markdownToText(source: string): string {
  *
  * HTML: `<div dir="auto">` + body (`bodyHtml`, the editor's HTML of it, when given) + `</div>`, then `<div class="signature">` + signature + `</div>`,
  * then for a reply `<br>` and `quoteHtml(quote)`.
- * Text: body, then a blank line, `-- `, and the signature; then for a reply a blank line and
+ * Text: body (`plainLinks`: a link whose text is its address as that bare address), then a blank line, `-- `, and the signature; then for a reply a blank line and
  * `quoteText(quote)`. An empty or blank signature adds nothing.
  */
 export function bodyParts(
@@ -43,8 +44,8 @@ export function bodyParts(
   bodyHtml: string | null = null,
 ): BodyParts {
   const sign = signature === null ? "" : markdownToText(signature);
-  let html = `<div dir="auto">${bodyHtml ?? markdownToHtml(body)}</div>`;
-  let text = markdownToText(body);
+  let html = `<div dir="auto">${bodyHtml ?? markdownToHtml(body, false)}</div>`;
+  let text = plainLinks(markdownToText(body));
   if (sign !== "") {
     html += `<div class="signature">${markdownToHtml(sign)}</div>`;
     text = `${text === "" ? "" : `${text}\n\n`}${SIGNATURE_SEPARATOR}\n${sign}`;

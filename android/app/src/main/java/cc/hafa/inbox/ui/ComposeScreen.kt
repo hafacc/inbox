@@ -47,6 +47,7 @@ import androidx.compose.material.icons.outlined.FormatBold
 import androidx.compose.material.icons.outlined.FormatItalic
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material3.CircularProgressIndicator
@@ -573,6 +574,7 @@ private fun FormatRow(session: ComposeSession, sending: Sending, onInsertImage: 
         ) {
             FormatButton(Icons.Outlined.FormatBold, "Bold") { session.body.toggleBold() }
             FormatButton(Icons.Outlined.FormatItalic, "Italic") { session.body.toggleItalic() }
+            FormatButton(Icons.Outlined.Link, "Link") { session.body.requestLink() }
             FormatButton(Icons.Outlined.Image, "Insert image", onInsertImage)
             Spacer(Modifier.weight(1f))
             FormatButton(Icons.Outlined.Delete, "Discard draft") { sending.discard(session) }

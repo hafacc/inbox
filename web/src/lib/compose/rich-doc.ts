@@ -4,9 +4,13 @@ import {
   type RichMark,
   type RichRun,
 } from "@inbox/shared/compose";
+import { finishedWebLink, safeHref } from "@inbox/shared/web-links";
 import {
   type AnyExtension,
+  type Editor,
   Extension,
+  getMarkRange,
+  InputRule,
   type JSONContent,
   markInputRule,
   markPasteRule,
@@ -14,6 +18,7 @@ import {
 import BoldBase from "@tiptap/extension-bold";
 import ItalicBase from "@tiptap/extension-italic";
 import { Placeholder } from "@tiptap/extensions";
+import type { EditorState, Transaction } from "@tiptap/pm/state";
 import { Plugin } from "@tiptap/pm/state";
 import StarterKit from "@tiptap/starter-kit";
 
@@ -39,11 +44,18 @@ export function richExtensions(placeholder = ""): AnyExtension[] {
       underline: false,
       horizontalRule: false,
       trailingNode: false,
-      link: { autolink: false, markdownLinks: true, openOnClick: false },
+      link: {
+        autolink: false,
+        markdownLinks: true,
+        openOnClick: false,
+        // Typed, pasted or loaded, a link leads only to a web or mail address.
+        isAllowedUri: (url) => safeHref(url) !== null,
+      },
     }),
     boldExtension(),
     italicExtension(),
     markerEnd,
+    addressEnd,
     Placeholder.configure({ placeholder }),
   ];
 }
@@ -105,6 +117,61 @@ const markerEnd = Extension.create({
         },
       }),
     ];
+  },
+});
+
+// Links the web address the caret ends, if any, in `tr`: the paragraph's text before the caret,
+// less the `typed` characters just typed (a leaf such as a line break counts as one character, as
+// in the document), by the shared rule, unless it is in code or already a link. Whether it linked one.
+function linkFinishedAddress(
+  state: EditorState,
+  tr: Transaction,
+  typed = 0,
+): boolean {
+  const { $from } = state.selection;
+  const link = state.schema.marks.link;
+  const code = state.schema.marks.code;
+  if (!link || $from.parent.type.spec.code) return false;
+  const before = $from.parent.textBetween(
+    0,
+    $from.parentOffset - typed,
+    undefined,
+    "\ufffc",
+  );
+  const found = finishedWebLink(before);
+  if (found === null) return false;
+  const from = $from.start() + found.start;
+  const to = $from.start() + found.end;
+  if (state.doc.rangeHasMark(from, to, link)) return false;
+  if (code && state.doc.rangeHasMark(from, to, code)) return false;
+  tr.addMark(from, to, link.create({ href: found.href }));
+  return true;
+}
+
+// A web address becomes a link once it is finished: a space typed after it (a step of its own after
+// the space, so undo or Backspace takes the link off and keeps the space) or Enter.
+const addressEnd = Extension.create({
+  name: "addressEnd",
+  // Before the lists' and code blocks' own Enter.
+  priority: 1000,
+  addInputRules() {
+    return [
+      new InputRule({
+        find: / $/,
+        // Tiptap runs it on the text with the space already in.
+        handler: ({ state }) =>
+          linkFinishedAddress(state, state.tr, 1) ? undefined : null,
+      }),
+    ];
+  },
+  addKeyboardShortcuts() {
+    return {
+      Enter: ({ editor }) => {
+        const { tr } = editor.state;
+        if (linkFinishedAddress(editor.state, tr)) editor.view.dispatch(tr);
+        return false;
+      },
+    };
   },
 });
 
@@ -290,4 +357,124 @@ export function richToDoc(blocks: readonly RichBlock[]): JSONContent {
     type: "doc",
     content: content.length > 0 ? content : [{ type: "paragraph" }],
   };
+}
+
+/** A link in the editor: its document range, text and address. */
+export type EditorLink = {
+  from: number;
+  to: number;
+  text: string;
+  href: string;
+};
+
+/**
+ * What the link dialog is for: the link the selection starts in (`edit`), the selected text to
+ * make a link (`selection`), or a new link at the caret (`insert`); where, and the text and
+ * address it starts with.
+ */
+export type LinkRequest = EditorLink & {
+  mode: "edit" | "selection" | "insert";
+};
+
+/** The link around document position `pos`, at either of its edges or inside it, or null. */
+export function linkAround(editor: Editor, pos: number): EditorLink | null {
+  const type = editor.schema.marks.link;
+  const { doc } = editor.state;
+  if (!type || pos < 0 || pos > doc.content.size) return null;
+  const range = getMarkRange(doc.resolve(pos), type);
+  if (!range) return null;
+  const { from, to } = range;
+  const mark = doc
+    .resolve(from + 1)
+    .marks()
+    .find((each) => each.type === type);
+  if (!mark) return null;
+  return {
+    from,
+    to,
+    text: doc.textBetween(from, to),
+    href: String(mark.attrs.href ?? ""),
+  };
+}
+
+/** What the link button (⌘K) opens the dialog for, from the editor's selection. */
+export function linkRequest(editor: Editor): LinkRequest {
+  const { from, to, empty } = editor.state.selection;
+  const link = linkAround(editor, from);
+  if (link !== null) {
+    return { mode: "edit", ...link };
+  } else if (!empty) {
+    const text = editor.state.doc.textBetween(from, to);
+    return { mode: "selection", from, to, text, href: "" };
+  } else {
+    return { mode: "insert", from, to, text: "", href: "" };
+  }
+}
+
+/**
+ * Save the link dialog: make `request`'s text a link to `href` with its words as `text` (an
+ * edited link's words keep the styles its first letter had), the caret after it. A link to
+ * anything but an http, https or mailto address isn't saved.
+ */
+export function saveLink(
+  editor: Editor,
+  request: LinkRequest,
+  text: string,
+  typedHref: string,
+): void {
+  const href = safeHref(typedHref);
+  if (href === null) {
+    return;
+  } else if (request.mode === "selection") {
+    editor
+      .chain()
+      .focus()
+      .setTextSelection({ from: request.from, to: request.to })
+      .setLink({ href })
+      .setTextSelection(request.to)
+      .run();
+  } else if (request.mode === "insert") {
+    editor
+      .chain()
+      .focus()
+      .insertContentAt(request.from, {
+        type: "text",
+        text,
+        marks: [{ type: "link", attrs: { href } }],
+      })
+      .unsetMark("link")
+      .run();
+  } else {
+    const link = linkAround(editor, request.from + 1);
+    if (link === null) return;
+    const marks = editor.state.doc
+      .resolve(link.from + 1)
+      .marks()
+      .filter((mark) => mark.type.name !== "link")
+      .map((mark) => mark.toJSON());
+    editor
+      .chain()
+      .focus()
+      .insertContentAt(
+        { from: link.from, to: link.to },
+        {
+          type: "text",
+          text,
+          marks: [...marks, { type: "link", attrs: { href } }],
+        },
+      )
+      .unsetMark("link")
+      .run();
+  }
+}
+
+/** Turn `link` back into plain text, its words kept, the caret after it. */
+export function removeLink(editor: Editor, link: EditorLink): void {
+  editor
+    .chain()
+    .focus()
+    .setTextSelection({ from: link.from, to: link.to })
+    .unsetLink()
+    .setTextSelection(link.to)
+    .run();
 }

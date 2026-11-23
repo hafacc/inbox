@@ -1,5 +1,7 @@
 package cc.hafa.inbox.core.compose
 
+import cc.hafa.inbox.core.mail.findWebLinks
+
 // Port of shared/src/compose/markdown-spans.ts; both run shared/testdata/markdown-span-fixtures.json.
 
 /** What a styled stretch of the composer's text is. */
@@ -36,38 +38,10 @@ data class MarkdownSpan(
 /** JavaScript's `\s` as the inside of a regex character class, which Java's `\s` (ASCII only) isn't. */
 const val SPACE = """\t\n\u000B\f\r \u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF"""
 private val IMAGE = Regex("""!\[[^\]\n]*]\(cid:[^$SPACE()]+\)""", RegexOption.IGNORE_CASE)
-private val BARE_URL = Regex("""(?:https?://|www\.)[^$SPACE<]+""", RegexOption.IGNORE_CASE)
-private val URL_PREFIX = Regex("""(?:https?://|www\.)""", RegexOption.IGNORE_CASE)
-private const val TRAILING_PUNCTUATION = "?!.,:;*_~'\""
-
-// web's /[\p{L}\p{N}]/u tested on one UTF-16 unit, so half a surrogate pair is neither.
-private fun isAlphanumeric(codePoint: Int): Boolean = when (Character.getType(codePoint).toByte()) {
-    Character.UPPERCASE_LETTER, Character.LOWERCASE_LETTER, Character.TITLECASE_LETTER, Character.MODIFIER_LETTER,
-    Character.OTHER_LETTER, Character.DECIMAL_DIGIT_NUMBER, Character.LETTER_NUMBER, Character.OTHER_NUMBER,
-    -> true
-    else -> false
-}
-
-/** A bare URL's length once trailing punctuation and unmatched closing parentheses are left out. */
-private fun bareUrlLength(url: String): Int {
-    var length = url.length
-    while (length > 0) {
-        val last = url[length - 1]
-        if (last in TRAILING_PUNCTUATION) {
-            length--
-        } else if (last == ')') {
-            val kept = url.substring(0, length)
-            if (kept.count { it == ')' } > kept.count { it == '(' }) length-- else return length
-        } else {
-            return length
-        }
-    }
-    return length
-}
-
-/** Inline images and bare URLs, in order; they never overlap. */
+/** Inline images and bare URLs (web addresses, as [findWebLinks] finds them), in order; they never overlap. */
 private fun literalSpans(text: String): MutableList<MarkdownSpan> {
     val spans = mutableListOf<MarkdownSpan>()
+    val links = findWebLinks(text).associateBy { it.start }
     var index = 0
     while (index < text.length) {
         val char = text[index]
@@ -79,16 +53,11 @@ private fun literalSpans(text: String): MutableList<MarkdownSpan> {
                 continue
             }
         }
-        if (char in "hwHW" && (index == 0 || !isAlphanumeric(text[index - 1].code))) {
-            val match = BARE_URL.matchAt(text, index)
-            if (match != null) {
-                val length = bareUrlLength(match.value)
-                if (length > URL_PREFIX.matchAt(match.value, 0)!!.value.length) {
-                    spans.add(MarkdownSpan(index, index + length, MarkdownSpanKind.URL))
-                    index += length
-                    continue
-                }
-            }
+        val link = links[index]
+        if (link != null) {
+            spans.add(MarkdownSpan(index, link.end, MarkdownSpanKind.URL))
+            index = link.end
+            continue
         }
         index++
     }

@@ -1,6 +1,7 @@
-<!-- @component A message's body: sanitized HTML in a sandboxed frame with remote images held back until shown (then loaded straight from the sender), or plain text; a quoted earlier message is folded behind a "…" button. -->
+<!-- @component A message's body: sanitized HTML in a sandboxed frame with remote images held back until shown (then loaded straight from the sender), or plain text with its web addresses as links; a quoted earlier message is folded behind a "…" button. -->
 <script lang="ts">
   import { splitQuotedHtml, splitQuotedText } from "@inbox/shared/compose";
+  import { webLinkPieces } from "@inbox/shared/web-links";
   import ImageOff from "@lucide/svelte/icons/image-off";
   import { untrack } from "svelte";
   import { getComposeHub } from "../compose/compose-hub.svelte";
@@ -166,7 +167,21 @@
   <div
     class="max-w-[640px] whitespace-pre-wrap break-words text-sm leading-[22px]"
   >
-    {(showQuote ? message.body.text : textSplit.body).trimEnd()}
+    {#each webLinkPieces(
+      (showQuote ? message.body.text : textSplit.body).trimEnd(),
+    ) as piece, index (index)}
+      {#if piece.href === null}
+        {piece.text}
+      {:else}
+        <a
+          href={piece.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="text-accent-strong underline underline-offset-2"
+          >{piece.text}</a
+        >
+      {/if}
+    {/each}
   </div>
   {#if hasQuote}
     <QuoteToggle bind:open={showQuote} />

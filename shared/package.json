@@ -50,6 +50,7 @@
     "./unsubscribe": "./src/unsubscribe.ts",
     "./calendar": "./src/calendar.ts",
     "./links": "./src/links.ts",
+    "./web-links": "./src/web-links.ts",
     "./format": "./src/format.ts",
     "./local-time": "./src/local-time.ts",
     "./time-format": "./src/time-format.ts",

@@ -1,7 +1,7 @@
 {
   "_doc": {
     "about": "The composer's text, read the same way by web (shared/src/compose/markdown-spans.ts) and Android :core (MarkdownSpans.kt): latr's *bold* and _italic_ (inline-style-fixtures.json has the full rules), bare URLs and inline images.",
-    "spans": "Each span is [start, end, kind] in UTF-16 units, end exclusive. image: '![alt](cid:id)' (alt without ']' or a line break; id without whitespace or parentheses), read first. url: at a character not preceded by a letter or number, 'http://', 'https://' or 'www.' (any case) then characters up to whitespace or '<', with trailing ? ! . , : ; * _ ~ ' \" and unmatched ')' dropped, and something left after the prefix. Images and URLs are then treated as letters while latr's style rules find bold and italic; each of those spans includes its markers and each marker also has its own 'marker' span. Order: start ascending, then end descending, then kind in the order image, url, bold, italic, marker.",
+    "spans": "Each span is [start, end, kind] in UTF-16 units, end exclusive. image: '![alt](cid:id)' (alt without ']' or a line break; id without whitespace or parentheses), read first. url: a web address as web-link-fixtures.json finds it (http(s):// URLs and bare domains with a known top-level domain), outside an image. Images and URLs are then treated as letters while latr's style rules find bold and italic; each of those spans includes its markers and each marker also has its own 'marker' span. Order: start ascending, then end descending, then kind in the order image, url, bold, italic, marker.",
     "wrap": "wrapSelection(text, start, end, marker) as latr's: trim whitespace off the selection; if the marker sits just outside it, remove those two; else if it starts and ends with the marker (2+ characters), remove those; else wrap it. Gives the replaced range [from, to), the insert, and the selection after."
   },
   "spans": [
@@ -59,6 +59,16 @@
       "name": "www url",
       "text": "www.example.org",
       "spans": [[0,15,"url"]]
+    },
+    {
+      "name": "bare domain with a path, its period left out",
+      "text": "see example.com/a_b_c.",
+      "spans": [[4,21,"url"]]
+    },
+    {
+      "name": "file names and email addresses aren't urls",
+      "text": "notes.txt to ana@example.com",
+      "spans": []
     },
     {
       "name": "url keeps balanced parentheses",

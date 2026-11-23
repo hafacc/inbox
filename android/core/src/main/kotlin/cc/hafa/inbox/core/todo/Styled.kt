@@ -1,11 +1,12 @@
 package cc.hafa.inbox.core.todo
 
 import cc.hafa.inbox.core.compose.InlineStyle
+import cc.hafa.inbox.core.mail.findWebLinks
 
 // latr's styled text tree, the same as shared/src/todos/styled.ts (ported from latr's web
 // inline-style.ts styledTree); both run the `styled` cases of shared/testdata/todo-list-fixtures.json.
 
-/** A piece of a todo's text as shown: plain text, a style marker, a `#tag`, or a styled span. */
+/** A piece of a todo's text as shown: plain text, a style marker, a `#tag`, a web address, or a styled span. */
 sealed interface StyledNode {
     /** Plain text. */
     data class Text(
@@ -25,6 +26,14 @@ sealed interface StyledNode {
         val text: String,
     ) : StyledNode
 
+    /** A web address. */
+    data class Link(
+        /** the address as written */
+        val text: String,
+        /** where it leads */
+        val href: String,
+    ) : StyledNode
+
     /** A styled span: its markers and what they hold. */
     data class Span(
         /** the style */
@@ -34,21 +43,35 @@ sealed interface StyledNode {
     ) : StyledNode
 }
 
-/** The (properly nested) styled spans of [text] as a tree, with markers and `#tags` as their own leaves. */
+// A `#tag` or a web address (with its [href]) in a todo's text.
+private class Leaf(val start: Int, val end: Int, val href: String?)
+
+/**
+ * The (properly nested) styled spans of [text] as a tree, with markers, `#tags` and web addresses
+ * as their own leaves. Web addresses are found first and count as letters to the style and tag
+ * rules, so no marker or `#` inside one styles it.
+ */
 fun styledTree(text: String): List<StyledNode> {
-    val spans = InlineStyle.parse(text)
-    val tags = Tags.parse(text)
+    val links = findWebLinks(text)
+    val masked = StringBuilder(text)
+    for (link in links) {
+        for (index in link.start until link.end) masked.setCharAt(index, 'a')
+    }
+    val spans = InlineStyle.parse(masked.toString())
+    val leaves = (Tags.parse(masked.toString()).map { Leaf(it.start, it.end, null) } + links.map { Leaf(it.start, it.end, it.href) })
+        .sortedBy { it.start }
     var next = 0
 
-    // Pushes text[from, to), cutting out the parts of tags inside it.
+    // Pushes text[from, to), cutting out the parts of tags and links inside it.
     fun pushText(nodes: MutableList<StyledNode>, from: Int, to: Int) {
         var pos = from
-        for (tag in tags) {
-            val start = maxOf(tag.start, pos)
-            val end = minOf(tag.end, to)
+        for (leaf in leaves) {
+            val start = maxOf(leaf.start, pos)
+            val end = minOf(leaf.end, to)
             if (start >= end) continue
             if (start > pos) nodes += StyledNode.Text(text.substring(pos, start))
-            nodes += StyledNode.Tag(text.substring(start, end))
+            val piece = text.substring(start, end)
+            nodes += leaf.href?.let { StyledNode.Link(piece, it) } ?: StyledNode.Tag(piece)
             pos = end
         }
         if (pos < to) nodes += StyledNode.Text(text.substring(pos, to))
@@ -79,7 +102,7 @@ fun styledTree(text: String): List<StyledNode> {
     return build(text.length, 0)
 }
 
-/** A todo's text as a one-line summary shows it: its style markers dropped, its tags kept. */
+/** A todo's text as a one-line summary shows it: its style markers dropped, its tags and web addresses kept whole. */
 fun styledPlain(text: String): String {
     fun flatten(nodes: List<StyledNode>): String = nodes.joinToString("") { node ->
         when (node) {
@@ -87,6 +110,7 @@ fun styledPlain(text: String): String {
             is StyledNode.Marker -> ""
             is StyledNode.Text -> node.text
             is StyledNode.Tag -> node.text
+            is StyledNode.Link -> node.text
         }
     }
     return flatten(styledTree(text)).trim()

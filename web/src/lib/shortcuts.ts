@@ -98,6 +98,7 @@ export function shortcutColumns(todos = false): ShortcutGroup[][] {
           { action: "Reply all", keys: ["a"] },
           { action: "Forward", keys: ["f"] },
           { action: "Send", keys: [mac ? "⌘↵" : "Ctrl+Enter"] },
+          { action: "Add or edit a link, in a message", keys: [`${command}K`] },
         ],
       },
     ],

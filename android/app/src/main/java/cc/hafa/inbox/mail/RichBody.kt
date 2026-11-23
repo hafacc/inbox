@@ -2,6 +2,8 @@ package cc.hafa.inbox.mail
 
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.text.AnnotatedString
@@ -14,9 +16,18 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextIndent
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import cc.hafa.inbox.core.compose.LinkMode
+import cc.hafa.inbox.core.compose.LinkRequest
 import cc.hafa.inbox.core.compose.RichBlock
 import cc.hafa.inbox.core.compose.RichMark
 import cc.hafa.inbox.core.compose.RichRun
+import cc.hafa.inbox.core.compose.RunLink
+import cc.hafa.inbox.core.compose.linkRequest
+import cc.hafa.inbox.core.compose.removeLink
+import cc.hafa.inbox.core.compose.runLinkAround
+import cc.hafa.inbox.core.compose.runLinks
+import cc.hafa.inbox.core.compose.saveLink
+import cc.hafa.inbox.core.mail.finishedWebLink
 import cc.hafa.inbox.core.compose.SPACE
 import cc.hafa.inbox.core.compose.markdownToRich
 import cc.hafa.inbox.core.compose.normalizeRuns
@@ -251,10 +262,11 @@ fun htmlToMarkdown(html: String): String =
  * does, held in a Compose Rich Editor state and handed out as this app's markdown and HTML.
  *
  * The library turns `- `, `* ` and `1. ` into lists itself; the rest of the web composer's
- * shortcuts run here as each change lands (see [watch]).
+ * shortcuts run here as each change lands (see [watch]). It starts from [markdown], read as
+ * [load] reads it with [bareLinks].
  */
 @OptIn(ExperimentalRichTextApi::class)
-class RichBody(markdown: String) {
+class RichBody(markdown: String, bareLinks: Boolean = false) {
     /** the editor's state */
     val state = RichTextState()
 
@@ -275,7 +287,7 @@ class RichBody(markdown: String) {
     private var cachedCaretLine = 0 to ""
 
     init {
-        load(markdown)
+        load(markdown, bareLinks)
     }
 
     private val richBlocks: List<RichBlock> by derivedStateOf {
@@ -292,9 +304,13 @@ class RichBody(markdown: String) {
     /** whether nothing is typed */
     val isEmpty: Boolean by derivedStateOf { state.annotatedString.text.isEmpty() }
 
-    /** Replace the text with [markdown], the caret at its start. */
-    fun load(markdown: String) {
-        state.setRichTextDocument(richToDocument(markdownToRich(markdown)), TextRange(0))
+    /**
+     * Replace the text with [markdown], the caret at its start: the composer's own markdown, whose
+     * links are written out, or with [bareLinks] markdown from elsewhere, whose bare web addresses
+     * are links too.
+     */
+    fun load(markdown: String, bareLinks: Boolean = false) {
+        state.setRichTextDocument(richToDocument(markdownToRich(markdown, bareLinks)), TextRange(0))
         record()
     }
 
@@ -317,6 +333,84 @@ class RichBody(markdown: String) {
             documentOf = text
         }
         return cachedDocument
+    }
+
+    /** The link dialog showing: what it is for, on which line of the document; null when closed. */
+    var linkDialog by mutableStateOf<BodyLinkRequest?>(null)
+
+    /** The links in the text, in order, each with the line it is on. */
+    val links: List<BodyLink> by derivedStateOf {
+        state.annotatedString
+        currentDocument().blocks.flatMapIndexed { index, block ->
+            if (block.isCode()) emptyList() else runLinks(runsOf(block)).map { BodyLink(index, it) }
+        }
+    }
+
+    /**
+     * The link around [offset] of the text, from just before its first letter to just after its
+     * last, or (with [letter]) the link whose letter is at [offset]; null if none.
+     */
+    fun linkAt(offset: Int, letter: Boolean = false): BodyLink? {
+        val (index, inLine) = lineAt(offset)
+        val block = currentDocument().blocks.getOrNull(index)?.takeUnless { it.isCode() } ?: return null
+        val runs = runsOf(block)
+        val link = if (letter) runLinks(runs).firstOrNull { inLine >= it.start && inLine < it.end } else runLinkAround(runs, inLine)
+        return link?.let { BodyLink(index, it, offset - inLine) }
+    }
+
+    /**
+     * Open the link dialog as the link button does: to edit the link the selection starts in, make
+     * the selected text (on its first line) a link, or add one at the caret.
+     */
+    fun requestLink() {
+        val selection = state.selection
+        val (index, start) = lineAt(selection.min)
+        val block = currentDocument().blocks.getOrNull(index)?.takeUnless { it.isCode() } ?: return
+        val end = minOf(start + selection.length, block.text.length)
+        linkDialog = BodyLinkRequest(index, linkRequest(runsOf(block), start, end), selection.min - start)
+    }
+
+    /** Open the link dialog to edit [link]. */
+    fun editLink(link: BodyLink) {
+        val found = link.link
+        linkDialog = BodyLinkRequest(link.line, LinkRequest(LinkMode.EDIT, found.start, found.end, found.text, found.href), link.lineStart)
+    }
+
+    /** Save the link dialog with [text] and [href], the caret after the link. */
+    fun saveLink(text: String, href: String) {
+        val dialog = linkDialog ?: return
+        linkDialog = null
+        changeLine(dialog.line, dialog.lineStart?.let { it + dialog.request.start + text.length }) { runs ->
+            saveLink(runs, dialog.request, text, href)
+        }
+    }
+
+    /** Turn [link] back into plain text, its words kept. */
+    fun removeLink(link: BodyLink) {
+        changeLine(link.line, null) { runs -> removeLink(runs, link.link) }
+    }
+
+    // Replace line [index]'s runs with [change]'s, the caret at [caret] (where it was when null).
+    private fun changeLine(index: Int, caret: Int?, change: (List<RichRun>) -> List<RichRun>) {
+        val document = currentDocument()
+        val block = document.blocks.getOrNull(index)?.takeUnless { it.isCode() } ?: return
+        val runs = change(runsOf(block))
+        val blocks = document.blocks.toMutableList()
+        blocks[index] = block.copy(text = runs.joinToString("") { it.text }, spans = marksOf(runs))
+        val at = (caret ?: state.selection.min).coerceAtLeast(0)
+        state.setRichTextDocument(RichTextDocument(blocks), TextRange(at))
+        record()
+    }
+
+    // The line of the document [offset] of the text is on, and where on it. A range's document
+    // leaves out a line that starts where the range ends, so the text after the offset tells.
+    private fun lineAt(offset: Int): Pair<Int, Int> {
+        val length = state.annotatedString.text.length
+        val at = offset.coerceIn(0, length)
+        val before = state.toRichTextDocument(TextRange(0, at)).blocks
+        val after = state.toRichTextDocument(TextRange(at, length)).blocks
+        val total = currentDocument().blocks.size
+        return if (before.isNotEmpty() && before.size + after.size > total) before.lastIndex to before.last().text.length else before.size to 0
     }
 
     /** Toggle bold on the selection, or for what is typed next. */
@@ -400,13 +494,34 @@ class RichBody(markdown: String) {
             if (index in document.blocks.indices) {
                 if (newLines > 0 && line.isEmpty() && index > 0) {
                     enter(document, index)
+                    currentDocument().blocks.getOrNull(index - 1)?.let { linkFinished(index - 1, it.text) }
                 } else if (newLines == 0 && !keepCode(document, index)) {
-                    typed(document.blocks[index], line)
+                    val linked = line.endsWith(' ') && linkFinished(index, line.dropLast(1))
+                    if (!linked) typed(document.blocks[index], line)
                 }
                 codeFont()
             }
         }
         record()
+    }
+
+    // Link the web address that ends [before], the start of line [index], once a space or line
+    // break follows it, unless it is in code or already a link. Whether it linked one.
+    private fun linkFinished(index: Int, before: String): Boolean {
+        val block = currentDocument().blocks.getOrNull(index)?.takeUnless { it.isCode() } ?: return false
+        val found = finishedWebLink(before) ?: return false
+        val runs = runsOf(block)
+        var offset = 0
+        val taken = runs.any { run ->
+            val at = offset
+            offset += run.text.length
+            at < found.end && found.start < offset && (run.href != null || RichMark.CODE in run.marks)
+        }
+        if (taken) return false
+        changeLine(index, state.selection.min) { line ->
+            saveLink(line, LinkRequest(LinkMode.SELECTION, found.start, found.end, "", ""), "", found.href)
+        }
+        return true
     }
 
     private fun restyle(document: RichTextDocument, caret: Int, change: (MutableList<RichTextBlock>) -> Unit) {
@@ -558,6 +673,26 @@ class RichBody(markdown: String) {
         const val BULLET = 9
     }
 }
+
+/** A link in the composer's text: the line of the editor's document it is on, and where on that line. */
+data class BodyLink(
+    /** its line in the editor's document */
+    val line: Int,
+    /** the link on that line */
+    val link: RunLink,
+    /** where that line starts in the text, when known */
+    val lineStart: Int? = null,
+)
+
+/** What the composer's link dialog is for: the line, the request on it, and where that line starts in the text, if known. */
+data class BodyLinkRequest(
+    /** its line in the editor's document */
+    val line: Int,
+    /** what it is for on that line */
+    val request: LinkRequest,
+    /** where the line starts in the text, to put the caret after the link; null to leave it */
+    val lineStart: Int?,
+)
 
 private fun RichBlock.withRuns(runs: List<RichRun>): RichBlock = when (this) {
     is RichBlock.Paragraph -> copy(runs = runs)

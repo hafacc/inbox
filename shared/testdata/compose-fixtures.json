@@ -47,7 +47,7 @@
     {
       "name": "bare URLs",
       "markdown": "Read https://example.com/a?b=1&c=2 or www.example.org.",
-      "html": "Read <a href=\"https://example.com/a?b=1&amp;c=2\">https://example.com/a?b=1&amp;c=2</a> or <a href=\"http://www.example.org\">www.example.org</a>.",
+      "html": "Read <a href=\"https://example.com/a?b=1&amp;c=2\">https://example.com/a?b=1&amp;c=2</a> or <a href=\"https://www.example.org\">www.example.org</a>.",
       "text": "Read https://example.com/a?b=1&c=2 or www.example.org."
     },
     {
@@ -1246,7 +1246,7 @@
         "extraHeaders": [],
         "boundary": "b0"
       },
-      "expect": "From: =?UTF-8?B?QW5hIEzDs3Bleg==?= <test@hafa.cc>\r\nTo: Bob <bob@example.com>\r\nCc: Cat <cat@example.com>\r\nBcc: me@gmail.example.com\r\nSubject: Re: Hello\r\nIn-Reply-To: <a2@x>\r\nReferences: <a1@x> <a2@x>\r\nMIME-Version: 1.0\r\nContent-Type: multipart/alternative; boundary=\"=_b0_0\"\r\n\r\n--=_b0_0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\nHi *Bob*,\r\n\r\nSee you soon.\r\n\r\n--=20\r\nAna\r\nhafa.cc\r\n--=_b0_0\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n<div dir=3D\"auto\">Hi <b>Bob</b>,<br><br>See you soon.</div><div class=3D\"si=\r\ngnature\">Ana<br>hafa.cc</div>\r\n--=_b0_0--\r\n"
+      "expect": "From: =?UTF-8?B?QW5hIEzDs3Bleg==?= <test@hafa.cc>\r\nTo: Bob <bob@example.com>\r\nCc: Cat <cat@example.com>\r\nBcc: me@gmail.example.com\r\nSubject: Re: Hello\r\nIn-Reply-To: <a2@x>\r\nReferences: <a1@x> <a2@x>\r\nMIME-Version: 1.0\r\nContent-Type: multipart/alternative; boundary=\"=_b0_0\"\r\n\r\n--=_b0_0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\nHi *Bob*,\r\n\r\nSee you soon.\r\n\r\n--=20\r\nAna\r\nhafa.cc\r\n--=_b0_0\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n<div dir=3D\"auto\">Hi <b>Bob</b>,<br><br>See you soon.</div><div class=3D\"si=\r\ngnature\">Ana<br><a href=3D\"https://hafa.cc\">hafa.cc</a></div>\r\n--=_b0_0--\r\n"
     },
     {
       "name": "inline image: related around alternative",

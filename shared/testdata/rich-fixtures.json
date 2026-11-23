@@ -1,9 +1,12 @@
 {
   "_doc": {
     "about": "The composer's rich text (shared/src/compose/rich.ts, Android :core Rich.kt) and what typing markdown turns into in each editor (web: Tiptap, Android: Compose Rich Editor). Blocks are one per line: paragraph, heading (level), bullet, ordered (number), quote (each with runs: text, marks in the order bold, italic, strike, code, and href for links) or code (text with LF lines).",
-    "markdown": "markdownToRich(markdown) is `blocks`; richToHtml(blocks) is `html` (compared after normalizeHtml); richToMarkdown(blocks) is `text`, the plain-text part. Both editors load each `markdown` and hand back the same blocks.",
-    "write": "richToMarkdown(blocks) is `text`, and markdownToRich(text) is `reread`: what the editors hold that markdown can't say as is.",
-    "typing": "`typed` typed into an empty editor, a key at a time, \"\\n\" as Enter; richToHtml of what the editor holds is `html` and richToMarkdown is `text`. `*bold*` takes one star and `_italic_` underscores; the rest are each library's own markdown shortcuts."
+    "markdown": "markdownToRich(markdown) with bare links (markdown typed elsewhere, as a signature) is `blocks`: a `[text](url)` only to an http, https or mailto address, its scheme in lower case; richToHtml(blocks) is `html` (compared after normalizeHtml), a link only to such an address; richToMarkdown(blocks) is `text`, the plain-text part, every link written out. Both editors load each `markdown` with bare links and hand back the same blocks.",
+    "write": "richToMarkdown(blocks) is `text`, and markdownToRich(text) without bare links, as the composer reads back its own markdown, is `reread`: what the editors hold that markdown can't say as is; richToHtml(blocks) is `html` when given.",
+    "typing": "`typed` typed into an empty editor, a key at a time, \"\\n\" as Enter; richToHtml of what the editor holds is `html` and richToMarkdown is `text`. `*bold*` takes one star and `_italic_` underscores; the rest are each library's own markdown shortcuts.",
+    "links": "Link editing in each editor. `markdown` (one paragraph) is loaded and the selection set to `select`, offsets into the paragraph's text. The link button then opens the dialog for `dialog`: the link the selection starts in (`edit`, from just before its first letter to just after its last), else the selected text (`selection`), else a new link at the caret (`insert`), with the text and address it starts with. `remove` turns that link back into plain text; otherwise the dialog is saved with `text` and `href`. The editor then holds `expect` as markdown.",
+    "plain": "plainLinks(markdown) is `text`, the plain-text part a draft or sent message carries: a link whose text is just its address (scheme http, https or mailto, a trailing slash and case aside) is written as that bare address where the line read back finds it there; other links stay `[text](url)`. draftLinks(text, the HTML markdownToHtml(markdown) without bare links writes) gives `markdown` back.",
+    "draft": "draftLinks(text, html) is `markdown`: a reopened draft's plain-text part with its links taken from its HTML part (null for none). A bare address becomes `[address](url)`, with the link's own address, only where the HTML shows it as a link of just that text, counted in order among that address's appearances in each; links already written out stay."
   },
   "markdown": [
     {
@@ -73,13 +76,40 @@
       "text": "see [*the* docs](https://hafa.cc/docs) here"
     },
     {
-      "name": "bare URLs and www link when sent",
+      "name": "bare web addresses are links to themselves",
       "markdown": "at https://hafa.cc/a?b=1, or www.hafa.cc.",
       "blocks": [
-        {"kind": "paragraph", "runs": [{"text": "at https://hafa.cc/a?b=1, or www.hafa.cc."}]}
+        {"kind": "paragraph", "runs": [{"text": "at "}, {"text": "https://hafa.cc/a?b=1", "href": "https://hafa.cc/a?b=1"}, {"text": ", or "}, {"text": "www.hafa.cc", "href": "https://www.hafa.cc"}, {"text": "."}]}
       ],
-      "html": "at <a href=\"https://hafa.cc/a?b=1\">https://hafa.cc/a?b=1</a>, or <a href=\"http://www.hafa.cc\">www.hafa.cc</a>.",
-      "text": "at https://hafa.cc/a?b=1, or www.hafa.cc."
+      "html": "at <a href=\"https://hafa.cc/a?b=1\">https://hafa.cc/a?b=1</a>, or <a href=\"https://www.hafa.cc\">www.hafa.cc</a>.",
+      "text": "at [https://hafa.cc/a?b=1](https://hafa.cc/a?b=1), or [www.hafa.cc](https://www.hafa.cc)."
+    },
+    {
+      "name": "markers inside a bare address style nothing; inside code it stays text",
+      "markdown": "see example.com/a_b_c and `x.com`",
+      "blocks": [
+        {"kind": "paragraph", "runs": [{"text": "see "}, {"text": "example.com/a_b_c", "href": "https://example.com/a_b_c"}, {"text": " and "}, {"text": "x.com", "marks": ["code"]}]}
+      ],
+      "html": "see <a href=\"https://example.com/a_b_c\">example.com/a_b_c</a> and <code>x.com</code>",
+      "text": "see [example.com/a_b_c](https://example.com/a_b_c) and `x.com`"
+    },
+    {
+      "name": "a markdown link to anything but a web or mail address stays as typed",
+      "markdown": "[x](javascript:alert(1)) and [y](data:text/html,z)",
+      "blocks": [
+        {"kind": "paragraph", "runs": [{"text": "[x](javascript:alert(1)) and [y](data:text/html,z)"}]}
+      ],
+      "html": "[x](javascript:alert(1)) and [y](data:text/html,z)",
+      "text": "[x](javascript:alert(1)) and [y](data:text/html,z)"
+    },
+    {
+      "name": "a link's scheme is put in lower case",
+      "markdown": "[x](HTTPS://a.com) and [y](MailTo:ana@a.com)",
+      "blocks": [
+        {"kind": "paragraph", "runs": [{"text": "x", "href": "https://a.com"}, {"text": " and "}, {"text": "y", "href": "mailto:ana@a.com"}]}
+      ],
+      "html": "<a href=\"https://a.com\">x</a> and <a href=\"mailto:ana@a.com\">y</a>",
+      "text": "[x](https://a.com) and [y](mailto:ana@a.com)"
     },
     {
       "name": "inline image",
@@ -265,9 +295,53 @@
       "blocks": [{"kind": "paragraph", "runs": [{"text": "a", "href": "https://x.test/((b))"}]}],
       "text": "[a](https://x.test/%28%28b%29%29)",
       "reread": [{"kind": "paragraph", "runs": [{"text": "a", "href": "https://x.test/%28%28b%29%29"}]}]
+    },
+    {
+      "name": "a web address the user took the link off stays plain when the composer reads it back, and when sent",
+      "blocks": [{"kind": "paragraph", "runs": [{"text": "see example.com and "}, {"text": "a.com", "href": "https://a.com"}]}],
+      "text": "see example.com and [a.com](https://a.com)",
+      "reread": [{"kind": "paragraph", "runs": [{"text": "see example.com and "}, {"text": "a.com", "href": "https://a.com"}]}],
+      "html": "see example.com and <a href=\"https://a.com\">a.com</a>"
+    },
+    {
+      "name": "a link to anything but a web or mail address is sent as plain text and reads back as typed",
+      "blocks": [{"kind": "paragraph", "runs": [{"text": "x", "href": "javascript:alert(1)"}]}],
+      "text": "[x](javascript:alert(1))",
+      "reread": [{"kind": "paragraph", "runs": [{"text": "[x](javascript:alert(1))"}]}],
+      "html": "x"
     }
   ],
   "typing": [
+    {
+      "name": "a web address becomes a link once a space follows it",
+      "typed": "see example.com then",
+      "html": "see <a href=\"https://example.com\">example.com</a> then",
+      "text": "see [example.com](https://example.com) then"
+    },
+    {
+      "name": "a finished URL leaves its trailing period out",
+      "typed": "go to https://a.com/x. ok",
+      "html": "go to <a href=\"https://a.com/x\">https://a.com/x</a>. ok",
+      "text": "go to [https://a.com/x](https://a.com/x). ok"
+    },
+    {
+      "name": "Enter finishes a web address too",
+      "typed": "example.com\nnext",
+      "html": "<a href=\"https://example.com\">example.com</a><br>next",
+      "text": "[example.com](https://example.com)\nnext"
+    },
+    {
+      "name": "no link inside inline code",
+      "typed": "`a x.com b` y",
+      "html": "<code>a x.com b</code> y",
+      "text": "`a x.com b` y"
+    },
+    {
+      "name": "a file name stays text",
+      "typed": "open notes.txt now",
+      "html": "open notes.txt now",
+      "text": "open notes.txt now"
+    },
     {
       "name": "bold takes one star",
       "typed": "hi *bold* there",
@@ -413,10 +487,10 @@
       "text": "see [docs](https://hafa.cc) ok"
     },
     {
-      "name": "a bare URL stays text and becomes a link when sent",
+      "name": "a full URL becomes a link once a space follows it",
       "typed": "go to https://hafa.cc now",
       "html": "go to <a href=\"https://hafa.cc\">https://hafa.cc</a> now",
-      "text": "go to https://hafa.cc now"
+      "text": "go to [https://hafa.cc](https://hafa.cc) now"
     },
     {
       "name": "styles inside a list item",
@@ -430,5 +504,46 @@
       "html": "x <b>a</b> <i>b</i> <s>c</s> <code>d</code>",
       "text": "x *a* _b_ ~~c~~ `d`"
     }
+  ],
+  "links": [
+    {"name": "caret inside a link edits it", "markdown": "Read [the docs](https://a.com/x) now", "select": [7, 7], "dialog": {"mode": "edit", "text": "the docs", "href": "https://a.com/x"}, "text": "the guide", "href": "https://b.com", "expect": "Read [the guide](https://b.com) now"},
+    {"name": "caret on a link's first letter edits it", "markdown": "Read [the docs](https://a.com/x) now", "select": [5, 5], "dialog": {"mode": "edit", "text": "the docs", "href": "https://a.com/x"}, "text": "the docs", "href": "https://b.com", "expect": "Read [the docs](https://b.com) now"},
+    {"name": "caret just after a link edits it", "markdown": "Read [docs](https://a.com/x) now", "select": [9, 9], "dialog": {"mode": "edit", "text": "docs", "href": "https://a.com/x"}, "text": "docs", "href": "https://b.com", "expect": "Read [docs](https://b.com) now"},
+    {"name": "selection starting in a link edits it", "markdown": "Read [the docs](https://a.com/x) now", "select": [6, 16], "dialog": {"mode": "edit", "text": "the docs", "href": "https://a.com/x"}, "text": "docs", "href": "https://a.com/x", "expect": "Read [docs](https://a.com/x) now"},
+    {"name": "remove keeps the words", "markdown": "Read [the docs](https://a.com/x) now", "select": [7, 7], "dialog": {"mode": "edit", "text": "the docs", "href": "https://a.com/x"}, "remove": true, "expect": "Read the docs now"},
+    {"name": "selected text becomes a link", "markdown": "Read the docs now", "select": [5, 13], "dialog": {"mode": "selection", "text": "the docs", "href": ""}, "text": "the docs", "href": "https://a.com", "expect": "Read [the docs](https://a.com) now"},
+    {"name": "selected styled text keeps its style", "markdown": "Read *the docs* now", "select": [5, 13], "dialog": {"mode": "selection", "text": "the docs", "href": ""}, "text": "the docs", "href": "https://a.com", "expect": "Read [*the docs*](https://a.com) now"},
+    {"name": "nothing selected adds a link at the caret", "markdown": "Read  now", "select": [5, 5], "dialog": {"mode": "insert", "text": "", "href": ""}, "text": "docs", "href": "https://a.com", "expect": "Read [docs](https://a.com) now"},
+    {"name": "a new link whose text is its address is written out too", "markdown": "Read  now", "select": [5, 5], "dialog": {"mode": "insert", "text": "", "href": ""}, "text": "https://a.com", "href": "https://a.com", "expect": "Read [https://a.com](https://a.com) now"},
+    {"name": "the caret one letter before a link is outside it", "markdown": "Read [docs](https://a.com/x) now", "select": [4, 4], "dialog": {"mode": "insert", "text": "", "href": ""}, "text": "x", "href": "https://b.com", "expect": "Read[x](https://b.com) [docs](https://a.com/x) now"},
+    {"name": "a link to anything but a web or mail address isn't saved", "markdown": "Read docs now", "select": [5, 9], "dialog": {"mode": "selection", "text": "docs", "href": ""}, "text": "docs", "href": "javascript:alert(1)", "expect": "Read docs now"},
+    {"name": "a link's scheme is saved in lower case", "markdown": "Read docs now", "select": [5, 9], "dialog": {"mode": "selection", "text": "docs", "href": ""}, "text": "docs", "href": "HTTPS://a.com", "expect": "Read [docs](https://a.com) now"}
+  ],
+  "plain": [
+    {"name": "a link named by its address is written bare", "markdown": "see [hafa.cc](https://hafa.cc) now", "text": "see hafa.cc now"},
+    {"name": "scheme, trailing slash and case don't count", "markdown": "[HTTPS://Hafa.cc/](https://hafa.cc) and [www.hafa.cc](https://www.hafa.cc/)", "text": "HTTPS://Hafa.cc/ and www.hafa.cc"},
+    {"name": "a mail link named by its address is written bare", "markdown": "write [me@hafa.cc](mailto:me@hafa.cc).", "text": "write me@hafa.cc."},
+    {"name": "a link with other text stays written out", "markdown": "read [the docs](https://hafa.cc/docs)", "text": "read [the docs](https://hafa.cc/docs)"},
+    {"name": "a link to another page of the same site stays written out", "markdown": "[hafa.cc](https://hafa.cc/a)", "text": "[hafa.cc](https://hafa.cc/a)"},
+    {"name": "a styled link stays written out", "markdown": "[*hafa.cc*](https://hafa.cc)", "text": "[*hafa.cc*](https://hafa.cc)"},
+    {"name": "text read back as no address stays written out", "markdown": "[foo](https://foo)", "text": "[foo](https://foo)"},
+    {"name": "an address running into a word stays written out", "markdown": "x[hafa.cc](https://hafa.cc)y", "text": "x[hafa.cc](https://hafa.cc)y"},
+    {"name": "two addresses that would run together stay written out", "markdown": "[a.com](https://a.com)[b.com](https://b.com)", "text": "[a.com](https://a.com)[b.com](https://b.com)"},
+    {"name": "a code block is left as typed", "markdown": "```\n[hafa.cc](https://hafa.cc)\n```\n[hafa.cc](https://hafa.cc)", "text": "```\n[hafa.cc](https://hafa.cc)\n```\nhafa.cc"},
+    {"name": "list items, quotes and styles around the link", "markdown": "- *see* [hafa.cc](https://hafa.cc)\n> [hafa.cc/x?a=1&b=2](https://hafa.cc/x?a=1&b=2)", "text": "- *see* hafa.cc\n> hafa.cc/x?a=1&b=2"}
+  ],
+  "draft": [
+    {"name": "a bare address the HTML links becomes a link", "text": "see hafa.cc now", "html": "<div dir=\"auto\">see <a href=\"https://hafa.cc\">hafa.cc</a> now</div>", "markdown": "see [hafa.cc](https://hafa.cc) now"},
+    {"name": "one the HTML doesn't link stays plain", "text": "see hafa.cc now", "html": "<div dir=\"auto\">see hafa.cc now</div>", "markdown": "see hafa.cc now"},
+    {"name": "appearances are matched in order", "text": "hafa.cc or hafa.cc", "html": "hafa.cc or <a href=\"https://hafa.cc/\">hafa.cc</a>", "markdown": "hafa.cc or [hafa.cc](https://hafa.cc/)"},
+    {"name": "the link keeps its own address", "text": "HAFA.cc", "html": "<a href=\"http://hafa.cc/\">HAFA.cc</a>", "markdown": "[HAFA.cc](http://hafa.cc/)"},
+    {"name": "a mail address", "text": "write me@hafa.cc.", "html": "write <a href=\"mailto:me@hafa.cc\">me@hafa.cc</a>.", "markdown": "write [me@hafa.cc](mailto:me@hafa.cc)."},
+    {"name": "a link with other text links no bare address", "text": "[here](https://hafa.cc) or hafa.cc", "html": "<a href=\"https://hafa.cc\">here</a> or hafa.cc", "markdown": "[here](https://hafa.cc) or hafa.cc"},
+    {"name": "a link written out counts among the appearances", "text": "[hafa.cc](https://hafa.cc) then hafa.cc", "html": "<a href=\"https://hafa.cc\">hafa.cc</a> then hafa.cc", "markdown": "[hafa.cc](https://hafa.cc) then hafa.cc"},
+    {"name": "character references are read", "text": "hafa.cc/?a=1&b=2", "html": "<a href=\"https://hafa.cc/?a=1&amp;b=2\">hafa.cc/?a=1&amp;b=2</a>", "markdown": "[hafa.cc/?a=1&b=2](https://hafa.cc/?a=1&b=2)"},
+    {"name": "code doesn't count", "text": "`hafa.cc` hafa.cc", "html": "<code>hafa.cc</code> <a href=\"https://hafa.cc\">hafa.cc</a>", "markdown": "`hafa.cc` [hafa.cc](https://hafa.cc)"},
+    {"name": "lines and the editor's own attributes", "text": "hafa.cc\nhafa.cc", "html": "<p>hafa.cc</p><p><a target=\"_blank\" rel=\"noopener\" href=\"https://hafa.cc\">hafa.cc</a></p>", "markdown": "hafa.cc\n[hafa.cc](https://hafa.cc)"},
+    {"name": "a link to anything but a web or mail address doesn't count", "text": "hafa.cc", "html": "<a href=\"javascript:alert(1)\">hafa.cc</a>", "markdown": "hafa.cc"},
+    {"name": "no HTML part links nothing", "text": "see hafa.cc", "html": null, "markdown": "see hafa.cc"}
   ]
 }

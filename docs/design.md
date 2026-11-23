@@ -713,11 +713,17 @@ On the web, with Show todos on:
   latr's swipes, a long press for the hold menu, and no buttons under the text being edited (the
   swipes and the hold menu cover them). A tap on the text opens it with the cursor where it landed;
   a tap elsewhere on the row (above, below or beside the text) opens it with the cursor at the end.
+  Web addresses in the text are links that work as an email's do (see *Web addresses* under
+  *Images and trackers*): a tap opens one rather than the editor, and a hold gives a link's menu
+  rather than the row's. They are links in a todo row and in the open email's todo, not in the
+  one-line todo under an email's snippet or an email listed as a todo (a tap there opens the
+  email); while a todo is edited, or rows are selected (a tap selects), its text is plain.
   While a todo is edited on Android the list ends at the keyboard and keeps that todo in view, the
   last of a long list too; for 1.5 s after its edit starts it is brought back even from off screen
   (as when its field taking focus cuts the scroll to it short), unless the user scrolls the list
-  meanwhile, by a drag, a mouse wheel or trackpad, the keys, or TalkBack. Text saves after a short
-  pause, and as the page is
+  meanwhile, by a drag, a mouse wheel or trackpad, the keys, or TalkBack. The open email's todo
+  is a button under its text, with the text's links above it, so the keyboard and screen readers
+  reach the button and each link. Text saves after a short pause, and as the page is
   hidden; blank text is never saved, and closing a todo left blank deletes it, with undo.
   While a todo is edited it keeps its place, and its saves change only its text. Its time
   (`modifiedAt`) changes once, as editing ends (focus leaves the text, Enter or Escape, or
@@ -817,8 +823,37 @@ All sends go one way:
    `Autocrypt` header, and PGP/MIME if encrypting.
    The body is rich text that markdown turns into as it is typed (latr's `*bold*` and
    `_italic_`, plus strikethrough, code, links, headings, lists, quotes and code blocks; Tiptap on
-   web, Compose Rich Editor on Android); bare URLs become links and `![alt](cid:id)` places an
-   inline image. The HTML part comes from the rich text; the plain-text part is it as markdown,
+   web, Compose Rich Editor on Android); a web address (by the same rule as todos and plain-text
+   mail, `shared/src/web-links.ts`, so `example.com` links to `https://example.com`) becomes a real
+   link once a space or Enter follows it, not inside code or a link; on web the link is a step of
+   its own after the space, so ⌘Z/Ctrl+Z or Backspace right after takes it off and keeps the space
+   (Android's editor has no undo; Remove in the link's menu does it). The composer writes every link
+   out as `[text](url)` in its markdown and reads that markdown back without making bare addresses
+   links. The plain-text part of a draft or sent message, though, writes a link whose text is just
+   its address (ignoring an `http`, `https` or `mailto` scheme, a trailing slash and case) as the
+   bare address, unless read back the address wouldn't be found there (it runs into a word); other
+   links stay `[text](url)` (`plainLinks`). A reopened draft (web and Android) takes its links back
+   from its HTML part: a bare address in the text becomes a link only where the HTML links it,
+   matched in order among that address's appearances, so an address the user took the link off
+   stays plain and stored drafts read back as they were (`draftLinks`). Markdown from elsewhere (a
+   signature, shared text) still reads a bare address as a link to itself (`finishedWebLink`,
+   `markdownToRich`'s `bareLinks`, `rich-fixtures.json`). A link
+   leads only to an `http`, `https` or `mailto` address, its scheme put in lower case (`safeHref`):
+   any other (`javascript:`, `data:`) is never made a link by typing, the dialog, loaded markdown or
+   pasted HTML, never written into the sent HTML, and never opened. `![alt](cid:id)`
+   places an inline image. Links: a Link button beside
+   Bold and Italic (⌘K/Ctrl+K on web) opens a small dialog: with the cursor in a link it edits that
+   link's text and address, with text selected it asks for the address and links that text, and
+   with nothing selected it asks for both and puts the link in at the cursor; an address without a
+   scheme gets `https://`, empty text takes the address, and an address with another scheme can't
+   be saved (the dialog says why). On web the dialog sits outside the composer's form, so its Save,
+   Enter and Escape are its own: Enter saves, Escape closes only the dialog. Only the cursor in a
+   link or at either of its edges counts as in it. A hold on a link (and a right click on
+   web, or the menu key with the cursor in one) opens the round menu, laid out as a row's, with Open,
+   Edit (the same dialog) and Remove (back to plain text, the words kept); a tap still places the
+   cursor. TalkBack lists Open link, Edit link and Remove link among the field's actions. Web runs
+   Tiptap's commands (`rich-doc.ts`), Android the same edits on a line's runs (`:core`
+   `compose/RichLinks.kt`); both pass the `links` cases of `rich-fixtures.json`. The HTML part comes from the rich text; the plain-text part is it as markdown,
    markers back in, with the signature after a `-- ` line. A reply
    quotes the message it answers below the signature, the way Gmail does: "On Mon, Nov 2, 2026 at
    11:50, Maya Chen <maya.chen@gmail.example.com> wrote:" (24-hour), then the original in Gmail's
@@ -1194,6 +1229,25 @@ fixtures), shown in a sandboxed frame with a strict CSP, scripts and forms off. 
 top margin of a body's leading paragraph and the bottom margin of its trailing one (looking through
 plain `div`-like wrappers), so mail written as paragraphs (Thunderbird's) gets no extra space above or
 below (`sanitize-fixtures.json`).
+
+**Web addresses.** A plain-text body and a todo's text show their web addresses as links:
+`http://` and `https://` URLs, and bare domains ending in a known top-level domain with an optional
+port and path (`example.com/x`; `www.example.com` is just a bare domain, opened as `https://`). The
+top-level domains are a fixed list of common ones without those that are also common file
+extensions or words (`md`, `py`, `sh`, `rs`, `pl`, `zip`, `mov`, `is`, `to`), so `notes.txt`,
+`README.md` and version numbers stay text. None starts inside a word, an email address (left as
+text, so `ana.co+news@x.com` links nothing) or a `#tag`; a style marker closing around a bare domain
+ends it (`_example.com_`); trailing punctuation and unmatched closing parentheses are left out (`see
+example.com.`, `(example.com/x)`), balanced ones kept. Redirect wrappers come off as in HTML mail, unless what they wrap isn't a
+web or mail address; a scheme is put in lower case (`Https://` opens), and Android says so when no
+app opens a link.
+Markers and `#` inside an address don't style it, while a style around one does. They behave as
+links in HTML mail: on web a click opens a new tab and a hold or right click gives the browser's own
+menu; on Android a tap opens the browser and a hold opens the link disc (Open, Copy link, Share),
+with TalkBack offering the same. `findWebLinks` in `shared/src/web-links.ts` and `:core`
+`mail/WebLinks.kt`, fixtures `shared/testdata/web-link-fixtures.json`; a todo's links are
+`styledTree`'s link nodes (`todo-list-fixtures.json`). The composer's bare URLs follow the same
+rule.
 
 - Fixed-width layouts wider than the view (a 600px newsletter table on a phone) are narrowed to fit
   it, so the mail wraps rather than scrolling sideways: each table, cell, `div` or `center` wider than

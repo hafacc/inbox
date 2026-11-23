@@ -232,7 +232,7 @@ private fun draftContent(
         cc = fields.cc,
         bcc = fields.bcc,
         subject = fields.subject,
-        markdown = markdown,
+        markdown = draftLinks(markdown, body?.html),
         signature = signature,
         inReplyTo = fields.inReplyTo,
         references = fields.references,

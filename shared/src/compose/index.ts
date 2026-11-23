@@ -82,9 +82,11 @@ export {
   replySubject,
 } from "./reply";
 export {
+  draftLinks,
   markdownToRich,
   normalizeRuns,
   parseRuns,
+  plainLinks,
   RICH_MARKS,
   type RichBlock,
   type RichMark,
@@ -93,4 +95,5 @@ export {
   richToMarkdown,
   runsToHtml,
   runsToMarkdown,
+  selfNamedLink,
 } from "./rich";

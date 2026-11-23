@@ -8,6 +8,7 @@ beforeAll(() => {
   document = new JSDOM(`
     <div id="list">
       <div><button id="row" data-shortcuts>Open</button></div>
+      <div id="todo" data-shortcuts>Read <a id="todo-link" href="https://example.com">example.com</a></div>
       <button id="pin">Pin</button>
       <a id="link" href="/x">Link</a>
     </div>
@@ -29,6 +30,12 @@ test("a list row takes every shortcut, Enter included", () => {
   expect(leavesShortcuts(element("row"), "j")).toBe(false);
   expect(leavesShortcuts(element("list"), "e")).toBe(false);
   expect(leavesShortcuts(null, "e")).toBe(false);
+});
+
+test("Enter on a link in a row's text opens it; letters still reach the row", () => {
+  expect(leavesShortcuts(element("todo-link"), "Enter")).toBe(true);
+  expect(leavesShortcuts(element("todo-link"), "j")).toBe(false);
+  expect(leavesShortcuts(element("todo"), "Enter")).toBe(false);
 });
 
 test("Enter on a button or link clicks it; letter shortcuts still work there", () => {

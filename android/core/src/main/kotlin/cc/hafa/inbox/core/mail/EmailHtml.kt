@@ -206,9 +206,18 @@ fun fitWideLayouts(cleanHtml: String, viewWidth: Int): String {
     return document.body().html()
 }
 
-/** A plain-text body as HTML: escaped, with its line breaks kept but its trailing blank lines dropped, as on web. */
-fun plainTextHtml(text: String): String =
-    "<div style=\"white-space:pre-wrap\">${Entities.escape(text.trimEnd())}</div>"
+/**
+ * A plain-text body as HTML: escaped, with its line breaks kept but its trailing blank lines dropped
+ * and its web addresses ([webLinkPieces]) as links, as on web.
+ */
+fun plainTextHtml(text: String): String = webLinkPieces(text.trimEnd()).joinToString(
+    separator = "",
+    prefix = "<div style=\"white-space:pre-wrap\">",
+    postfix = "</div>",
+) { piece ->
+    val shown = Entities.escape(piece.text)
+    piece.href?.let { "<a href=\"${Entities.escape(it).replace("\"", "&quot;")}\">$shown</a>" } ?: shown
+}
 
 /** Content-Security-Policy for a message view; remote images only once the reader allows them. */
 fun messageCsp(showImages: Boolean): String {

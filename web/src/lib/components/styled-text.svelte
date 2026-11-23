@@ -1,11 +1,19 @@
-<!-- @component A todo's text as latr shows it: `*bold*` and `_italic_` with the markers kept but dimmed, and `#tags` as chips, one naming a label in that label's color; its first line at the weight of a new email's subject. -->
+<!-- @component A todo's text as latr shows it: `*bold*` and `_italic_` with the markers kept but dimmed, and `#tags` as chips, one naming a label in that label's color; its first line at the weight of a new email's subject. With `links`, its web addresses are links that open in a new tab, as an email's do. -->
 <script lang="ts">
   import { type StyledNode, styledTree } from "@inbox/shared/todos";
   import { getMailState } from "../mail-state.svelte";
 
   const mail = getMailState();
 
-  let { text }: { /** the text, markers included */ text: string } = $props();
+  let {
+    text,
+    links = false,
+  }: {
+    /** the text, markers included */
+    text: string;
+    /** whether its web addresses are links */
+    links?: boolean;
+  } = $props();
 
   const lineEnd = $derived(text.indexOf("\n"));
   const firstLine = $derived(lineEnd < 0 ? text : text.slice(0, lineEnd));
@@ -17,6 +25,18 @@
   {#each nodes as node, index (index)}
     {#if node.kind === "text"}
       {node.text}
+    {:else if node.kind === "link"}
+      {#if links}
+        <a
+          href={node.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="text-accent-strong underline underline-offset-2 cursor-pointer"
+          >{node.text}</a
+        >
+      {:else}
+        {node.text}
+      {/if}
     {:else if node.kind === "marker"}
       <span class="md-marker">{node.text}</span>
     {:else if node.kind === "tag"}

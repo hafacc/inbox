@@ -5,9 +5,12 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.indication
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,15 +36,16 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
@@ -50,21 +54,18 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.foundation.focusable
-import androidx.compose.foundation.indication
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.material3.ripple
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.findRootCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -84,6 +85,7 @@ import androidx.compose.ui.unit.sp
 import cc.hafa.inbox.core.mail.SwipeSide
 import cc.hafa.inbox.core.mail.TodoSwipeAction
 import cc.hafa.inbox.core.mail.doneTodoDate
+import cc.hafa.inbox.core.mail.findWebLinks
 import cc.hafa.inbox.core.mail.formatListDate
 import cc.hafa.inbox.core.mail.formatWakeTime
 import cc.hafa.inbox.core.mail.isoToEpoch
@@ -288,6 +290,11 @@ private fun TodoRowBody(
     }
     // Where in the text the last press landed, for the editor's cursor; null past the text.
     var pressCaret by remember { mutableStateOf<Int?>(null) }
+    val androidContext = LocalContext.current
+    // The text's links, whose actions join the row's own: the row's actions are all TalkBack lists.
+    val linkActions = remember(todo.text, editing, selecting) {
+        if (editing || selecting) emptyList() else linkAccessibilityActions(androidContext, findWebLinks(todo.text).map { it.href })
+    }
     Row(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier
@@ -341,7 +348,7 @@ private fun TodoRowBody(
                         actions.delete(todo.id)
                         true
                     }.takeIf { !done },
-                )
+                ) + linkActions
             }
             .padding(start = 14.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
     ) {
@@ -374,7 +381,8 @@ private fun TodoRowBody(
                     caret = pressCaret,
                 )
             } else {
-                TodoText(todo.text.ifEmpty { "​" }, textStyle, textColor, onPress = { pressCaret = it })
+                // Selecting, a tap on a link selects the row as a tap anywhere on it does.
+                TodoText(todo.text.ifEmpty { "​" }, textStyle, textColor, onPress = { pressCaret = it }, links = !selecting)
             }
             val repeat = todo.repeat
             if (!done && repeat != null) {
@@ -504,8 +512,10 @@ private fun rememberTodoHold(
  * seeing it; [open] gets where the press went down, in root pixels (null when this input is no longer
  * placed). Letting go where the press began keeps the menu open for a tap. [claim] takes every
  * press from the list at once, so it never scrolls. [throughChildren] also holds on a press a
- * button inside took (a row's avatar), as the web's row does; a hold there doesn't tap it. [placed]
- * is where this input sits, to put the finger on the screen.
+ * button inside took (a row's avatar), as the web's row does; a hold there doesn't tap it. [takes]
+ * says whether a press going down there (local pixels) is this input's at all; one it doesn't take
+ * is left alone. [pass] is the pass the press is first seen in, before the hold: [PointerEventPass.Initial]
+ * sees it before what is inside. [placed] is where this input sits, to put the finger on the screen.
  */
 internal suspend fun PointerInputScope.holdMenuGestures(
     menu: HoldMenuState,
@@ -514,16 +524,19 @@ internal suspend fun PointerInputScope.holdMenuGestures(
     onTap: (() -> Unit)?,
     open: (pressedAt: Offset?) -> Boolean,
     throughChildren: Boolean = false,
+    takes: (Offset) -> Boolean = { true },
+    pass: PointerEventPass = PointerEventPass.Main,
     placed: () -> LayoutCoordinates?,
 ) {
     awaitEachGesture {
-        val down = awaitFirstDown(requireUnconsumed = !throughChildren)
+        val down = awaitFirstDown(requireUnconsumed = !throughChildren, pass = pass)
+        if (!takes(down.position)) return@awaitEachGesture
         if (claim) down.consume()
         // True for a tap, false for a drag or a lost finger, null once the hold lasted.
         val before = withTimeoutOrNull(HOLD_MS) {
             var outcome: Boolean? = null
             while (outcome == null) {
-                val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id }
+                val change = awaitPointerEvent(pass).changes.firstOrNull { it.id == down.id }
                 // A gesture the system cancels ends in an up that comes already consumed.
                 outcome = when {
                     change == null || change.isConsumed -> false
@@ -677,6 +690,7 @@ internal fun EmailTodoLine(
                 paper.text,
                 textModifier.then(heard).clickable(onClickLabel = "Edit todo") { actions.startEditing(todo.id) },
                 onPress = { pressCaret = it },
+                links = true,
             )
             else -> TodoText(todo.text.ifEmpty { "\u200B" }, textStyle, paper.text, textModifier.then(heard), maxLines = 1)
         }

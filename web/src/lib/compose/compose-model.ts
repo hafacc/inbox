@@ -1,6 +1,7 @@
 import {
   answerHeaders,
   type ComposeInput,
+  draftLinks,
   InvalidAddressError,
   InvalidHeaderError,
   type Mailbox,
@@ -448,6 +449,7 @@ export function snapshotFromDraft(
       inReplyTo: headerValue(headers, "In-Reply-To"),
       references: headerValue(headers, "References"),
       text: body.text,
+      html: body.html,
     },
     { attachments: body.attachments, inline: body.inline },
     localId,
@@ -482,6 +484,7 @@ export function snapshotFromSaved(
       inReplyTo: headers.inReplyTo,
       references: headers.references,
       text: message.body.text,
+      html: message.body.html,
     },
     { attachments: message.body.attachments, inline: message.body.inline },
     localId,
@@ -513,6 +516,7 @@ function draftSnapshot(
     inReplyTo: string | null;
     references: string | null;
     text: string | null;
+    html: string | null;
   },
   files: DraftFiles,
   localId: string,
@@ -543,7 +547,7 @@ function draftSnapshot(
       cc: fields.cc,
       bcc: fields.bcc,
       subject: fields.subject,
-      markdown: markdownFromText(split.body),
+      markdown: draftLinks(markdownFromText(split.body), fields.html),
       inReplyTo,
       references,
       attachments: [],
