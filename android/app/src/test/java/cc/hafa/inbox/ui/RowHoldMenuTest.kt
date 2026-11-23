@@ -146,17 +146,17 @@ class RowHoldMenuTest {
         val pressed = holdAt(compose.onNodeWithText("Subject t1")) { width, height -> Offset(width / 2f, height / 2f) }
         assertNear(pressed, menu.spec?.center)
         // The row is near the top of the screen, so the disc opens right (Pin) and down (Delete).
-        assertEquals(listOf("PIN" to -45f, "DELETE" to -135f), shownArcs())
+        assertEquals(listOf("PIN" to -45f, "DELETE" to -105f), shownArcs())
         compose.onNodeWithContentDescription("Delete").performClick()
         compose.waitForIdle()
         assertEquals(listOf("act:t1:DELETE"), calls)
     }
 
     @Test
-    fun anEmailLowerDownOpensUpAndRightAndNearTheBottomTurnsUpward() {
+    fun anEmailLowerDownOpensStraightUpAndNearTheBottomLeftTurnsAsHigherUp() {
         show((1..12).map { ListEntry.Single(row("t$it")) })
         holdAt(compose.onNodeWithText("Subject t5")) { width, height -> Offset(width / 2f, height / 2f) }
-        assertEquals(listOf("PIN" to 45f, "DELETE" to -45f), shownArcs())
+        assertEquals(listOf("PIN" to 90f, "DELETE" to 30f), shownArcs())
         menu.close()
         compose.waitForIdle()
         val screen = compose.onRoot().fetchSemanticsNode()
@@ -165,7 +165,7 @@ class RowHoldMenuTest {
         val pressed = Offset(subject.positionInRoot.x + 4f, screen.size.height - 40f * subject.layoutInfo.density.density)
         compose.onRoot().performTouchInput { longClick(pressed) }
         compose.waitForIdle()
-        assertEquals(listOf("PIN" to 75f, "DELETE" to -15f), shownArcs())
+        assertEquals(listOf("PIN" to 45f, "DELETE" to -15f), shownArcs())
     }
 
     @Test
@@ -180,7 +180,7 @@ class RowHoldMenuTest {
         compose.waitForIdle()
         assertNear(pressed, menu.spec?.center)
         // Mirrored near the top: Pin to the left, Delete below.
-        assertEquals(listOf("PIN" to 135f, "DELETE" to 225f), shownArcs())
+        assertEquals(listOf("PIN" to 165f, "DELETE" to 225f), shownArcs())
     }
 
     @Test
@@ -226,7 +226,7 @@ class RowHoldMenuTest {
         show(listOf(TodoEntry(todo)), todos = listOf(todo), view = View.Fixed(Mailbox.DONE))
         holdAt(compose.onNodeWithText("Filed taxes")) { width, height -> Offset(width / 2f, height / 2f) }
         // Pin's place, right of the finger near the top, stays empty.
-        assertEquals(listOf("delete" to -135f), shownArcs())
+        assertEquals(listOf("delete" to -105f), shownArcs())
     }
 
     @Test
@@ -234,7 +234,7 @@ class RowHoldMenuTest {
         show(listOf(ListEntry.Group("Label_1", listOf(row("b1", listOf("INBOX", "Label_1")), row("b2", listOf("INBOX", "Label_1"))))))
         val pressed = holdAt(compose.onNodeWithText("Errands")) { width, height -> Offset(width / 2f, height / 2f) }
         assertNear(pressed, menu.spec?.center)
-        assertEquals(listOf("PIN" to -45f, "DELETE" to -135f), shownArcs())
+        assertEquals(listOf("PIN" to -45f, "DELETE" to -105f), shownArcs())
         assertEquals(listOf("Pin all", "Delete all"), requireNotNull(menu.spec).wedges.map { it.item.label })
         compose.onNodeWithContentDescription("Delete all").performClick()
         compose.waitForIdle()

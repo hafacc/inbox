@@ -402,7 +402,10 @@ except where the list says.
   the count and Select all (or none). Every action that would change something is on a round corner
   button (below) 12 above the bar: on its inner ring Done, Snooze and Pin (Unpin), Move to inbox taking
   Done's place and Wake now Snooze's wherever they apply; on its outer ring a Done or Snooze so displaced,
-  Label, Mark read or unread, Report spam or Not spam and a todo's Delete (`selectionDisc` in
+  Label, Mark read or unread, Report spam or Not spam and a todo's Delete; for todos alone the inner
+  ring holds Done alone (90°–180° on the right) and Snooze (Wake now in its place where it applies,
+  a displaced Snooze after Pin) and Pin (Unpin) move to the outer ring, first, before Delete
+  (Snooze 90°–120°, Pin 120°–150°, Delete 150°–180°) (`selectionDisc` in
   `shared/src/selection.ts`, same fixtures). The undo bar rises above the button. Above phone width the
   web's bar keeps every action in the header: Wake now as a ringed pill, Snooze, Pin, Label, Mark read,
   Spam and Delete as icons, then Move to inbox as a ringed pill and Done as a green pill. A selection of
@@ -471,15 +474,17 @@ except where the list says.
   all, Pin all and Delete all; on an open bundle's header, which doesn't swipe and shows its own
   Done all, Pin all and Delete all.
 - **Hold menu.** Holding a todo for 450 ms, on its select dot or anywhere else on the row, opens a
-  half disc centered where the finger is, cut into wedges, with a pill above naming the todo: Pin
+  third of a disc (120°) centered where the finger is, cut into equal wedges, with a pill above naming the todo: Pin
   (Unpin when pinned; not on a done todo, whose place stays empty) and Delete, with the usual undo,
   acting on that todo only, even while others are selected. A right click on the dot, the menu key
-  (on the dot or a focused row) and TalkBack's long press open it on the dot instead. Every row's half
+  (on the dot or a focused row) and TalkBack's long press open it on the dot instead. Every row's
   disc (a todo's, an email's, a bundle's) is placed alike (`rowHoldWedges` in
-  `shared/src/hold-menu.ts`, `row` in the hold-menu fixtures): up and right, Pin above and Delete to
-  the right; right and down within 190 px (dp) of the top, Pin to the right and Delete below; turned
-  upward within 80 of the bottom; and within 110 of the right edge the same, mirrored, opening
-  leftward, so it stays on screen wherever the finger is. Sliding onto a wedge lights it (the pill
+  `shared/src/hold-menu.ts`, `row` in the hold-menu fixtures): straight up, Pin up and to the left
+  (90° to 150°, counterclockwise from rightward) and Delete up and to the right (30° to 90°); right
+  and down within 190 px (dp) of the top, Pin to the right and Delete below; within 110 of the left
+  edge turned 45° right, Pin above and Delete to the right, at the bottom too; and within 110 of the
+  right edge the same, mirrored, opening leftward, so it stays on screen wherever the finger is.
+  Sliding onto a wedge lights it (the pill
   names it, with a haptic tick) and letting go picks it; letting go without sliding keeps the disc
   open for a tap, and on the web for the arrow keys and Enter; Escape, Back or a tap away closes it.
   A press on the dot never scrolls the list, so sliding to a wedge moves only the disc; a quick tap

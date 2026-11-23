@@ -17,14 +17,14 @@ class HoldMenuTest {
 
     @Test
     fun aDoneTodoLaysOutOnlyDelete() {
-        assertEquals(listOf(delete), holdWedges(listOf(pin, delete), rowHoldWedges(listOf(null, "delete"), 40f, 400f, 360f, 800f)).map { it.item })
+        assertEquals(listOf(delete), holdWedges(listOf(pin, delete), rowHoldWedges(listOf(null, "delete"), 40f, 400f, 360f)).map { it.item })
     }
 
     @Test
     fun lettingGoInAWedgePicksItAndLettingGoInPlaceWaitsForATap() {
         val picked = mutableListOf<String>()
         val state = HoldMenuState()
-        val spec = HoldMenuSpec(Offset(100f, 300f), holdWedges(listOf(pin, delete), rowHoldWedges(listOf("pin", "delete"), 40f, 300f, 360f, 800f)), "Pay rent", false, "Todo actions", { picked += it.id })
+        val spec = HoldMenuSpec(Offset(100f, 300f), holdWedges(listOf(pin, delete), rowHoldWedges(listOf("pin", "delete"), 40f, 300f, 360f)), "Pay rent", false, "Todo actions", { picked += it.id })
         state.show(spec)
         state.move(Offset(170f, 300f))
         assertEquals(1, state.active)
@@ -47,7 +47,7 @@ class HoldMenuTest {
     @Test
     fun lettingGoWhereThePressBeganWaitsForATapThoughTheDiscSitsElsewhere() {
         val state = HoldMenuState()
-        val spec = HoldMenuSpec(Offset(100f, 300f), holdWedges(listOf(pin, delete), rowHoldWedges(listOf("pin", "delete"), 40f, 300f, 360f, 800f)), "Pay rent", false, "Todo actions", {})
+        val spec = HoldMenuSpec(Offset(100f, 300f), holdWedges(listOf(pin, delete), rowHoldWedges(listOf("pin", "delete"), 40f, 300f, 360f)), "Pay rent", false, "Todo actions", {})
         // A link's disc lifted above a finger near the screen's bottom: let go where it pressed, off every wedge.
         state.show(spec)
         state.release(Offset(100f, 320f), nearPress = true)
@@ -61,7 +61,7 @@ class HoldMenuTest {
     @Test
     fun closingWithAFadeKeepsTheMenuDrawnUntilItFades() {
         val state = HoldMenuState()
-        val spec = HoldMenuSpec(Offset(100f, 300f), holdWedges(listOf(pin, delete), rowHoldWedges(listOf("pin", "delete"), 40f, 300f, 360f, 800f)), "Pay rent", false, "Todo actions", {})
+        val spec = HoldMenuSpec(Offset(100f, 300f), holdWedges(listOf(pin, delete), rowHoldWedges(listOf("pin", "delete"), 40f, 300f, 360f)), "Pay rent", false, "Todo actions", {})
         state.show(spec)
         state.close(fade = true)
         assertNull(state.spec)

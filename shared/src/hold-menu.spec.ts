@@ -25,7 +25,6 @@ type RowMenu = {
   x: number;
   y: number;
   width: number;
-  height: number;
 };
 
 type Menu =
@@ -85,8 +84,8 @@ const fixtures: Fixtures = JSON.parse(
 
 function wedgesOf(menu: Menu): HoldWedge[] {
   if ("row" in menu) {
-    const { slots, x, y, width, height } = menu.row;
-    return rowHoldWedges(slots, x, y, width, height);
+    const { slots, x, y, width } = menu.row;
+    return rowHoldWedges(slots, x, y, width);
   } else if ("view" in menu) {
     return viewHoldWedges(menu.view.ids);
   } else {
@@ -132,8 +131,8 @@ describe("cornerHoldWedges", () => {
 describe("rowHoldWedges", () => {
   for (const fixture of fixtures.row) {
     test(fixture.name, () => {
-      const { slots, x, y, width, height } = fixture;
-      const wedges = rowHoldWedges(slots, x, y, width, height);
+      const { slots, x, y, width } = fixture;
+      const wedges = rowHoldWedges(slots, x, y, width);
       expect(wedges.map(arc)).toEqual(fixture.expect);
       expect(wedges.every((wedge) => wedge.ring === ROW_RING)).toBe(true);
     });

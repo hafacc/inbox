@@ -331,6 +331,8 @@ private val DISC_OUTER = listOf(
  * Where the corner button puts each of [available] (the actions that would change something): the
  * inner ring holds Done, Snooze and Pin, Move to inbox taking Done's place and Wake now Snooze's
  * wherever they apply; a Done or Snooze so displaced, and every other action, go on the outer ring.
+ * For todos alone (the only selection offering Delete) the inner ring holds Done alone, and
+ * Snooze (or Wake now) and Pin go on the outer ring instead, first, so Delete isn't alone there. Web's `selectionDisc` is the same.
  */
 fun selectionDisc(available: Collection<SelectionDiscAction>): SelectionDisc {
     val first = when {
@@ -343,6 +345,9 @@ fun selectionDisc(available: Collection<SelectionDiscAction>): SelectionDisc {
         SelectionDiscAction.SNOOZE in available -> SelectionDiscAction.SNOOZE
         else -> null
     }
-    val inner = listOfNotNull(first, second, SelectionDiscAction.PIN.takeIf { it in available })
-    return SelectionDisc(inner, DISC_OUTER.filter { it in available && it !in inner })
+    val pin = SelectionDiscAction.PIN.takeIf { it in available }
+    val moved = if (SelectionDiscAction.DELETE in available) listOfNotNull(second, pin) else emptyList()
+    val inner = listOfNotNull(first, second, pin).filter { it !in moved }
+    val rest = DISC_OUTER.filter { it in available && it !in inner && it !in moved }
+    return SelectionDisc(inner, moved + rest)
 }
