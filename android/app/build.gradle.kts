@@ -16,6 +16,11 @@ if (file("google-services.json").exists()) {
     apply(plugin = "com.google.gms.google-services")
 }
 
+// The Android framework jars Robolectric runs the tests on, one configuration each, since in one Gradle would keep
+// only the newest version.
+val robolectricSdk35: Configuration by configurations.creating { isTransitive = false }
+val robolectricSdk36: Configuration by configurations.creating { isTransitive = false }
+
 val keystoreProperties = Properties().apply {
     val file = rootProject.file("keystore.properties")
     if (file.exists()) file.inputStream().use { load(it) }
@@ -167,4 +172,30 @@ dependencies {
     testImplementation(platform(libs.androidx.compose.bom))
     testImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.test.manifest)
+    robolectricSdk35(libs.robolectric.android.all.sdk35)
+    robolectricSdk36(libs.robolectric.android.all.sdk36)
+}
+
+// Robolectric would download these when a test starts; Gradle fetches and caches them instead, and the tests
+// download nothing.
+val syncRobolectricJars by tasks.registering(Sync::class) {
+    from(robolectricSdk35, robolectricSdk36)
+    into(layout.buildDirectory.dir("robolectric-jars"))
+}
+
+/** JVM flags that point Robolectric at the jars Gradle fetched. */
+abstract class RobolectricOffline : CommandLineArgumentProvider {
+    /** folder holding the jars, named as Robolectric looks for them */
+    @get:InputDirectory
+    @get:PathSensitive(PathSensitivity.NAME_ONLY)
+    abstract val jarDir: DirectoryProperty
+
+    override fun asArguments(): List<String> =
+        listOf("-Drobolectric.offline=true", "-Drobolectric.dependency.dir=${jarDir.get().asFile.path}")
+}
+
+tasks.withType<Test>().configureEach {
+    jvmArgumentProviders.add(
+        objects.newInstance<RobolectricOffline>().apply { jarDir.fileProvider(syncRobolectricJars.map { it.destinationDir }) },
+    )
 }
