@@ -1,4 +1,5 @@
-import { searchScope } from "@inbox/shared/search-scope";
+import { searchScope, searchTagTerms } from "@inbox/shared/search-scope";
+import type { LabelTags } from "@inbox/shared/todos";
 import type { FilteredView } from "@inbox/shared/view-filter";
 import type { ListOptions } from "./gmail/client";
 import { LABEL } from "./thread-summary";
@@ -60,9 +61,13 @@ export function sameView(left: View, right: View): boolean {
 
 /**
  * The `threads.list` query for a view; Snoozed, Outbox and Todos have none, as they come from
- * Firestore, nor a search that lists no Gmail mail (`searchScope`), nor settings.
+ * Firestore, nor a search that lists no Gmail mail (`searchScope`), nor settings. A search runs
+ * with its `#name`s naming `labels` as their `label:` terms (`searchTagTerms`).
  */
-export function listOptions(view: View): ListOptions | null {
+export function listOptions(
+  view: View,
+  labels: LabelTags = new Map(),
+): ListOptions | null {
   switch (view.kind) {
     case "inbox":
       return { labelIds: [LABEL.inbox] };
@@ -81,7 +86,7 @@ export function listOptions(view: View): ListOptions | null {
     case "label":
       return { labelIds: [view.labelId] };
     case "search": {
-      const scope = searchScope(view.query);
+      const scope = searchScope(searchTagTerms(view.query, labels));
       if (scope.gmailQuery === null) return null;
       // Gmail leaves spam and trash out of the API's results unless asked.
       return scope.includeSpamTrash
@@ -105,8 +110,14 @@ export const VIEW_TITLES = {
   todos: "Todos",
 } as const;
 
-/** The list `view` is to its filter (see `viewFilter`); none for one that lists no threads. */
-export function filteredView(view: View): FilteredView | null {
+/**
+ * The list `view` is to its filter (see `viewFilter`), a search's query as it runs with `labels`
+ * (`searchTagTerms`); none for one that lists no threads.
+ */
+export function filteredView(
+  view: View,
+  labels: LabelTags = new Map(),
+): FilteredView | null {
   switch (view.kind) {
     case "inbox":
     case "snoozed":
@@ -118,7 +129,7 @@ export function filteredView(view: View): FilteredView | null {
     case "label":
       return { kind: "label", labelId: view.labelId };
     case "search":
-      return { kind: "search", query: view.query };
+      return { kind: "search", query: searchTagTerms(view.query, labels) };
     default:
       return null;
   }

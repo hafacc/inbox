@@ -1096,9 +1096,17 @@ Online: Gmail's `q` syntax from the client. Offline: plain-text search over the 
   chip in the field. `is:pinned` goes to Gmail as `is:starred`, and `is:done` (anything archived:
   mail out of the inbox, and done todos) as `-in:inbox` (`gmailQueryText`). With todos shown, a
   finished `#tag` turns into a chip too, drawn like a todo's tag (in its label's color when it names
-  one); it searches as the text it is, except that a negated one (`-#home`) keeps only the todos
-  without that tag (`searchTodos`). The help (Settings, Shortcuts & search; Android's search
-  help) lists every operator and our own terms (`OWN_TERMS`).
+  one). A `#name` naming a user label (by `tagKey`, any case) searches exactly as that label's
+  `label:` term does: its mail and the todos tagged with it, with the rest of the query as before
+  (`searchTagTerms`). The search box, the address and recent searches keep `#name` as typed; it
+  becomes `label:` only where the search runs (Gmail's query, `searchScope`, `searchTodos`, the
+  list's filter, offline and encrypted search), so a reopened recent search or address runs the same,
+  and a search shown runs again once labels load if they change what it names. Mailboxes and states
+  have no `#name`: `#inbox` is a todo tag like any other. A `#tag` naming no label names only todos'
+  tags: it keeps the todos (and emails' todos) with that tag and lists no other mail, as do `#tag`s
+  joined by `OR` (`#home OR #work`, either tag), and a negated one (`-#home`) keeps only the todos
+  without it (`searchTodos`); the rest of the query still searches as before. The help (Settings,
+  Shortcuts & search; Android's search help) lists every operator and our own terms (`OWN_TERMS`).
 - Tab completes the operator or value under the cursor: `in:` → mailboxes, `label:` → labels,
   `from:`/`to:` → Google Contacts and recent senders, `has:` → attachment/drive/…, dates → a
   short list (today, yesterday, last week); with todos shown, `#` → the todos' tags. Backspace on a

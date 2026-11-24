@@ -4,6 +4,7 @@ import {
   type SearchScope,
   searchEmailTodos,
   searchScope,
+  searchTagTerms,
   searchTodos,
 } from "./search-scope";
 import { labelTags, type TagLabel } from "./todos/label-tags";
@@ -28,6 +29,7 @@ type Fixtures = {
     todos: Pick<EmailTodo, "threadId" | "text">[];
     threadIds: string[];
   }[];
+  tags: { name: string; query: string; expect: string }[];
 };
 
 const fixtures = JSON.parse(
@@ -69,6 +71,14 @@ describe("searchEmailTodos", () => {
       expect(
         searchEmailTodos(todos, query, labelTags(fixtures.labels)),
       ).toEqual(threadIds);
+    });
+  }
+});
+
+describe("searchTagTerms", () => {
+  for (const { name, query, expect: expected } of fixtures.tags) {
+    test(name, () => {
+      expect(searchTagTerms(query, labelTags(fixtures.labels))).toBe(expected);
     });
   }
 });

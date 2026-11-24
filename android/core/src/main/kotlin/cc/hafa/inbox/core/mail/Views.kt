@@ -2,6 +2,8 @@ package cc.hafa.inbox.core.mail
 
 import cc.hafa.inbox.core.gmail.ListOptions
 import cc.hafa.inbox.core.search.searchScope
+import cc.hafa.inbox.core.search.searchTagTerms
+import cc.hafa.inbox.core.todo.LabelTags
 
 /** A mailbox shown in the main column. */
 sealed interface View {
@@ -85,9 +87,10 @@ const val DONE_QUERY = "-in:inbox -in:spam -in:trash -in:sent -in:draft"
 
 /**
  * The `threads.list` query for a view; Snoozed, Todos and a search that lists no Gmail mail
- * ([searchScope]) have none, as they come from Firestore.
+ * ([searchScope]) have none, as they come from Firestore. A search runs with its `#name`s naming
+ * [labels] as their `label:` terms ([searchTagTerms]).
  */
-fun listOptions(view: View): ListOptions? = when (view) {
+fun listOptions(view: View, labels: LabelTags = LabelTags(emptyList())): ListOptions? = when (view) {
     View.Todos -> null
     is View.Fixed -> when (view.box) {
         Mailbox.INBOX -> ListOptions(labelIds = listOf(Labels.INBOX))
@@ -99,13 +102,16 @@ fun listOptions(view: View): ListOptions? = when (view) {
     }
     is View.Label -> ListOptions(labelIds = listOf(view.labelId))
     is View.Search -> {
-        val scope = searchScope(view.query)
+        val scope = searchScope(searchTagTerms(view.query, labels))
         scope.gmailQuery?.let { ListOptions(query = it, includeSpamTrash = scope.includeSpamTrash) }
     }
 }
 
-/** [this] as its list's filter sees it (see [viewFilter]); null for the Todos view, which lists no threads. */
-fun View.filtered(): FilteredView? = when (this) {
+/**
+ * [this] as its list's filter sees it (see [viewFilter]), a search's query as it runs with [labels]
+ * ([searchTagTerms]); null for the Todos view, which lists no threads.
+ */
+fun View.filtered(labels: LabelTags = LabelTags(emptyList())): FilteredView? = when (this) {
     View.Todos -> null
     is View.Fixed -> FilteredView.Fixed(
         when (box) {
@@ -118,7 +124,7 @@ fun View.filtered(): FilteredView? = when (this) {
         },
     )
     is View.Label -> FilteredView.Label(labelId)
-    is View.Search -> FilteredView.Search(query)
+    is View.Search -> FilteredView.Search(searchTagTerms(query, labels))
 }
 
 /** A label's name as a search's `label:` term writes it: lower case, spaces and slashes as dashes. */

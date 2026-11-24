@@ -1,6 +1,7 @@
 <!-- @component The current mailbox as a card per day, todos among the threads when shown (an email's todo inside its row); an open thread or bundle lifts out of its card while the rest dims, and with a bundle open a tap on the rest closes it. Rows joining or leaving the list grow in or collapse out; pulling down at the top on touch refreshes. -->
 <script lang="ts">
   import { bundleRowKey, itemRowKey } from "@inbox/shared/list-state";
+  import { searchTagTerms } from "@inbox/shared/search-scope";
   import CheckCheck from "@lucide/svelte/icons/check-check";
   import Focus from "@lucide/svelte/icons/focus";
   import Funnel from "@lucide/svelte/icons/funnel";
@@ -64,7 +65,9 @@
   const BUNDLE_HEIGHT = 72;
   const showLabels = $derived(mail.view.kind !== "inbox");
   const plan = $derived(
-    mail.view.kind === "search" ? searchPlan(mail.view.query) : null,
+    mail.view.kind === "search"
+      ? searchPlan(searchTagTerms(mail.view.query, mail.labelTags))
+      : null,
   );
   const searchQuery = $derived(plan?.gmailQuery ?? "");
   const resultCount = $derived(

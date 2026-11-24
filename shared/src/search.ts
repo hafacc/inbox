@@ -212,6 +212,7 @@ export const OWN_TERMS: readonly [string, string][] = [
   ["is:done", "Mail out of the inbox and done todos"],
   ["is:todo", "Only todos"],
   ["in:outbox", "Mail waiting to be sent"],
+  ["#receipts", "A label's mail and todos, or todos with that tag"],
 ];
 
 /** Values completed for `has:`. */

@@ -193,6 +193,7 @@ val OWN_TERMS: List<Pair<String, String>> = listOf(
     "is:done" to "Mail out of the inbox and done todos",
     "is:todo" to "Only todos",
     "in:outbox" to "Mail waiting to be sent",
+    "#receipts" to "A label's mail and todos, or todos with that tag",
 )
 
 /** Values completed for `has:`. */

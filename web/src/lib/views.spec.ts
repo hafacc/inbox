@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { labelTags } from "@inbox/shared/todos";
 import {
   DONE_QUERY,
   filteredView,
@@ -55,6 +56,18 @@ test("each view of threads maps to its filter's view, others to none", () => {
   });
   expect(filteredView({ kind: "todos" })).toBeNull();
   expect(filteredView({ kind: "outbox" })).toBeNull();
+});
+
+test("a search's #name naming a label runs as its label: term", () => {
+  const labels = labelTags([{ id: "L1", name: "Home", type: "user" }]);
+  const view: View = { kind: "search", query: "#Home milk" };
+  expect(listOptions(view, labels)).toEqual({ q: "label:home milk" });
+  expect(listOptions(view)).toBeNull();
+  expect(filteredView(view, labels)).toEqual({
+    kind: "search",
+    query: "label:home milk",
+  });
+  expect(viewKey(view)).toBe("search:#Home milk");
 });
 
 test("a label's search name is lower case with dashes for spaces and slashes", () => {

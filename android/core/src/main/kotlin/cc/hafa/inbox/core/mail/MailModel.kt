@@ -486,7 +486,7 @@ data class MailModel(
     // Whether a search lists Snoozed's own rows, which hold every snoozed email: `is:snoozed` with no Gmail query.
     private fun snoozedDeviceList(search: View.Search): Boolean {
         val plan = searchPlan(search.query)
-        return plan.snoozedOnly && !plan.todosOnly && listOptions(search) == null
+        return plan.snoozedOnly && !plan.todosOnly && listOptions(search, labelTags) == null
     }
 
     /** Emails the current list shows for their todo's text that this device hasn't read yet. */
@@ -576,7 +576,7 @@ data class MailModel(
             plan == null -> plainSections(rows, now, zone, held)
             plan.todosOnly && plan.snoozedOnly -> snoozedSections(rows, now, zone, found)
             plan.todosOnly -> plainSections(rows, now, zone, held, found)
-            plan.snoozedOnly -> snoozedSections(if (listOptions(current) == null) withOpen(snoozedRows) else rows, now, zone, found)
+            plan.snoozedOnly -> snoozedSections(if (listOptions(current, labelTags) == null) withOpen(snoozedRows) else rows, now, zone, found)
             else -> plainSections(rows, now, zone, held, found)
         }
     }
@@ -591,7 +591,7 @@ data class MailModel(
     val viewFilter: ViewFilter? by lazy { filterOf(view) }
 
     /** [view]'s filter, reading a search's `label:` names against the user labels ([searchLabelName]); null for the Todos view. */
-    fun filterOf(view: View): ViewFilter? = view.filtered()?.let { filtered ->
+    fun filterOf(view: View): ViewFilter? = view.filtered(labelTags)?.let { filtered ->
         viewFilter(filtered) { name ->
             val wanted = searchLabelName(name)
             userLabels.firstOrNull { searchLabelName(it.name) == wanted }?.id
@@ -604,7 +604,7 @@ data class MailModel(
 
     /** The current view's list state. */
     val currentList: LoadedList by lazy {
-        if (listOptions(view) == null) LoadedList(loaded = true) else lists[listKey(view)] ?: LoadedList()
+        if (listOptions(view, labelTags) == null) LoadedList(loaded = true) else lists[listKey(view)] ?: LoadedList()
     }
 
     /** Threads and todos still snoozed, for the menu. */

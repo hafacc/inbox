@@ -64,4 +64,11 @@ class SearchScopeFixturesTest {
             assertEquals(case["name"] as String, case["threadIds"], searchEmailTodos(todos, case["query"] as String, labels))
         }
     }
+
+    @Test
+    fun tags() {
+        for (case in cases("tags")) {
+            assertEquals(case["name"] as String, case["expect"], searchTagTerms(case["query"] as String, labels))
+        }
+    }
 }
