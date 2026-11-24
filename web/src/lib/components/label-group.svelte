@@ -1,7 +1,8 @@
-<!-- @component A label's threads and todos as a bundle: a row like a thread's, which opens in place into a raised card listing them while the rest of the list dims. Closed, on touch, a swipe left marks them all done and right snoozes them all; a long press, closed or on the open bundle's header, opens a round menu around the finger with Pin all and Delete all, placed as a thread's. -->
+<!-- @component A label's threads and todos as a bundle: a row like a thread's, which opens in place into a raised card listing them while the rest of the list dims. Closed, on hover or keyboard focus it shows Pin all, Snooze all and Done all as a thread row shows its actions; on touch, a swipe left marks them all done and right snoozes them all; a long press, closed or on the open bundle's header, opens a round menu around the finger with Pin all and Delete all, placed as a thread's. Open, its header has Pin all and Snooze all (where a pointer hovers) before Done all. -->
 <script lang="ts">
   import { bundleCounts, bundleLine } from "@inbox/shared/bundles";
   import { rowHoldWedges } from "@inbox/shared/hold-menu";
+  import type { SnoozeSource } from "@inbox/shared/snooze-suggest";
   import {
     type BundleSwipeAction,
     bundleSwipeAction,
@@ -14,12 +15,14 @@
   import Clock from "@lucide/svelte/icons/clock";
   import Pin from "@lucide/svelte/icons/pin";
   import Trash2 from "@lucide/svelte/icons/trash-2";
+  import { MediaQuery } from "svelte/reactivity";
   import { holdMenu } from "../hold-menu.svelte";
   import { inputMode } from "../input-mode.svelte";
   import { isEditableTarget } from "../keyboard";
   import { bundleFooter } from "../list-status";
   import { getMailState, type MailList } from "../mail-state.svelte";
   import { displayName } from "../thread-summary";
+  import BundleActions from "./bundle-actions.svelte";
   import LabelMark from "./label-mark.svelte";
   import LabelSettingsButton from "./label-settings-button.svelte";
   import { closingThread } from "./open-motion.svelte";
@@ -60,6 +63,7 @@
 
   // The height of a thread's row in here, which an opened one grows out of.
   const COMPACT_ROW_HEIGHT = 65;
+  const touch = new MediaQuery("hover: none");
   const mail = getMailState();
   const labelId = $derived(bundle.labelId);
   const rows = $derived(bundle.threads.map((thread) => thread.data));
@@ -203,6 +207,23 @@
   const threadIds = $derived(rows.map((row) => row.thread.id));
   const todoIds = $derived(todos.map((todo: Todo) => todo.id));
   const snoozeOpen = $derived(mail.snoozeMenuFor === bundle.key);
+  let hovered = $state(false);
+  let focusWithin = $state(false);
+  // As a thread row's: shown while its menu is open, hovered (touch has no hover) or keyboard-focused.
+  const actionsShown = $derived(
+    !expanded &&
+      mail.selected.length === 0 &&
+      (snoozeOpen ||
+        (hovered && !touch.current) ||
+        (inputMode.keyboard && (focused || focusWithin))),
+  );
+  function toggleSnooze() {
+    if (snoozeOpen) mail.closeSnoozeMenu();
+    else mail.openSnoozeMenu(bundle.key);
+  }
+  function snoozeAll(epoch: number, source: SnoozeSource, key?: string) {
+    void mail.snoozeGroup(labelId, threadIds, epoch, source, key, todoIds);
+  }
   function doneAll() {
     void mail.doneGroup(labelId, threadIds, todoIds);
   }
@@ -392,8 +413,9 @@
         {#if !expanded && newest > 0}
           <span
             class={[
-              "text-xs tabular-nums",
+              "text-xs tabular-nums transition-opacity duration-150",
               unread > 0 ? "font-semibold text-text" : "text-text-secondary",
+              actionsShown && "opacity-0",
             ]}
           >
             {formatListDate(newest, mail.now)}
@@ -422,6 +444,25 @@
       </div>
     </div>
     {#if expanded}
+      {#if !touch.current}
+        <!-- At phone width the name needs the room; the closed row's bar has them. -->
+        <div class="contents max-sm:hidden">
+          <BundleActions
+            {snoozeOpen}
+            showDone={false}
+            onPin={pinAll}
+            onSnoozeToggle={toggleSnooze}
+            onSnooze={snoozeAll}
+            onSnoozeClose={mail.closeSnoozeMenu}
+            onDone={doneAll}
+          />
+        </div>
+      {:else if snoozeOpen}
+        <!-- Touch has no Snooze all button here, but `b` still opens its menu. -->
+        <div class="absolute right-3 top-1/2">
+          <SnoozePopover onPick={snoozeAll} onClose={mail.closeSnoozeMenu} />
+        </div>
+      {/if}
       <button
         type="button"
         onclick={doneAll}
@@ -434,19 +475,21 @@
         <LabelSettingsButton {label} {name} />
       {/if}
     {/if}
-    {#if snoozeOpen}
-      <div class="absolute right-3 top-1/2">
-        <SnoozePopover
-          onPick={(epoch, source, key) =>
-            void mail.snoozeGroup(
-              labelId,
-              threadIds,
-              epoch,
-              source,
-              key,
-              todoIds,
-            )}
-          onClose={mail.closeSnoozeMenu}
+    {#if actionsShown}
+      <!-- At phone width the open menu is a bottom sheet, moved out of the tray, so the tray would only cover the row. -->
+      <div
+        class={[
+          "absolute right-3 top-1/2 -translate-y-1/2 flex items-center rounded-full bg-surface-raised shadow-pop p-0.5 animate-fade-in",
+          snoozeOpen && "max-sm:invisible",
+        ]}
+      >
+        <BundleActions
+          {snoozeOpen}
+          onPin={pinAll}
+          onSnoozeToggle={toggleSnooze}
+          onSnooze={snoozeAll}
+          onSnoozeClose={mail.closeSnoozeMenu}
+          onDone={doneAll}
         />
       </div>
     {/if}
@@ -554,6 +597,18 @@
   <div
     onpointerdown={swipe.down}
     onpointermove={swipe.move}
+    onmouseenter={() => (hovered = true)}
+    onmouseleave={() => (hovered = false)}
+    onfocusin={() => (focusWithin = true)}
+    onfocusout={(event) => {
+      const within = event.currentTarget.contains(
+        event.relatedTarget as Node | null,
+      );
+      // Focus also leaves while the row is torn down, when state can't change yet.
+      queueMicrotask(() => {
+        focusWithin = within;
+      });
+    }}
     onpointerup={swipe.up}
     onpointercancel={swipe.cancel}
     oncontextmenu={swipe.contextMenu}
