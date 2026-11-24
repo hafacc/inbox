@@ -5,31 +5,31 @@
       "name": "inbox thread",
       "thread": { "labelIds": ["INBOX"], "snoozed": false, "unread": false, "todo": "add", "hasSender": true },
       "expect": ["done", "snooze", "pin", "label", "addTodo", "important", "unread", "spam", "delete", "filter"],
-      "places": { "inner": ["done", "snooze", "pin"], "outer": ["label", "addTodo", "spam", "delete"], "marker": "important", "line": ["filter"] }
+      "places": { "inner": ["done", "snooze"], "outer": ["pin", "label", "addTodo", "spam", "delete"], "marker": "important", "line": ["filter"] }
     },
     {
       "name": "done thread moves to the inbox",
       "thread": { "labelIds": [], "snoozed": false, "unread": false, "todo": "add", "hasSender": true },
       "expect": ["inbox", "snooze", "pin", "label", "addTodo", "important", "unread", "spam", "delete", "filter"],
-      "places": { "inner": ["inbox", "snooze", "pin"], "outer": ["label", "addTodo", "spam", "delete"], "marker": "important", "line": ["filter"] }
+      "places": { "inner": ["inbox", "snooze"], "outer": ["pin", "label", "addTodo", "spam", "delete"], "marker": "important", "line": ["filter"] }
     },
     {
       "name": "done thread in a label moves to the inbox",
       "thread": { "labelIds": ["Label_1"], "snoozed": false, "unread": true, "todo": null, "hasSender": true },
       "expect": ["inbox", "snooze", "pin", "label", "important", "read", "spam", "delete", "filter"],
-      "places": { "inner": ["inbox", "snooze", "pin"], "outer": ["label", "spam", "delete"], "marker": "important", "line": ["filter"] }
+      "places": { "inner": ["inbox", "snooze"], "outer": ["pin", "label", "spam", "delete"], "marker": "important", "line": ["filter"] }
     },
     {
       "name": "snoozed thread is done and wakes",
       "thread": { "labelIds": ["INBOX"], "snoozed": true, "unread": false, "todo": "edit", "hasSender": true },
       "expect": ["done", "snooze", "wake", "pin", "label", "editTodo", "important", "unread", "spam", "delete", "filter"],
-      "places": { "inner": ["done", "snooze", "pin"], "outer": ["label", "editTodo", "spam", "delete"], "marker": "important", "line": ["wake", "filter"] }
+      "places": { "inner": ["done", "snooze"], "outer": ["pin", "label", "editTodo", "spam", "delete"], "marker": "important", "line": ["wake", "filter"] }
     },
     {
       "name": "pinned important unread thread",
       "thread": { "labelIds": ["INBOX", "STARRED", "IMPORTANT", "UNREAD"], "snoozed": false, "unread": true, "todo": null, "hasSender": true },
       "expect": ["done", "snooze", "unpin", "label", "unimportant", "read", "spam", "delete", "filter"],
-      "places": { "inner": ["done", "snooze", "unpin"], "outer": ["label", "spam", "delete"], "marker": "unimportant", "line": ["filter"] }
+      "places": { "inner": ["done", "snooze"], "outer": ["unpin", "label", "spam", "delete"], "marker": "unimportant", "line": ["filter"] }
     },
     {
       "name": "spam thread has Not spam and no inbox action",
@@ -47,7 +47,7 @@
       "name": "no sender loaded yet: no filter",
       "thread": { "labelIds": ["INBOX"], "snoozed": false, "unread": false, "todo": null, "hasSender": false },
       "expect": ["done", "snooze", "pin", "label", "important", "unread", "spam", "delete"],
-      "places": { "inner": ["done", "snooze", "pin"], "outer": ["label", "spam", "delete"], "marker": "important", "line": [] }
+      "places": { "inner": ["done", "snooze"], "outer": ["pin", "label", "spam", "delete"], "marker": "important", "line": [] }
     }
   ],
   "rows": [

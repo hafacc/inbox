@@ -75,7 +75,7 @@ internal val LocalCornerPlacement = staticCompositionLocalOf { CornerPlacement(C
 /** A corner button's actions: the ring next to it and the ring beyond, each from the top. */
 @Immutable
 internal data class CornerMenu(
-    /** Done, Snooze and Pin, or what takes their places */
+    /** Done and Snooze, or what takes their places */
     val inner: List<HoldMenuItem>,
     /** the rest */
     val outer: List<HoldMenuItem>,

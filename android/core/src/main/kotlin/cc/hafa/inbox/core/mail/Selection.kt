@@ -311,14 +311,15 @@ enum class SelectionDiscAction {
 
 /** The selection's actions on a phone's corner button: the ring next to it and the ring beyond, each from the top. */
 data class SelectionDisc(
-    /** Done (or Move to inbox), Snooze (or Wake now) and Pin */
+    /** Done (or Move to inbox) and Snooze (or Wake now) */
     val inner: List<SelectionDiscAction>,
-    /** the rest */
+    /** the rest, Pin first */
     val outer: List<SelectionDiscAction>,
 )
 
 // The outer ring's order, from the top.
 private val DISC_OUTER = listOf(
+    SelectionDiscAction.PIN,
     SelectionDiscAction.SNOOZE,
     SelectionDiscAction.DONE,
     SelectionDiscAction.LABEL,
@@ -329,10 +330,11 @@ private val DISC_OUTER = listOf(
 
 /**
  * Where the corner button puts each of [available] (the actions that would change something): the
- * inner ring holds Done, Snooze and Pin, Move to inbox taking Done's place and Wake now Snooze's
- * wherever they apply; a Done or Snooze so displaced, and every other action, go on the outer ring.
- * For todos alone (the only selection offering Delete) the inner ring holds Done alone, and
- * Snooze (or Wake now) and Pin go on the outer ring instead, first, so Delete isn't alone there. Web's `selectionDisc` is the same.
+ * inner ring holds Done and Snooze, Move to inbox taking Done's place and Wake now Snooze's wherever
+ * they apply; Pin, a Done or Snooze so displaced, and every other action go on the outer ring.
+ * Neither ring holds a lone action beside the other: with Done or Snooze missing Pin joins the inner
+ * ring, and an outer ring of one joins it too (threads and todos together have only Done, Snooze
+ * and Pin, all next to the button). Web's `selectionDisc` is the same.
  */
 fun selectionDisc(available: Collection<SelectionDiscAction>): SelectionDisc {
     val first = when {
@@ -345,9 +347,8 @@ fun selectionDisc(available: Collection<SelectionDiscAction>): SelectionDisc {
         SelectionDiscAction.SNOOZE in available -> SelectionDiscAction.SNOOZE
         else -> null
     }
-    val pin = SelectionDiscAction.PIN.takeIf { it in available }
-    val moved = if (SelectionDiscAction.DELETE in available) listOfNotNull(second, pin) else emptyList()
-    val inner = listOfNotNull(first, second, pin).filter { it !in moved }
-    val rest = DISC_OUTER.filter { it in available && it !in inner && it !in moved }
-    return SelectionDisc(inner, moved + rest)
+    val placed = listOfNotNull(first, second)
+    val inner = if (placed.size < 2 && SelectionDiscAction.PIN in available) placed + SelectionDiscAction.PIN else placed
+    val outer = DISC_OUTER.filter { it in available && it !in inner }
+    return if (outer.size == 1) SelectionDisc(inner + outer, emptyList()) else SelectionDisc(inner, outer)
 }

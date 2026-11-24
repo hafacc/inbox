@@ -105,9 +105,9 @@ fun threadActions(
 
 /** Where a phone shows an open thread's actions. */
 data class ThreadActionPlaces(
-    /** the corner button's ring next to it, from the top: Done or Move to inbox, Snooze, Pin or Unpin */
+    /** the corner button's ring next to it, from the top: Done or Move to inbox, Snooze, and Pin or Unpin only when one of those is missing */
     val inner: List<ThreadAction>,
-    /** the corner button's ring beyond, from the top: Label, Add or Edit todo, Report spam or Not spam, Delete or Move to inbox */
+    /** the corner button's ring beyond, from the top: Pin or Unpin, Label, Add or Edit todo, Report spam or Not spam, Delete or Move to inbox */
     val outer: List<ThreadAction>,
     /** the marker beside the subject: Mark important or not */
     val marker: ThreadAction?,
@@ -118,7 +118,8 @@ data class ThreadActionPlaces(
 private val LINE_ACTIONS = setOf(ThreadAction.WAKE, ThreadAction.FILTER)
 
 // The corner button's rings, each from the top.
-private val DISC_INNER = listOf(ThreadAction.DONE, ThreadAction.INBOX, ThreadAction.SNOOZE, ThreadAction.PIN, ThreadAction.UNPIN)
+private val DISC_INNER = listOf(ThreadAction.DONE, ThreadAction.INBOX, ThreadAction.SNOOZE)
+private val DISC_PIN = listOf(ThreadAction.PIN, ThreadAction.UNPIN)
 private val DISC_OUTER = listOf(
     ThreadAction.LABEL,
     ThreadAction.ADD_TODO,
@@ -132,16 +133,22 @@ private val DISC_OUTER = listOf(
 /**
  * Where a phone shows each of [actions] (from [threadActions]): Mark important as a marker beside
  * the subject, Wake now and Filter mail like this on the line above the messages, and on the corner
- * button's two rings: Done (Move to inbox), Snooze and Pin (Unpin) next to it, Label, Add or Edit
- * todo, Report spam (Not spam) and Delete (Move to inbox from the trash) beyond. Mark read or unread
- * has no place on a phone.
+ * button's two rings: Done (Move to inbox) and Snooze next to it, then Pin (Unpin), Label, Add or
+ * Edit todo, Report spam (Not spam) and Delete (Move to inbox from the trash) beyond. Where Done has
+ * no place (spam, trash) Pin stays next to Snooze, so neither ring holds a lone action. Mark read or
+ * unread has no place on a phone.
  */
-fun threadActionPlaces(actions: List<ThreadAction>): ThreadActionPlaces = ThreadActionPlaces(
-    inner = DISC_INNER.filter { it in actions },
-    outer = DISC_OUTER.filter { it in actions },
-    marker = actions.firstOrNull { it == ThreadAction.IMPORTANT || it == ThreadAction.UNIMPORTANT },
-    line = actions.filter { it in LINE_ACTIONS },
-)
+fun threadActionPlaces(actions: List<ThreadAction>): ThreadActionPlaces {
+    val inner = DISC_INNER.filter { it in actions }
+    val pin = DISC_PIN.filter { it in actions }
+    val outer = DISC_OUTER.filter { it in actions }
+    return ThreadActionPlaces(
+        inner = if (inner.size < 2) inner + pin else inner,
+        outer = if (inner.size < 2) outer else pin + outer,
+        marker = actions.firstOrNull { it == ThreadAction.IMPORTANT || it == ThreadAction.UNIMPORTANT },
+        line = actions.filter { it in LINE_ACTIONS },
+    )
+}
 
 // What an email row's round menu can offer, in its order.
 private val ROW_HOLD = listOf(ThreadAction.PIN, ThreadAction.UNPIN, ThreadAction.DELETE, ThreadAction.UNTRASH)
