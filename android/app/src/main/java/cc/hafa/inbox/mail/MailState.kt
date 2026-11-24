@@ -162,6 +162,7 @@ import cc.hafa.inbox.core.runSuspendCatching
 import cc.hafa.inbox.core.search.matchesOffline
 import cc.hafa.inbox.core.search.savedText
 import cc.hafa.inbox.core.search.searchPlan
+import cc.hafa.inbox.core.search.searchTagTerms
 import cc.hafa.inbox.core.mail.OfflineDraftsInput
 import cc.hafa.inbox.core.mail.OfflineLocalDraft
 import cc.hafa.inbox.core.mail.offlineDraftThreads
@@ -170,6 +171,7 @@ import cc.hafa.inbox.core.send.GmailDraftRef
 import cc.hafa.inbox.core.send.OutboxDoc
 import cc.hafa.inbox.core.send.outboxDraftIds
 import cc.hafa.inbox.core.send.outboxDrafts
+import cc.hafa.inbox.core.todo.LabelTags
 import cc.hafa.inbox.core.todo.Position
 import cc.hafa.inbox.core.todo.RepeatDraft
 import cc.hafa.inbox.core.todo.Todo
@@ -1313,13 +1315,22 @@ class MailState(
         }
     }
 
+    // The search shown runs again when the labels its `#name`s name have changed, as one fetched
+    // before the labels came listed those `#name`s as todo tags.
+    private fun rerunSearch(before: LabelTags) {
+        val view = state.value.view as? View.Search ?: return
+        if (searchTagTerms(view.query, before) != searchTagTerms(view.query, state.value.labelTags)) scope.launch { loadView(view) }
+    }
+
     private suspend fun loadLabels() {
         try {
             val labels = gmail.listLabels()
             val drafts = gmail.getLabel(Labels.DRAFT)
+            val before = state.value.labelTags
             state.update {
                 it.copy(labels = labelsWithPending(labels, it.accountQueue), labelsLoaded = true, draftLabelThreads = drafts.threadsTotal ?: 0)
             }
+            rerunSearch(before)
             cache.putLabels(labels)
         } catch (error: CancellationException) {
             throw error
@@ -1440,7 +1451,7 @@ class MailState(
     private suspend fun loadView(view: View, more: Boolean = false): Boolean {
         val snoozedSearch = view is View.Search && searchPlan(view.query).snoozedOnly
         val snoozeChecks = !more && (view == View.INBOX || view == View.Fixed(Mailbox.SNOOZED) || snoozedSearch)
-        val options = listOptions(view)
+        val options = listOptions(view, state.value.labelTags)
         if (options == null) {
             if (snoozeChecks) runSnoozeChecks()
             return true
@@ -2807,7 +2818,7 @@ class MailState(
 
     // Gmail's search can't see inside encrypted mail: fetch it a page at a time and match it here.
     private fun searchEncrypted(view: View.Search) {
-        val plan = searchPlan(view.query)
+        val plan = searchPlan(searchTagTerms(view.query, state.value.labelTags))
         val query = encryptedSearchQuery(plan) ?: return
         if (encryption.status.value != EncryptionStatus.UNLOCKED) return
         encryptedSearch?.cancel()
@@ -2841,7 +2852,7 @@ class MailState(
 
     // Gmail can't be reached: search what this device has.
     private suspend fun searchCache(view: View.Search) {
-        val plan = searchPlan(view.query)
+        val plan = searchPlan(searchTagTerms(view.query, state.value.labelTags))
         val ids = try {
             val terms = plan.terms
             val bodyHits = (terms.include + terms.exclude).associateWith { cache.threadsContaining(it) }

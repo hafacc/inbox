@@ -112,6 +112,7 @@ import { unreadAfter, withQueued } from "@inbox/shared/queued-rows";
 import {
   searchEmailTodos,
   searchScope,
+  searchTagTerms,
   searchTodos,
 } from "@inbox/shared/search-scope";
 import {
@@ -144,6 +145,7 @@ import {
   activeKey,
   type EmailTodo,
   isSnoozed,
+  type LabelTags,
   labelTagNames,
   labelTags,
   labelTodos,
@@ -986,7 +988,7 @@ export class MailState {
 
   // The current view's filter: which of its listed threads it keeps (see `viewFilter`).
   readonly #viewFilter = $derived.by((): ViewFilter | null => {
-    const view = filteredView(this.view);
+    const view = filteredView(this.view, this.labelTags);
     return view === null ? null : viewFilter(view, this.#labelIdOf);
   });
 
@@ -1224,7 +1226,7 @@ export class MailState {
 
   /** The current view's list state. */
   readonly currentList = $derived(
-    listOptions(this.view) === null
+    listOptions(this.view, this.labelTags) === null
       ? { ...EMPTY_LIST, loaded: true }
       : (this.lists[this.#listKey(this.view)] ?? EMPTY_LIST),
   );
@@ -2297,6 +2299,19 @@ export class MailState {
   // Bumped by each `#loadLabels`, so only the latest one's answer is shown.
   #labelsCall = 0;
 
+  // The search shown runs again when the labels its `#name`s name have changed, as one fetched
+  // before the labels came listed those `#name`s as todo tags.
+  #rerunSearch(before: LabelTags): void {
+    const view = this.view;
+    if (
+      view.kind === "search" &&
+      searchTagTerms(view.query, before) !==
+        searchTagTerms(view.query, this.labelTags)
+    ) {
+      void this.loadView(view);
+    }
+  }
+
   async #loadLabels(draftsChanged = false): Promise<void> {
     if (this.#disposed) return;
     const draftRefs =
@@ -2312,8 +2327,10 @@ export class MailState {
       ]);
       // An earlier call answering last would put back a list from before a label was made.
       if (this.#disposed || call !== this.#labelsCall) return;
+      const before = this.labelTags;
       this.labels = labelsWithPending(labels, this.accountQueue);
       this.labelsLoaded = true;
+      this.#rerunSearch(before);
       this.#draftLabelThreads = drafts.threadsTotal ?? 0;
       void this.#cache
         .put("meta", LABELS_KEY, labels)
@@ -2461,7 +2478,7 @@ export class MailState {
   ): Promise<boolean> {
     if (this.#disposed) return false;
     const key = this.#listKey(view);
-    const options = listOptions(view);
+    const options = listOptions(view, this.labelTags);
     // Lists that show whether a thread is still snoozed check for newer mail on snoozed threads.
     const snoozeChecks =
       !more &&
@@ -2980,7 +2997,7 @@ export class MailState {
             detail: detailById.get(summary.id) ?? null,
           };
         }),
-        searchPlan(query),
+        searchPlan(searchTagTerms(query, this.labelTags)),
         this.labels,
       );
       const matched = new Set(ids);
@@ -5315,7 +5332,9 @@ export class MailState {
   // Each load of the search starts a run that checks only the messages no run checked yet, so
   // mail that arrived since is looked at, and the matches found so far are listed again at once.
   async #searchEncrypted(query: string, key: string): Promise<void> {
-    const search = encryptedSearch(searchPlan(query));
+    const search = encryptedSearch(
+      searchPlan(searchTagTerms(query, this.labelTags)),
+    );
     if (search === null || !this.encryption.unlocked) {
       this.encryptedSearch = null;
       return;
