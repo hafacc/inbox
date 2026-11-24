@@ -4,7 +4,7 @@ import cc.hafa.inbox.core.testing.Fixtures
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-/** Runs `shared/testdata/held-place-fixtures.json`, so open threads and bundles hold their places as on web. */
+/** Runs `shared/testdata/held-place-fixtures.json`, so open threads and bundles, and the keyboard's focused row, hold their places as on web. */
 class HeldPlacesFixturesTest {
     private fun places(fixture: Any?): HeldPlaces {
         val json = fixture as Map<*, *>
@@ -25,6 +25,14 @@ class HeldPlacesFixturesTest {
             val next = holdPlaces(held, places(case["open"]), case["release"] as Boolean)
             assertEquals(name, places(case["expect"]), next)
             assertEquals(name, case["same"], next === held)
+        }
+    }
+
+    @Test
+    fun pinHeld() {
+        for (case in Fixtures.cases(Fixtures.heldPlaces, "pinHeld")) {
+            val focusBy = (case["focusBy"] as String?)?.let { FocusSource.valueOf(it.uppercase()) }
+            assertEquals(case["name"] as String, case["expect"], pinHeldFocus(case["focus"] as String?, focusBy))
         }
     }
 }

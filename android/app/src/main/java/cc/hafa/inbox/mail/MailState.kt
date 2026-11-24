@@ -127,6 +127,7 @@ import cc.hafa.inbox.core.mail.newerMail
 import cc.hafa.inbox.core.mail.nextAccountChange
 import cc.hafa.inbox.core.mail.openPlaces
 import cc.hafa.inbox.core.mail.parseUnsubscribe
+import cc.hafa.inbox.core.mail.pinHeldFocus
 import cc.hafa.inbox.core.mail.relabelChanges
 import cc.hafa.inbox.core.mail.replay
 import cc.hafa.inbox.core.mail.restoresSnooze
@@ -3577,13 +3578,14 @@ class MailState(
         }
     }
 
-    // The places the list holds now: the open bundle's and thread's, and the focused thread's
-    // pinning, from when each was first held.
+    // The places the list holds now: the open bundle's and thread's, and the pinning of the thread or
+    // todo the keyboard focused, from when each was first held.
     private fun heldNow(model: MailModel): HeldPlaces {
         val labelId = model.list.bundle?.labelId
         val threadId = model.list.open
         val focusedId = pinHeldThread(model)
-        val todoKey = rowTodoId(model.list.focus)?.let(::todoRowKey)
+        val todoId = rowTodoId(pinHeldFocus(model.list.focus, model.list.focusBy))
+        val todoKey = todoId?.let(::todoRowKey)
         val keptBundle = labelId?.let(model.held.bundles::get)
         val keptThread = threadId?.let(model.held.threads::get)
         val keptPin = focusedId?.let(model.held.pins::get)
@@ -3593,7 +3595,7 @@ class MailState(
             (focusedId != null && keptPin == null) ||
             (todoKey != null && keptTodoPin == null)
         val fresh = if (missing) {
-            openPlaces(model.sections(), setOfNotNull(labelId), threadId, focusedId, focusedTodo = rowTodoId(model.list.focus))
+            openPlaces(model.sections(), setOfNotNull(labelId), threadId, focusedId, focusedTodo = todoId)
         } else {
             HeldPlaces()
         }
@@ -3604,8 +3606,9 @@ class MailState(
         return HeldPlaces(thread.orEmpty(), bundle.orEmpty(), pin.orEmpty() + todoPin.orEmpty())
     }
 
-    // The focused thread when it isn't open, whose pinning moves it only once focus leaves.
-    private fun pinHeldThread(model: MailModel): String? = rowThreadId(model.list.focus)?.takeIf { it != model.list.open }
+    // The thread the keyboard focused when it isn't open, whose pinning moves it only once focus leaves.
+    private fun pinHeldThread(model: MailModel): String? =
+        rowThreadId(pinHeldFocus(model.list.focus, model.list.focusBy))?.takeIf { it != model.list.open }
 
     // A bundle opened fetches its next page once (after its first, while that is on its way).
     private fun fetchOpenedBundle(labelId: String) {

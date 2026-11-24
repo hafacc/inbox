@@ -278,8 +278,8 @@ later of that date and its wake time. Gmail's message order isn't trusted, and d
   thread row.
 - **Focus:** a switch on each device (not per account, kept across restarts and sign-out). While on,
   the inbox shows only pinned threads and pinned todos; bundles are hidden, since pinned threads
-  never sit in one (the open thread, alone or in its bundle, stays, and so does the focused thread
-  unpinned until focus leaves it). Other lists are unaffected. It
+  never sit in one (the open thread, alone or in its bundle, stays, and so does the thread the
+  keyboard focused, unpinned, until focus leaves it). Other lists are unaffected. It
   lists the inbox with Gmail's `is:starred` added to the view's own query, as its own list paged
   like any other, so every pinned thread is reachable however far back; rows already loaded that
   aren't pinned are counted as hidden (`shared/src/focus.ts`, fixtures in
@@ -333,10 +333,12 @@ except where the list says.
   bundle's header), not the rows the thread had covered. A layout measured while the thread was
   open never scrolls the page back after the close, and once the close has played the row is
   checked again and brought back if it ended up off screen, unless the user scrolled meanwhile.
-- Pinning or unpinning the focused thread or todo doesn't move it to or from Pinned, or into or out
-  of a bundle, under the user: that move waits until focus goes elsewhere (`shared/src/held-places.ts`,
-  a todo held by its row key). In focus mode, unpinning the focused thread or todo likewise leaves
-  it showing in place until focus leaves (`shared/src/focus.ts`).
+- Pinning or unpinning the thread or todo the keyboard focused doesn't move it to or from Pinned, or
+  into or out of a bundle, under the user: that move waits until focus goes elsewhere
+  (`shared/src/held-places.ts`, a todo held by its row key). In focus mode, unpinning it likewise
+  leaves it showing in place until focus leaves (`shared/src/focus.ts`). A row focused by a click or
+  tap (a todo being edited, a row whose button or hold menu was used) holds nothing: pinning or
+  unpinning it moves it at once.
   Only the pinning waits; a reply, a new label or a refetch moves the focused thread at once, as
   any other. Closing a thread lets go of what its being open held, so it moves where it belongs
   once its close has played, though focus stays on its row.

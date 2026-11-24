@@ -1,7 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { mergeFirstPage } from "./bundles";
-import type { HeldPlaces } from "./held-places";
+import {
+  type HeldPlaces,
+  holdPlaces,
+  NO_HELD_PLACES,
+  pinHeldFocus,
+} from "./held-places";
 import {
   doneAllIds,
   doneAllTodos,
@@ -26,6 +31,8 @@ import {
   type ListState,
   listProblems,
   listStep,
+  rowThreadId,
+  rowTodoId,
   todoRowKey,
 } from "./list-state";
 import { epochToIso } from "./local-time";
@@ -684,5 +691,61 @@ test("openPlaces holds the focused todo's pinning under its row key, in a bundle
   ]).toEqual([
     [todoRowKey("tagged"), false],
     [todoRowKey("loose"), true],
+  ]);
+});
+
+// The sections after pinning the focused row: held places taken while focused, then the pin made.
+function pinFocused(
+  by: "keyboard" | "pointer",
+  focus: string,
+  pinned: { rows: Row[]; todos: Todo[] },
+  unpinned: { rows: Row[]; todos: Todo[] },
+): string[][] {
+  const before = inboxSections(
+    unpinned.rows,
+    NOW,
+    [],
+    NO_HELD_PLACES,
+    unpinned.todos,
+  );
+  const list = listOf(before, { type: "focus", key: focus, by });
+  const key = pinHeldFocus(list.focus, list.focusBy);
+  let held = holdPlaces(
+    NO_HELD_PLACES,
+    openPlaces(before, null, null, rowThreadId(key), rowTodoId(key)),
+  );
+  const pinnedNow = (current: HeldPlaces) =>
+    inboxSections(pinned.rows, NOW, [], current, pinned.todos);
+  held = holdPlaces(
+    held,
+    openPlaces(pinnedNow(held), null, null, rowThreadId(key), rowTodoId(key)),
+  );
+  return pinnedNow(held).map(entryIds);
+}
+
+test("a todo or thread pinned after a click or tap moves to Pinned at once", () => {
+  const todos = [todo("t", 1)];
+  const rows = [row("a", 2)];
+  const pinnedTodo = { rows, todos: [todo("t", 1, { pinned: true })] };
+  const pinnedRow = { rows: [row("a", 2, ["INBOX", "STARRED"])], todos };
+  expect(
+    pinFocused("pointer", todoRowKey("t"), pinnedTodo, { rows, todos }),
+  ).toEqual([[todoRowKey("t")], ["a"]]);
+  expect(pinFocused("pointer", "a", pinnedRow, { rows, todos })).toEqual([
+    ["a"],
+    [todoRowKey("t")],
+  ]);
+});
+
+test("a todo or thread the keyboard focused waits for focus to leave to move to Pinned", () => {
+  const todos = [todo("t", 1)];
+  const rows = [row("a", 2)];
+  const pinnedTodo = { rows, todos: [todo("t", 1, { pinned: true })] };
+  const pinnedRow = { rows: [row("a", 2, ["INBOX", "STARRED"])], todos };
+  expect(
+    pinFocused("keyboard", todoRowKey("t"), pinnedTodo, { rows, todos }),
+  ).toEqual([[todoRowKey("t"), "a"]]);
+  expect(pinFocused("keyboard", "a", pinnedRow, { rows, todos })).toEqual([
+    [todoRowKey("t"), "a"],
   ]);
 });
