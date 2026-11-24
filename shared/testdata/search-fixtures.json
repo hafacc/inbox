@@ -1839,6 +1839,10 @@
       {
         "term": "in:outbox",
         "detail": "Mail waiting to be sent"
+      },
+      {
+        "term": "#receipts",
+        "detail": "A label's mail and todos, or todos with that tag"
       }
     ]
   },

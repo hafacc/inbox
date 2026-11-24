@@ -3,13 +3,16 @@
 
 import {
   type Chip,
+  formatChip,
   gmailQueryText,
   isLocalChip,
+  labelQueryValue,
   parseQuery,
-  queryText,
   TAG_CHIP,
+  tokenChip,
+  tokenize,
 } from "./search";
-import { type LabelTags, namesLabelQuery } from "./todos/label-tags";
+import { type LabelTags, namesLabelQuery, tagLabel } from "./todos/label-tags";
 import type { EmailTodo } from "./todos/linked";
 import { rankBySearch } from "./todos/list";
 import { parseTags, tagKey } from "./todos/tags";
@@ -51,12 +54,48 @@ function todoChipTest(
 }
 
 /**
- * What a whole search query lists. `is:todo` lists todos and no mail; `is:snoozed` or `in:outbox`
- * with nothing else lists no mail from Gmail (the device has those); `-is:todo` lists no todos, so
- * on its own it lists all mail. Todos show only while every chip is one a todo can be held to:
+ * `query` as a search runs it: each `#name` word (a todo's tag, maybe after `-`) that names one of
+ * `labels` becomes that label's `label:` term, matched by {@link tagKey} so case doesn't matter.
+ * Any other `#name` stays, a tag that only todos carry; the rest of the query is as it was. The
+ * search field, the address and recent searches keep the query as typed; this runs only where the
+ * search does (Gmail's query, {@link searchScope}, {@link searchTodos}, the list's filter).
+ *
+ * ```ts
+ * searchTagTerms("#Read-Later lunch", labels) // "label:read-later lunch"
+ * ```
+ */
+export function searchTagTerms(query: string, labels: LabelTags): string {
+  const tokens = tokenize(query);
+  let out = "";
+  let at = 0;
+  tokens.forEach((token, index) => {
+    const besideOr =
+      tokens[index - 1]?.text === "OR" || tokens[index + 1]?.text === "OR";
+    const chip = besideOr ? null : tokenChip(token, true);
+    if (chip?.operator !== TAG_CHIP) return;
+    const label = tagLabel(labels, chip.value);
+    if (label === null) return;
+    out +=
+      query.slice(at, token.start) +
+      formatChip({
+        operator: "label",
+        value: labelQueryValue(label.name),
+        negated: chip.negated,
+      });
+    at = token.end;
+  });
+  return out + query.slice(at);
+}
+
+/**
+ * What a whole search query lists, given the query as it runs ({@link searchTagTerms}). `is:todo`
+ * lists todos and no mail; `is:snoozed` or `in:outbox` with nothing else lists no mail from Gmail
+ * (the device has those); `-is:todo` lists no todos, so on its own it lists all mail. Todos show only while every chip is one a todo can be held to:
  * `is:todo`, `is:snoozed`, `is:pinned` (or `is:starred`), `is:done`, `in:inbox` (any of them
  * negated) or `label:` (which {@link searchTodos} reads against the todos' tags). `is:pinned` and
- * `is:done` go to Gmail as `is:starred` and `-in:inbox` ({@link gmailQueryText}).
+ * `is:done` go to Gmail as `is:starred` and `-in:inbox` ({@link gmailQueryText}). A `#tag` word left
+ * by {@link searchTagTerms} names no label, so only todos carry it and Gmail lists no mail for it;
+ * nor for free text that is only `#tag` words joined by `OR`, which todos match by either tag.
  */
 export function searchScope(query: string): SearchScope {
   const { chips, free } = parseQuery(query, null);
@@ -73,6 +112,7 @@ export function searchScope(query: string): SearchScope {
   const outbox = has("in", "outbox", false);
   const mailQuery = gmailQueryText(chips, free);
   const deviceOnly = mailQuery === "" && (snoozedOnly || outbox);
+  const tagOnly = keptTags(free).length > 0 || tagsJoinedByOr(free);
   const mailChips = chips.some(
     (chip) => chip.operator !== "label" && todoChipTest(chip) === undefined,
   );
@@ -81,7 +121,7 @@ export function searchScope(query: string): SearchScope {
   else if (snoozedOnly) todos = "snoozed";
   else todos = "all";
   return {
-    gmailQuery: todosOnly || deviceOnly ? null : mailQuery,
+    gmailQuery: todosOnly || deviceOnly || tagOnly ? null : mailQuery,
     includeSpamTrash: chips.some(
       (chip) =>
         chip.operator === "in" &&
@@ -99,8 +139,9 @@ export function searchScope(query: string): SearchScope {
  * keeps the todos with a tag naming that label among `labels` (see `labelTags`), `-label:` those
  * without. `is:pinned` (or `is:starred`) keeps the pinned ones, `is:done` the done ones,
  * `in:inbox` those not done (snoozed included, as a snoozed email stays in Gmail's inbox), and
- * `-is:snoozed` those not snoozed; each negated keeps the others. A `-#tag` word keeps the todos
- * without that tag; a `#tag` word ranks like any other word.
+ * `-is:snoozed` those not snoozed; each negated keeps the others. A `#name` naming one of `labels`
+ * reads as its `label:` ({@link searchTagTerms}); any other `#tag` word keeps the todos with that
+ * tag, a `-#tag` word those without it.
  */
 export function searchTodos(
   todos: readonly Todo[],
@@ -108,11 +149,12 @@ export function searchTodos(
   now: number,
   labels: LabelTags = new Map(),
 ): Todo[] {
-  const scope = searchScope(query);
+  const run = searchTagTerms(query, labels);
+  const scope = searchScope(run);
   if (scope.todos === "none") return [];
   const kept = matchingText(
     todos,
-    query,
+    run,
     labels,
     (chip, todo) => todoChipTest(chip)?.(todo, now) ?? true,
   );
@@ -120,7 +162,7 @@ export function searchTodos(
     kept,
     scope.todos === "snoozed" ? "SNOOZED" : "ALL",
   );
-  return rankBySearch(shown, freeWords(query));
+  return rankBySearch(shown, freeWords(run));
 }
 
 /**
@@ -134,22 +176,41 @@ export function searchEmailTodos(
   query: string,
   labels: LabelTags = new Map(),
 ): string[] {
-  if (searchScope(query).todos === "none") return [];
-  const kept = matchingText(todos, query, labels, () => null);
-  return rankBySearch(kept, freeWords(query)).map((todo) => todo.threadId);
+  const run = searchTagTerms(query, labels);
+  if (searchScope(run).todos === "none") return [];
+  const kept = matchingText(todos, run, labels, () => null);
+  return rankBySearch(kept, freeWords(run)).map((todo) => todo.threadId);
 }
 
-// The query's free text with its `-#tag` words left out, as todos rank by it.
+// The query's free text with its `#tag` and `-#tag` words left out, as todos rank by it.
 function freeWords(query: string): string {
-  const tagged = parseQuery(parseQuery(query, null).free, null, true);
-  return queryText(
-    tagged.chips.filter((chip) => chip.operator === TAG_CHIP && !chip.negated),
-    tagged.free,
+  return parseQuery(parseQuery(query, null).free, null, true).free;
+}
+
+// The keys of the `#tag` words (not negated) in a query's free text.
+function keptTags(free: string): string[] {
+  return parseQuery(free, null, true)
+    .chips.filter((chip) => chip.operator === TAG_CHIP && !chip.negated)
+    .map((chip) => tagKey(chip.value));
+}
+
+// Whether free text is only `#tag` words (not negated) joined by `OR`, as `#home OR #work`.
+function tagsJoinedByOr(free: string): boolean {
+  const tokens = tokenize(free);
+  return (
+    tokens.length >= 3 &&
+    tokens.length % 2 === 1 &&
+    tokens.every((token, index) => {
+      if (index % 2 === 1) return token.text === "OR";
+      const chip = tokenChip(token, true);
+      return chip?.operator === TAG_CHIP && !chip.negated;
+    })
   );
 }
 
-// The items whose text lacks every `-#tag` and holds to every chip: `label:` read against the
-// tags, any other by `holds`, which answers null for a chip it leaves to something else.
+// The items whose text has every `#tag`, lacks every `-#tag` and holds to every chip: `label:`
+// read against the tags, any other by `holds`, which answers null for a chip it leaves to
+// something else.
 function matchingText<Item extends { text: string }>(
   items: readonly Item[],
   query: string,
@@ -162,10 +223,18 @@ function matchingText<Item extends { text: string }>(
       .chips.filter((chip) => chip.operator === TAG_CHIP && chip.negated)
       .map((chip) => tagKey(chip.value)),
   );
-  const lacksLeftTags = (item: Item): boolean =>
-    parseTags(item.text).every(
-      ({ start, end }) => !left.has(tagKey(item.text.slice(start + 1, end))),
+  const kept = keptTags(free);
+  const tagsOf = (item: Item): string[] =>
+    parseTags(item.text).map(({ start, end }) =>
+      tagKey(item.text.slice(start + 1, end)),
     );
+  const holdsTags = (item: Item): boolean => {
+    const tags = tagsOf(item);
+    return (
+      kept.every((tag) => tags.includes(tag)) &&
+      tags.every((tag) => !left.has(tag))
+    );
+  };
   const holdsChip = (chip: Chip, item: Item): boolean => {
     const held =
       chip.operator === "label"
@@ -174,7 +243,6 @@ function matchingText<Item extends { text: string }>(
     return held === null || held !== chip.negated;
   };
   return items.filter(
-    (item) =>
-      lacksLeftTags(item) && chips.every((chip) => holdsChip(chip, item)),
+    (item) => holdsTags(item) && chips.every((chip) => holdsChip(chip, item)),
   );
 }

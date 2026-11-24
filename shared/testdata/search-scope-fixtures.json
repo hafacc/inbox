@@ -1,5 +1,5 @@
 {
-  "_doc": "What a search lists (shared/src/search-scope.ts, Android :core SearchScope.kt). `scope`: searchScope(query): Gmail's query (null when Gmail lists no mail for it), whether spam and trash are asked for, which todos show (none, all, snoozed) and whether only snoozed threads show; `is:pinned` and `is:done` reach Gmail as `is:starred` and `-in:inbox`. `todos`: searchTodos(todos, query, now), the ids in order; every todo is `base` with the listed fields replaced; times are epoch milliseconds, local times read in `zone`; `labels` are the account's labels, which `label:` reads against todos' tags (labelTags). `in:inbox` keeps todos not done, `is:done` the done ones, `is:pinned`/`is:starred` the pinned ones, `is:snoozed` the snoozed ones; each negated keeps the others. `emailTodos`: searchEmailTodos(todos, query), the thread ids of the emails listed for their todo's text, in order; each todo is {threadId, text}. Whether the email is in the inbox, snoozed, pinned or done is the email's own, held to it by the list's filter, so those terms, negated or not, drop none here; a mail operator lists none.",
+  "_doc": "What a search lists (shared/src/search-scope.ts, Android :core SearchScope.kt). `tags`: searchTagTerms(query, labelTags(labels)), the query as it runs, with each `#name` naming a user label written as that label's `label:` term; any other `#name` stays a todo tag. `scope`: searchScope(query), the query as it runs: Gmail's query (null when Gmail lists no mail for it), whether spam and trash are asked for, which todos show (none, all, snoozed) and whether only snoozed threads show; `is:pinned` and `is:done` reach Gmail as `is:starred` and `-in:inbox`. `todos`: searchTodos(todos, query, now, labels), which runs the query as `tags` does, the ids in order; every todo is `base` with the listed fields replaced; times are epoch milliseconds, local times read in `zone`; `labels` are the account's labels, which `label:` reads against todos' tags (labelTags). `in:inbox` keeps todos not done, `is:done` the done ones, `is:pinned`/`is:starred` the pinned ones, `is:snoozed` the snoozed ones; each negated keeps the others. `emailTodos`: searchEmailTodos(todos, query, labels), which runs it the same way, the thread ids of the emails listed for their todo's text, in order; each todo is {threadId, text}. Whether the email is in the inbox, snoozed, pinned or done is the email's own, held to it by the list's filter, so those terms, negated or not, drop none here; a mail operator lists none.",
   "zone": "America/New_York",
   "labels": [
     {"id": "L1", "name": "Read Later", "type": "user"},
@@ -31,7 +31,14 @@
     { "name": "is:unread leaves todos out", "query": "is:unread", "expect": { "gmailQuery": "is:unread", "includeSpamTrash": false, "todos": "none", "snoozedOnly": false } },
     { "name": "in:outbox alone lists no Gmail mail", "query": "in:outbox", "expect": { "gmailQuery": null, "includeSpamTrash": false, "todos": "none", "snoozedOnly": false } },
     { "name": "in:spam asks for spam", "query": "in:spam lunch", "expect": { "gmailQuery": "in:spam lunch", "includeSpamTrash": true, "todos": "none", "snoozedOnly": false } },
-    { "name": "-in:trash doesn't", "query": "-in:trash lunch", "expect": { "gmailQuery": "-in:trash lunch", "includeSpamTrash": false, "todos": "none", "snoozedOnly": false } }
+    { "name": "-in:trash doesn't", "query": "-in:trash lunch", "expect": { "gmailQuery": "-in:trash lunch", "includeSpamTrash": false, "todos": "none", "snoozedOnly": false } },
+    {"name": "a #tag naming no label lists only todos with it, no mail", "query": "#home milk", "expect": {"gmailQuery": null, "includeSpamTrash": false, "todos": "all", "snoozedOnly": false}},
+    {"name": "a -#tag still searches mail", "query": "-#home milk", "expect": {"gmailQuery": "-#home milk", "includeSpamTrash": false, "todos": "all", "snoozedOnly": false}},
+    {"name": "#tags joined by OR list only todos, no mail", "query": "#home OR #work", "expect": {"gmailQuery": null, "includeSpamTrash": false, "todos": "all", "snoozedOnly": false}},
+    {"name": "three #tags joined by OR list only todos", "query": "#home OR #work OR #shop", "expect": {"gmailQuery": null, "includeSpamTrash": false, "todos": "all", "snoozedOnly": false}},
+    {"name": "#tags joined by OR with a word still search mail", "query": "#home OR #work milk", "expect": {"gmailQuery": "#home OR #work milk", "includeSpamTrash": false, "todos": "all", "snoozedOnly": false}},
+    {"name": "a -#tag joined by OR still searches mail", "query": "-#home OR #work", "expect": {"gmailQuery": "-#home OR #work", "includeSpamTrash": false, "todos": "all", "snoozedOnly": false}},
+    {"name": "a lower-case or doesn't join #tags", "query": "#home or #work", "expect": {"gmailQuery": null, "includeSpamTrash": false, "todos": "all", "snoozedOnly": false}}
   ],
   "todos": [
     {
@@ -191,6 +198,18 @@
       "ids": ["tagged", "spelled"]
     },
     {
+      "name": "a #name naming a label lists the todos whose tags name it, as label: does",
+      "query": "#Read-Later",
+      "now": 1794492000000,
+      "todos": [
+        { "id": "tagged", "text": "Book #read-later", "modifiedAt": 1794480000000 },
+        { "id": "spelled", "text": "#Read-Later movie", "modifiedAt": 1794470000000 },
+        { "id": "other", "text": "#home" },
+        { "id": "underscore", "text": "#read_later" }
+      ],
+      "ids": ["tagged", "spelled"]
+    },
+    {
       "name": "label: takes a nested label by Gmail's name for it",
       "query": "label:work-projects",
       "now": 1794492000000,
@@ -251,7 +270,7 @@
       "ids": ["shop"]
     },
     {
-      "name": "a #tag ranks as a word",
+      "name": "a #tag keeps the todos with that tag",
       "query": "#home",
       "now": 1794492000000,
       "todos": [
@@ -259,7 +278,10 @@
         { "id": "other", "text": "Call mom" }
       ],
       "ids": ["home"]
-    }
+    },
+    {"name": "a #tag keeps only that tag, not one it starts", "query": "#home", "now": 1794492000000, "todos": [{"id": "home", "text": "Buy milk #Home"}, {"id": "homework", "text": "Math #homework"}, {"id": "word", "text": "home soon"}], "ids": ["home"]},
+    {"name": "a #tag with words ranks the tagged by them", "query": "#home milk", "now": 1794492000000, "todos": [{"id": "home", "text": "Buy milk #home"}, {"id": "bread", "text": "Buy bread #home"}, {"id": "shop", "text": "Milk run #shop"}], "ids": ["home"]},
+    {"name": "#tags joined by OR keep the todos with either", "query": "#home OR #work", "now": 1794492000000, "todos": [{"id": "home", "text": "Buy milk #home", "modifiedAt": 1794480000000}, {"id": "shop", "text": "Milk run #shop"}, {"id": "work", "text": "Plan #work", "modifiedAt": 1794470000000}], "ids": ["home", "work"]}
   ],
   "emailTodos": [
     { "name": "words match the text", "query": "milk", "todos": [{ "threadId": "t1", "text": "Call *Maya* about #home" }, { "threadId": "t2", "text": "Pay rent #read-later" }, { "threadId": "t3", "text": "Buy milk" }], "threadIds": ["t3"] },
@@ -267,9 +289,21 @@
     { "name": "is:todo alone lists every email with a todo", "query": "is:todo", "todos": [{ "threadId": "t1", "text": "Call *Maya* about #home" }, { "threadId": "t2", "text": "Pay rent #read-later" }, { "threadId": "t3", "text": "Buy milk" }], "threadIds": ["t1", "t2", "t3"] },
     { "name": "state terms are the email's, left to the list's filter", "query": "is:snoozed -is:pinned in:inbox -is:done", "todos": [{ "threadId": "t1", "text": "Call *Maya* about #home" }, { "threadId": "t2", "text": "Pay rent #read-later" }, { "threadId": "t3", "text": "Buy milk" }], "threadIds": ["t1", "t2", "t3"] },
     { "name": "label: reads the tags", "query": "label:read-later", "todos": [{ "threadId": "t1", "text": "Call *Maya* about #home" }, { "threadId": "t2", "text": "Pay rent #read-later" }, { "threadId": "t3", "text": "Buy milk" }], "threadIds": ["t2"] },
+    { "name": "a #name naming a label reads the tags as label: does", "query": "#read-later", "todos": [{ "threadId": "t1", "text": "Call *Maya* about #home" }, { "threadId": "t2", "text": "Pay rent #Read-Later" }, { "threadId": "t3", "text": "Buy milk" }], "threadIds": ["t2"] },
     { "name": "-label: leaves tagged ones out", "query": "-label:read-later", "todos": [{ "threadId": "t1", "text": "Call *Maya* about #home" }, { "threadId": "t2", "text": "Pay rent #read-later" }, { "threadId": "t3", "text": "Buy milk" }], "threadIds": ["t1", "t3"] },
     { "name": "-#tag leaves that tag out", "query": "-#home", "todos": [{ "threadId": "t1", "text": "Call *Maya* about #home" }, { "threadId": "t2", "text": "Pay rent #read-later" }, { "threadId": "t3", "text": "Buy milk" }], "threadIds": ["t2", "t3"] },
     { "name": "a mail operator lists none", "query": "from:maya milk", "todos": [{ "threadId": "t1", "text": "Call *Maya* about #home" }, { "threadId": "t2", "text": "Pay rent #read-later" }, { "threadId": "t3", "text": "Buy milk" }], "threadIds": [] },
-    { "name": "-is:todo lists none", "query": "milk -is:todo", "todos": [{ "threadId": "t1", "text": "Call *Maya* about #home" }, { "threadId": "t2", "text": "Pay rent #read-later" }, { "threadId": "t3", "text": "Buy milk" }], "threadIds": [] }
+    { "name": "-is:todo lists none", "query": "milk -is:todo", "todos": [{ "threadId": "t1", "text": "Call *Maya* about #home" }, { "threadId": "t2", "text": "Pay rent #read-later" }, { "threadId": "t3", "text": "Buy milk" }], "threadIds": [] },
+    {"name": "#tag keeps that tag's emails", "query": "#home", "todos": [{"threadId": "t1", "text": "Call *Maya* about #home"}, {"threadId": "t2", "text": "Pay rent #read-later"}, {"threadId": "t3", "text": "Buy milk"}], "threadIds": ["t1"]},
+    {"name": "#tags joined by OR keep the emails with either", "query": "#home OR #read-later", "todos": [{"threadId": "t1", "text": "Call *Maya* about #home"}, {"threadId": "t2", "text": "Pay rent #read-later"}, {"threadId": "t3", "text": "Buy milk"}], "threadIds": ["t1", "t2"]}
+  ],
+  "tags": [
+    {"name": "a user label's tag becomes its label: term", "query": "#read-later", "expect": "label:read-later"},
+    {"name": "in any case", "query": "#Read-Later lunch", "expect": "label:read-later lunch"},
+    {"name": "a nested label's tag keeps its path", "query": "report #work/projects", "expect": "report label:work-projects"},
+    {"name": "negated, it leaves the label out", "query": "-#read-later", "expect": "-label:read-later"},
+    {"name": "a mailbox's or state's name stays a tag", "query": "#inbox #snoozed #done #sent #promotions", "expect": "#inbox #snoozed #done #sent #promotions"},
+    {"name": "a tag naming no label stays", "query": "#home milk", "expect": "#home milk"},
+    {"name": "a # inside a word, a group or beside OR stays", "query": "a#read-later (#read-later OR x) #read-later OR #home", "expect": "a#read-later (#read-later OR x) #read-later OR #home"}
   ]
 }
