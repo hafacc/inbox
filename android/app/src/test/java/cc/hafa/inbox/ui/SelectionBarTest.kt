@@ -52,16 +52,16 @@ class SelectionBarTest {
     }
 
     @Test
-    fun inboxThreadsPutDoneSnoozeAndPinNextToTheButtonAndTheRestBeyond() {
+    fun inboxThreadsPutDoneAndSnoozeNextToTheButtonAndPinFirstBeyond() {
         val threads = listOf(
             SelectedThread("a", listOf("INBOX", "UNREAD"), SelectedStatus.NONE),
             SelectedThread("b", listOf("INBOX"), SelectedStatus.NONE),
         )
         val picked = mutableListOf<SetAction>()
         val menu = menuFor(threads, picked)
-        assertEquals(listOf("Done", "Snooze", "Pin"), menu.inner.map { it.label })
-        assertEquals(listOf("Label", "Mark read", "Report spam"), menu.outer.map { it.label })
-        menu.onPick(menu.outer[1])
+        assertEquals(listOf("Done", "Snooze"), menu.inner.map { it.label })
+        assertEquals(listOf("Pin", "Label", "Mark read", "Report spam"), menu.outer.map { it.label })
+        menu.onPick(menu.outer[2])
         menu.onPick(menu.inner[0])
         assertEquals(listOf(SetAction.UNREAD, SetAction.DONE), picked)
     }
