@@ -20,4 +20,5 @@ native Android app (`android/`), Firebase backend (`functions/`, `firebase/`), C
 - `shared/src/snooze-*.ts` and `shared/testdata/snooze-fixtures.json` are copied from latr; keep them
   in step with latr until they move to a common package.
 - `docs/privacy.md` and `docs/support.md` are the only copy of those pages: the web prerenders them
-  at `/privacy` and `/support`, and Android opens the web pages.
+  at `/privacy` and `/support`, and Android's build copies them into its assets and shows them in a
+  sheet (`InfoSheet`) with a button to the web page.

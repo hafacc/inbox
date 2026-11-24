@@ -42,9 +42,9 @@ jobs:
                   android=true; web=true ;;
                 .github/workflows/android-tests.yml) android=true ;;
                 .github/workflows/web-tests.yml | .github/actions/*) web=true ;;
-                # the web build prerenders these at /privacy and /support
-                web/* | functions/* | workers/* | firebase/* | scripts/* | docs/privacy.md | docs/support.md)
-                  web=true ;;
+                # the web prerenders these at /privacy and /support, and Android bundles them
+                docs/privacy.md | docs/support.md) android=true; web=true ;;
+                web/* | functions/* | workers/* | firebase/* | scripts/*) web=true ;;
                 */* | *.md | LICENSE) ;;
                 # other root tooling: biome.json, eslint.config.js, ...
                 *) web=true ;;
