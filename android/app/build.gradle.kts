@@ -94,6 +94,37 @@ android {
     }
 }
 
+/** Copies the privacy and support pages from the repo's docs/, their only copy, into the app's assets. */
+abstract class InfoPagesTask : DefaultTask() {
+    /** the pages, as docs/ has them */
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.NAME_ONLY)
+    abstract val pages: ConfigurableFileCollection
+
+    /** the generated assets folder */
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    /** Copy each page under its own name. */
+    @TaskAction
+    fun copy() {
+        val out = outputDir.get().asFile
+        out.deleteRecursively()
+        out.mkdirs()
+        pages.forEach { it.copyTo(out.resolve(it.name)) }
+    }
+}
+
+val infoPages = tasks.register<InfoPagesTask>("infoPages") {
+    pages.from(rootProject.file("../docs/privacy.md"), rootProject.file("../docs/support.md"))
+}
+
+androidComponents {
+    onVariants { variant ->
+        variant.sources.assets?.addGeneratedSourceDirectory(infoPages, InfoPagesTask::outputDir)
+    }
+}
+
 kotlin {
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
