@@ -273,14 +273,15 @@
     }
   ],
   "disc": [
-    { "name": "inbox threads: Done, Snooze, Pin inside; the rest outside", "available": ["done", "snooze", "pin", "label", "read", "spam"], "inner": ["done", "snooze", "pin"], "outer": ["label", "read", "spam"] },
-    { "name": "snoozed threads: Wake now takes Snooze's place, which goes outside", "available": ["done", "snooze", "wake", "pin", "label", "read", "spam"], "inner": ["done", "wake", "pin"], "outer": ["snooze", "label", "read", "spam"] },
-    { "name": "archived threads: Move to inbox takes Done's place", "available": ["inbox", "snooze", "pin", "label", "read", "spam"], "inner": ["inbox", "snooze", "pin"], "outer": ["label", "read", "spam"] },
-    { "name": "archived and inbox threads: Done goes outside", "available": ["done", "inbox", "snooze", "pin", "label", "read", "spam"], "inner": ["inbox", "snooze", "pin"], "outer": ["done", "label", "read", "spam"] },
-    { "name": "todos: Done alone inside, Snooze, Pin and Delete outside", "available": ["done", "snooze", "pin", "delete"], "inner": ["done"], "outer": ["snooze", "pin", "delete"] },
-    { "name": "snoozed todos: Wake now takes Snooze's place outside, Snooze after Pin", "available": ["done", "snooze", "wake", "pin", "delete"], "inner": ["done"], "outer": ["wake", "pin", "snooze", "delete"] },
-    { "name": "with Delete offered, Move to inbox still takes Done's place inside", "available": ["inbox", "pin", "delete"], "inner": ["inbox"], "outer": ["pin", "delete"] },
-    { "name": "done todos with nothing to pin: Delete alone outside", "available": ["delete"], "inner": [], "outer": ["delete"] },
-    { "name": "threads and todos together: no outer ring", "available": ["done", "snooze", "pin"], "inner": ["done", "snooze", "pin"], "outer": [] }
+    { "name": "inbox threads: Done and Snooze inside; Pin first outside", "available": ["done", "snooze", "pin", "label", "read", "spam"], "inner": ["done", "snooze"], "outer": ["pin", "label", "read", "spam"] },
+    { "name": "snoozed threads: Wake now takes Snooze's place, which goes outside after Pin", "available": ["done", "snooze", "wake", "pin", "label", "read", "spam"], "inner": ["done", "wake"], "outer": ["pin", "snooze", "label", "read", "spam"] },
+    { "name": "archived threads: Move to inbox takes Done's place", "available": ["inbox", "snooze", "pin", "label", "read", "spam"], "inner": ["inbox", "snooze"], "outer": ["pin", "label", "read", "spam"] },
+    { "name": "archived and inbox threads: Done goes outside", "available": ["done", "inbox", "snooze", "pin", "label", "read", "spam"], "inner": ["inbox", "snooze"], "outer": ["pin", "done", "label", "read", "spam"] },
+    { "name": "todos: Done and Snooze inside, Pin and Delete outside", "available": ["done", "snooze", "pin", "delete"], "inner": ["done", "snooze"], "outer": ["pin", "delete"] },
+    { "name": "snoozed todos: Wake now takes Snooze's place, Snooze after Pin outside", "available": ["done", "snooze", "wake", "pin", "delete"], "inner": ["done", "wake"], "outer": ["pin", "snooze", "delete"] },
+    { "name": "with no Snooze, Pin joins Move to inbox inside, and a lone Delete joins them", "available": ["inbox", "pin", "delete"], "inner": ["inbox", "pin", "delete"], "outer": [] },
+    { "name": "done todos with nothing to pin: Delete alone inside", "available": ["delete"], "inner": ["delete"], "outer": [] },
+    { "name": "threads and todos together: a lone Pin joins the inner ring, no outer ring", "available": ["done", "snooze", "pin"], "inner": ["done", "snooze", "pin"], "outer": [] },
+    { "name": "only Done and Pin: both inside", "available": ["done", "pin", "label", "read"], "inner": ["done", "pin"], "outer": ["label", "read"] }
   ]
 }

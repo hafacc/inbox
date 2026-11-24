@@ -240,9 +240,9 @@ export function threadActions(state: ThreadActionState): ThreadAction[] {
 
 /** Where a phone shows an open thread's actions. */
 export type ThreadActionPlaces = {
-  /** the corner button's ring next to it, from the top: Done or Move to inbox, Snooze, Pin or Unpin */
+  /** the corner button's ring next to it, from the top: Done or Move to inbox, Snooze, and Pin or Unpin only when one of those is missing */
   inner: ThreadAction[];
-  /** the corner button's ring beyond, from the top: Label, Add or Edit todo, Report spam or Not spam, Delete or Move to inbox */
+  /** the corner button's ring beyond, from the top: Pin or Unpin, Label, Add or Edit todo, Report spam or Not spam, Delete or Move to inbox */
   outer: ThreadAction[];
   /** the marker beside the subject: Mark important or not */
   marker: "important" | "unimportant" | null;
@@ -254,13 +254,8 @@ export type ThreadActionPlaces = {
 const LINE_ACTIONS: readonly ThreadAction[] = ["wake", "filter"];
 
 // The corner button's rings, each from the top.
-const DISC_INNER: readonly ThreadAction[] = [
-  "done",
-  "inbox",
-  "snooze",
-  "pin",
-  "unpin",
-];
+const DISC_INNER: readonly ThreadAction[] = ["done", "inbox", "snooze"];
+const DISC_PIN: readonly ThreadAction[] = ["pin", "unpin"];
 const DISC_OUTER: readonly ThreadAction[] = [
   "label",
   "addTodo",
@@ -274,9 +269,10 @@ const DISC_OUTER: readonly ThreadAction[] = [
 /**
  * Where a phone shows each of `actions` (from `threadActions`): Mark important as a marker
  * beside the subject, Wake now and Filter mail like this on the line above the messages, and on
- * the corner button's two rings: Done (Move to inbox), Snooze and Pin (Unpin) next to it, Label,
- * Add or Edit todo, Report spam (Not spam) and Delete (Move to inbox from the trash) beyond. Mark
- * read or unread has no place on a phone.
+ * the corner button's two rings: Done (Move to inbox) and Snooze next to it, then Pin (Unpin),
+ * Label, Add or Edit todo, Report spam (Not spam) and Delete (Move to inbox from the trash)
+ * beyond. Where Done has no place (spam, trash) Pin stays next to Snooze, so neither ring holds a
+ * lone action. Mark read or unread has no place on a phone.
  */
 export function threadActionPlaces(
   actions: readonly ThreadAction[],
@@ -286,9 +282,12 @@ export function threadActionPlaces(
       (action): action is "important" | "unimportant" =>
         action === "important" || action === "unimportant",
     ) ?? null;
+  const inner = DISC_INNER.filter((action) => actions.includes(action));
+  const pin = DISC_PIN.filter((action) => actions.includes(action));
+  const outer = DISC_OUTER.filter((action) => actions.includes(action));
   return {
-    inner: DISC_INNER.filter((action) => actions.includes(action)),
-    outer: DISC_OUTER.filter((action) => actions.includes(action)),
+    inner: inner.length < 2 ? [...inner, ...pin] : inner,
+    outer: inner.length < 2 ? outer : [...pin, ...outer],
     marker,
     line: actions.filter((action) => LINE_ACTIONS.includes(action)),
   };

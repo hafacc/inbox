@@ -10,18 +10,18 @@ import org.junit.Test
 /** The open thread's corner button: names and tones of its wedges, as the approved design draws them. */
 class ThreadCornerTest {
     @Test
-    fun inboxThreadHasDoneSnoozeAndPinNextToTheButton() {
+    fun inboxThreadHasDoneAndSnoozeNextToTheButton() {
         val actions = threadActions(listOf("INBOX"), snoozed = false, unread = false, todo = null, hasSender = true)
         val places = threadActionPlaces(actions)
-        assertEquals(listOf("Done", "Snooze", "Pin"), places.inner.map { threadTool(it, snoozed = false).label })
-        assertEquals(listOf("Label", "Report spam", "Delete"), places.outer.map { threadTool(it, snoozed = false).label })
+        assertEquals(listOf("Done", "Snooze"), places.inner.map { threadTool(it, snoozed = false).label })
+        assertEquals(listOf("Pin", "Label", "Report spam", "Delete"), places.outer.map { threadTool(it, snoozed = false).label })
     }
 
     @Test
     fun unreadThreadHasNoMarkRead() {
         val actions = threadActions(listOf("INBOX", "UNREAD"), snoozed = false, unread = true, todo = ThreadTodoAction.ADD, hasSender = true)
         val outer = threadActionPlaces(actions).outer.map { threadTool(it, snoozed = false).label }
-        assertEquals(listOf("Label", "Add todo", "Report spam", "Delete"), outer)
+        assertEquals(listOf("Pin", "Label", "Add todo", "Report spam", "Delete"), outer)
     }
 
     @Test

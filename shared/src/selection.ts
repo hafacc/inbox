@@ -319,14 +319,15 @@ export type SelectionDiscAction =
 
 /** The selection's actions on a phone's corner button: the ring next to it and the ring beyond, each from the top. */
 export type SelectionDisc = {
-  /** Done (or Move to inbox), Snooze (or Wake now) and Pin */
+  /** Done (or Move to inbox) and Snooze (or Wake now) */
   inner: SelectionDiscAction[];
-  /** the rest */
+  /** the rest, Pin first */
   outer: SelectionDiscAction[];
 };
 
 // The outer ring's order, from the top.
 const DISC_OUTER: readonly SelectionDiscAction[] = [
+  "pin",
   "snooze",
   "done",
   "label",
@@ -337,10 +338,11 @@ const DISC_OUTER: readonly SelectionDiscAction[] = [
 
 /**
  * Where the corner button puts each of `available` (the actions that would change something): the
- * inner ring holds Done, Snooze and Pin, Move to inbox taking Done's place and Wake now Snooze's
- * wherever they apply; a Done or Snooze so displaced, and every other action, go on the outer ring.
- * For todos alone (the only selection offering Delete) the inner ring holds Done alone, and
- * Snooze (or Wake now) and Pin go on the outer ring instead, first, so Delete isn't alone there.
+ * inner ring holds Done and Snooze, Move to inbox taking Done's place and Wake now Snooze's wherever
+ * they apply; Pin, a Done or Snooze so displaced, and every other action go on the outer ring.
+ * Neither ring holds a lone action beside the other: with Done or Snooze missing Pin joins the inner
+ * ring, and an outer ring of one joins it too (threads and todos together have only Done, Snooze
+ * and Pin, all next to the button).
  */
 export function selectionDisc(
   available: readonly SelectionDiscAction[],
@@ -348,19 +350,14 @@ export function selectionDisc(
   const has = (action: SelectionDiscAction) => available.includes(action);
   const first = has("inbox") ? "inbox" : has("done") ? "done" : null;
   const second = has("wake") ? "wake" : has("snooze") ? "snooze" : null;
-  const pin: SelectionDiscAction | null = has("pin") ? "pin" : null;
-  const moved: SelectionDiscAction[] = has("delete")
-    ? [second, pin].filter(
-        (action): action is SelectionDiscAction => action !== null,
-      )
-    : [];
-  const inner = [first, second, pin].filter(
-    (action): action is SelectionDiscAction =>
-      action !== null && !moved.includes(action as SelectionDiscAction),
+  const placed = [first, second].filter(
+    (action): action is SelectionDiscAction => action !== null,
   );
-  const rest = DISC_OUTER.filter(
-    (action) =>
-      has(action) && !inner.includes(action) && !moved.includes(action),
+  const inner =
+    placed.length < 2 && has("pin") ? [...placed, "pin" as const] : placed;
+  const outer = DISC_OUTER.filter(
+    (action) => has(action) && !inner.includes(action),
   );
-  return { inner, outer: [...moved, ...rest] };
+  if (outer.length === 1) return { inner: [...inner, ...outer], outer: [] };
+  else return { inner, outer };
 }

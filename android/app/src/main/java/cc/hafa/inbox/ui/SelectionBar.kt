@@ -114,8 +114,8 @@ fun SelectionBar(
 
 /**
  * The selection's actions as the corner button's two rings ([selectionDisc]), each shown only where it would
- * change something: Done (or Move to inbox for the [inbox] ones), Snooze (or Wake now) and Pin next to the button,
- * then Label, Mark read, Spam and Delete, and a Done or Snooze so displaced, beyond.
+ * change something: Done (or Move to inbox for the [inbox] ones) and Snooze (or Wake now) next to the button,
+ * then Pin, a Done or Snooze so displaced, Label, Mark read, Spam and Delete beyond.
  */
 internal fun selectionCornerMenu(
     plan: SelectionPlan,
