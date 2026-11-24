@@ -1,0 +1,45 @@
+# Deploy the site to GitHub Pages (inbox.hafa.cc). Started by hand, from main.
+name: deploy-web
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  # Started from another branch, nothing runs.
+  test:
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/web-tests.yml
+
+  # No base path: the custom domain serves the app at its root. The Firebase web config is
+  # committed (public by design), so the build needs no environment.
+  pages:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup-bun
+      # builds the site into web/out, service worker included
+      - run: bun run export
+        working-directory: web
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: web/out
+          # .well-known/assetlinks.json, which passkeys on Android need
+          include-hidden-files: true
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
