@@ -1,5 +1,6 @@
 package cc.hafa.inbox.ui
 
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.FlowRow
@@ -17,6 +18,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -27,29 +32,26 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import cc.hafa.inbox.ui.theme.paper
 
-/** The privacy policy, served from docs/privacy.md by the web app. */
-const val PRIVACY_URL = "https://inbox.hafa.cc/privacy"
-
-/** The support page, served from docs/support.md by the web app. */
-const val SUPPORT_URL = "https://inbox.hafa.cc/support"
-
 /** The project's issue tracker, where feedback goes. */
 const val FEEDBACK_URL = "https://github.com/hafacc/inbox/issues"
 
 /** The project's source code. */
 const val SOURCE_URL = "https://github.com/hafacc/inbox"
 
-/** A page about Inbox: its label, icon and web address. */
-private data class ProjectLink(val label: String, val icon: ImageVector, val url: String)
+/** A page about Inbox: its label, icon and web address, and the copy bundled with the app, if any. */
+private data class ProjectLink(val label: String, val icon: ImageVector, val url: String, val page: InfoPage? = null)
 
 private val projectLinks = listOf(
-    ProjectLink("Privacy", Icons.Outlined.PrivacyTip, PRIVACY_URL),
-    ProjectLink("Support", Icons.AutoMirrored.Outlined.HelpOutline, SUPPORT_URL),
+    ProjectLink("Privacy", Icons.Outlined.PrivacyTip, InfoPage.PRIVACY.url, InfoPage.PRIVACY),
+    ProjectLink("Support", Icons.AutoMirrored.Outlined.HelpOutline, InfoPage.SUPPORT.url, InfoPage.SUPPORT),
     ProjectLink("Feedback", Icons.Outlined.ChatBubbleOutline, FEEDBACK_URL),
     ProjectLink("Source code", Icons.Outlined.Code, SOURCE_URL),
 )
 
-/** Quiet Privacy, Support, Feedback and Source code links, wrapping onto more lines when narrow. */
+/**
+ * Quiet Privacy, Support, Feedback and Source code links, wrapping onto more lines when narrow.
+ * Privacy and Support open the app's own copy ([InfoSheet]); the others open the web.
+ */
 @Composable
 fun ProjectLinks(
     modifier: Modifier = Modifier,
@@ -58,6 +60,9 @@ fun ProjectLinks(
     onNoApp: ((String) -> Unit)? = null,
 ) {
     val context = LocalContext.current
+    val noApp = onNoApp ?: { message -> Toast.makeText(context, message, Toast.LENGTH_SHORT).show() }
+    var reading by rememberSaveable { mutableStateOf<InfoPage?>(null) }
+    reading?.let { page -> InfoSheet(page, onPage = { reading = it }, onNoApp = noApp) { reading = null } }
     FlowRow(horizontalArrangement = Arrangement.Center, modifier = modifier) {
         for (link in projectLinks) {
             Row(
@@ -66,7 +71,7 @@ fun ProjectLinks(
                 modifier = Modifier
                     .clip(CircleShape)
                     .clickable(role = Role.Button) {
-                        if (onNoApp != null) openWebPage(context, link.url, onNoApp) else openWebPage(context, link.url)
+                        if (link.page != null) reading = link.page else openWebPage(context, link.url, noApp)
                     }
                     .heightIn(min = 48.dp)
                     .padding(horizontal = 12.dp),
