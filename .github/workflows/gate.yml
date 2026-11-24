@@ -1,7 +1,7 @@
 # Run the tests for what a pull request or a push to main changed: android-tests.yml for android/,
 # web-tests.yml for the TypeScript packages, the Firestore rules, the root tooling and the docs the
-# web build imports (privacy and support), both for shared/, .github/ and bun's and TypeScript's
-# root files, neither for other docs alone.
+# web build imports (privacy and support), each also for its own workflow, both for shared/, this
+# file and bun's and TypeScript's root files, neither for other docs or workflows alone.
 name: gate
 
 on:
@@ -38,8 +38,10 @@ jobs:
               case "$path" in
                 android/*) android=true ;;
                 # android's tests run a shared/ script under bun, so bun's root files count for both
-                shared/* | .github/* | package.json | bun.lock | bunfig.toml | tsconfig.base.json)
+                shared/* | .github/workflows/gate.yml | package.json | bun.lock | bunfig.toml | tsconfig.base.json)
                   android=true; web=true ;;
+                .github/workflows/android-tests.yml) android=true ;;
+                .github/workflows/web-tests.yml | .github/actions/*) web=true ;;
                 # the web build prerenders these at /privacy and /support
                 web/* | functions/* | workers/* | firebase/* | scripts/* | docs/privacy.md | docs/support.md)
                   web=true ;;
