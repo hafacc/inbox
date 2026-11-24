@@ -520,6 +520,10 @@ except where the list says.
   as Done all and Snooze all on the closed row, and Snooze's key (b) on a focused bundle opens its
   menu as Done's (e) acts (`bundleSwipeAction` in `shared/src/swipe.ts`, `bundles` in the swipe
   fixtures; `bundleSweepIds` in `shared/src/bundles.ts`, `sweep` in the bundle fixtures).
+- On the web with a pointer that hovers, a closed bundle's row shows Pin all, Snooze all (its menu
+  by the button) and Done all in the same floating bar, at the same place, as a thread row's hover
+  actions, on hover, keyboard focus or while its snooze menu is open, its date fading under it. An
+  open bundle's header shows Pin all and Snooze all as icons before its own Done all.
 - The open thread offers every action a thread takes anywhere else (its row, a swipe, the
   selection bar, a key): Done or Move to inbox, Snooze, Wake now when snoozed, Pin or Unpin, Label,
   Add or Edit todo, Mark important or not, Mark read or unread, Report spam or Not spam, Delete
