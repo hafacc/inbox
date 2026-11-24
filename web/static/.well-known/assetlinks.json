@@ -8,7 +8,8 @@
       "namespace": "android_app",
       "package_name": "cc.hafa.inbox",
       "sha256_cert_fingerprints": [
-        "REPLACE_WITH_PLAY_APP_SIGNING_SHA256",
+        "9E:C5:FD:0D:33:65:D8:60:C9:42:03:8C:F6:6D:D3:E1:D2:6F:9E:BF:16:6C:12:CE:5D:91:9C:8B:83:00:14:54",
+        "83:06:30:88:63:EF:2B:B5:44:A5:F6:04:AD:AA:04:6B:19:F4:61:FF:EA:91:26:A7:C1:9E:A2:78:8B:43:05:79",
         "C3:72:72:4D:1B:FB:BB:A7:7F:4E:F5:B9:77:34:F8:78:8F:9D:05:59:56:B7:5A:6F:47:DB:F6:16:7E:44:C7:8C"
       ]
     }
