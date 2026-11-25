@@ -1,7 +1,8 @@
 {
   "_doc": {
     "about": "Places an open thread or bundle keeps until it closes, run by shared/src/held-places.spec.ts and Android :core. How a list places held threads and bundles is in label-group-fixtures.json.",
-    "hold": "holdPlaces(held, open, release): threads by id ({date, pinned, single}), bundles by label id (date of their newest thread) and pins: the focused thread not open, by id, whether it was pinned when focus came to it (missing is {}). One held before keeps its held place though it shows elsewhere now; one newly open holds the place it shows at; one no longer open lets go, unless release is false. A pin lets go as soon as its thread loses focus, whatever release is. same: whether nothing changed, so held comes back as it was."
+    "hold": "holdPlaces(held, open, release): threads by id ({date, pinned, single}), bundles by label id (date of their newest thread) and pins: the focused thread not open, by id, whether it was pinned when focus came to it (missing is {}). One held before keeps its held place though it shows elsewhere now; one newly open holds the place it shows at; one no longer open lets go, unless release is false. A pin lets go as soon as its thread loses focus, whatever release is. same: whether nothing changed, so held comes back as it was.",
+    "pinHeld": "pinHeldFocus(focus, focusBy): the row key whose pinning holds, or null. Only a row the keyboard focused holds its pinning, so a thread or todo pinned after a click or tap on it (editing a todo, its hold menu, a button on its row) moves to or from Pinned at once."
   },
   "hold": [
     {
@@ -76,5 +77,32 @@
       "expect": { "threads": {}, "bundles": {}, "pins": { "a": true } },
       "same": false
     }
+  ],
+  "pinHeld": [
+    {
+      "name": "a todo the keyboard focused holds its pinning",
+      "focus": "todo:t1",
+      "focusBy": "keyboard",
+      "expect": "todo:t1"
+    },
+    {
+      "name": "a thread the keyboard focused holds its pinning",
+      "focus": "a",
+      "focusBy": "keyboard",
+      "expect": "a"
+    },
+    {
+      "name": "a todo clicked or tapped holds nothing",
+      "focus": "todo:t1",
+      "focusBy": "pointer",
+      "expect": null
+    },
+    {
+      "name": "a thread clicked or tapped holds nothing",
+      "focus": "a",
+      "focusBy": "pointer",
+      "expect": null
+    },
+    { "name": "nothing focused holds nothing", "focus": null, "focusBy": null, "expect": null }
   ]
 }

@@ -1,6 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
-import { type HeldPlaces, holdPlaces, type ThreadPlace } from "./held-places";
+import {
+  type HeldPlaces,
+  holdPlaces,
+  pinHeldFocus,
+  type ThreadPlace,
+} from "./held-places";
+import type { FocusSource } from "./list-state";
 
 type PlacesJson = {
   threads: Record<string, ThreadPlace>;
@@ -16,6 +22,12 @@ type Fixtures = {
     release: boolean;
     expect: PlacesJson;
     same: boolean;
+  }[];
+  pinHeld: {
+    name: string;
+    focus: string | null;
+    focusBy: FocusSource | null;
+    expect: string | null;
   }[];
 };
 
@@ -49,6 +61,14 @@ describe("held place fixtures (must match Android)", () => {
       const next = holdPlaces(held, places(fixture.open), fixture.release);
       expect(plain(next)).toEqual({ pins: {}, ...fixture.expect });
       expect(next === held).toBe(fixture.same);
+    });
+  }
+});
+
+describe("pin held fixtures (must match Android)", () => {
+  for (const fixture of fixtures.pinHeld) {
+    test(fixture.name, () => {
+      expect(pinHeldFocus(fixture.focus, fixture.focusBy)).toBe(fixture.expect);
     });
   }
 });

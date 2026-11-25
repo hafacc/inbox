@@ -47,6 +47,7 @@ import {
   type HeldPlaces,
   holdPlaces,
   NO_HELD_PLACES,
+  pinHeldFocus,
 } from "@inbox/shared/held-places";
 import { type SavedMessages, threadLabels } from "@inbox/shared/history-apply";
 import { labelNamed, renames, sortLabels } from "@inbox/shared/label-names";
@@ -681,9 +682,12 @@ export class MailState {
   #openingInPlace = false;
   /** The label of the open bundle. */
   readonly openBundle = $derived(this.list.bundle?.labelId ?? null);
-  // The focused thread, whose pinning moves it only once focus leaves.
-  readonly #focusedThread = $derived(rowThreadId(this.focusKey));
-  readonly #focusedTodo = $derived(rowTodoId(this.focusKey));
+  // The thread or todo the keyboard focused, whose pinning moves it only once focus leaves.
+  readonly #pinHeld = $derived(
+    pinHeldFocus(this.list.focus, this.list.focusBy),
+  );
+  readonly #focusedThread = $derived(rowThreadId(this.#pinHeld));
+  readonly #focusedTodo = $derived(rowTodoId(this.#pinHeld));
   /** The open thread's messages, once loaded. */
   detail = $state.raw<ThreadDetail | null>(null);
   /** Why the open thread couldn't load. */
@@ -1452,8 +1456,8 @@ export class MailState {
       });
     });
 
-    // Acting on an open thread or bundle doesn't move it until it closes; pinning the focused
-    // thread doesn't move it until focus leaves it.
+    // Acting on an open thread or bundle doesn't move it until it closes; pinning the thread or
+    // todo the keyboard focused doesn't move it until focus leaves it.
     $effect(() => {
       const open = this.#todosViewOpenPlaces(
         openPlaces(

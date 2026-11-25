@@ -2,10 +2,13 @@
  * Places an open thread or bundle keeps in the list until it closes, so acting on it (or on the
  * threads of an open bundle) doesn't move it under the user, as latr keeps a todo being edited in
  * place. A list sorts and sections a held thread or bundle by its held place instead of its live
- * one; once it closes it lets go and moves to where it belongs. The focused thread or todo holds
- * only its pinning, so pinning or unpinning it moves it once focus leaves, while anything else moves
- * it at once.
+ * one; once it closes it lets go and moves to where it belongs. The thread or todo the keyboard
+ * focused holds only its pinning, so pinning or unpinning it moves it once focus leaves, while
+ * anything else moves it at once; one focused by a click or tap holds nothing, so pinning it moves it
+ * at once (`pinHeldFocus`).
  */
+
+import type { FocusSource } from "./list-state";
 
 /** Where an open thread sat when it opened. */
 export type ThreadPlace = {
@@ -26,6 +29,14 @@ export type HeldPlaces = {
   /** focused threads not open, by thread id, and focused todos, by row key: whether they were pinned when focus came to them */
   pins: ReadonlyMap<string, boolean>;
 };
+
+/** The focused row whose pinning holds (see `HeldPlaces`): the focused row if the keyboard focused it. */
+export function pinHeldFocus(
+  focus: string | null,
+  focusBy: FocusSource | null,
+): string | null {
+  return focusBy === "keyboard" ? focus : null;
+}
 
 /** No places held. */
 export const NO_HELD_PLACES: HeldPlaces = {
