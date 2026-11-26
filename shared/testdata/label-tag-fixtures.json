@@ -102,7 +102,7 @@
     { "name": "none", "threadIds": [], "listed": [], "ids": [] }
   ],
   "filter": [
-    { "name": "a label's list", "filter": { "requires": ["L2"], "excludes": ["SPAM", "TRASH"], "snoozed": "either" }, "out": { "requires": [], "excludes": ["SPAM", "TRASH"], "snoozed": "either" } },
-    { "name": "other requirements kept", "filter": { "requires": ["INBOX", "L1", "CATEGORY_PROMOTIONS"], "excludes": [], "snoozed": "never" }, "out": { "requires": ["INBOX", "CATEGORY_PROMOTIONS"], "excludes": [], "snoozed": "never" } }
+    { "name": "a label's list", "filter": { "requires": ["L2"], "excludes": ["SPAM", "TRASH"], "snoozed": "either", "inbox": "either" }, "out": { "requires": [], "excludes": ["SPAM", "TRASH"], "snoozed": "either", "inbox": "either" } },
+    { "name": "other requirements kept", "filter": { "requires": ["INBOX", "L1", "CATEGORY_PROMOTIONS"], "excludes": [], "snoozed": "never", "inbox": "either" }, "out": { "requires": ["INBOX", "CATEGORY_PROMOTIONS"], "excludes": [], "snoozed": "never", "inbox": "either" } }
   ]
 }

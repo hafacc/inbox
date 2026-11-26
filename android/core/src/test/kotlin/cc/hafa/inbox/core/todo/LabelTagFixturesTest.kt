@@ -1,6 +1,7 @@
 package cc.hafa.inbox.core.todo
 
 import cc.hafa.inbox.core.gmail.GmailLabel
+import cc.hafa.inbox.core.mail.InboxRule
 import cc.hafa.inbox.core.mail.SnoozedRule
 import cc.hafa.inbox.core.mail.ViewFilter
 import cc.hafa.inbox.core.testing.Fixtures
@@ -28,7 +29,12 @@ class LabelTagFixturesTest {
 
     private fun filter(value: Any?): ViewFilter {
         val fields = value as Map<*, *>
-        return ViewFilter(strings(fields["requires"]), strings(fields["excludes"]), SnoozedRule.valueOf((fields["snoozed"] as String).uppercase()))
+        return ViewFilter(
+            strings(fields["requires"]),
+            strings(fields["excludes"]),
+            SnoozedRule.valueOf((fields["snoozed"] as String).uppercase()),
+            InboxRule.valueOf((fields["inbox"] as String).uppercase()),
+        )
     }
 
     @Test

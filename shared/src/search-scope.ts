@@ -44,7 +44,7 @@ const TODO_CHIPS: Readonly<
   "is:pinned": (todo) => todo.pinned,
   "is:starred": (todo) => todo.pinned,
   "is:done": (todo) => todo.state === "DONE",
-  "in:inbox": (todo) => todo.state !== "DONE",
+  "in:inbox": (todo, now) => todo.state !== "DONE" && !isSnoozed(todo, now),
 };
 
 function todoChipTest(
@@ -138,8 +138,8 @@ export function searchScope(query: string): SearchScope {
  * to wake first; otherwise every todo in the All list's order. Ties keep that order. A `label:`
  * keeps the todos with a tag naming that label among `labels` (see `labelTags`), `-label:` those
  * without. `is:pinned` (or `is:starred`) keeps the pinned ones, `is:done` the done ones,
- * `in:inbox` those not done (snoozed included, as a snoozed email stays in Gmail's inbox), and
- * `-is:snoozed` those not snoozed; each negated keeps the others. A `#name` naming one of `labels`
+ * `in:inbox` those neither done nor snoozed, and `-is:snoozed` those not snoozed; each negated
+ * keeps the others. A `#name` naming one of `labels`
  * reads as its `label:` ({@link searchTagTerms}); any other `#tag` word keeps the todos with that
  * tag, a `-#tag` word those without it.
  */

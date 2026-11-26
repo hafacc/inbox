@@ -1,5 +1,5 @@
 {
-  "_doc": "Searching saved mail while offline (shared/src/offline-search.ts, Android :core search/SearchPlan.kt). `terms`: freeTerms(free). `match`: matchesOffline(thread, chips, freeTerms(free)) for parseQuery(query, null) of each query, with `labels` (default: Label_1 \"Home Stuff\", Label_2 \"Work/Projects\"); `saved` is null for a thread not opened on the device, and its texts are already lower-cased. `expect` lists the queries the thread matches; `reject` those it doesn't.",
+  "_doc": "Searching saved mail while offline (shared/src/offline-search.ts, Android :core search/SearchPlan.kt). `terms`: freeTerms(free). `match`: matchesOffline(thread, chips, freeTerms(free)) for parseQuery(query, null) of each query, with `labels` (default: Label_1 \"Home Stuff\", Label_2 \"Work/Projects\"); `saved` is null for a thread not opened on the device, and its texts are already lower-cased. `expect` lists the queries the thread matches; `reject` those it doesn't. `-in:inbox` is left to the list's filter, which keeps a snoozed thread still in Gmail's inbox.",
   "terms": [
     { "name": "plain words", "free": "lease garage", "expect": { "include": ["lease", "garage"], "exclude": [] } },
     { "name": "phrases, exclusions, OR and brackets", "free": "lease \"garage remote\" -spam OR (x)", "expect": { "include": ["lease", "garage remote", "x"], "exclude": ["spam"] } },
@@ -26,11 +26,11 @@
         "from:maya", "from:example", "from:chen", "subject:garage", "is:unread", "is:starred", "is:pinned",
         "in:inbox", "in:starred", "in:anywhere", "label:home-stuff", "-label:work-projects", "-is:read", "-is:done",
         "to:anyone", "-to:anyone", "has:attachment", "-has:attachment", "after:2026/01/01 lease", "is:snoozed lease",
-        "in:outbox", "category:social", "is:muted", "in:chats"
+        "in:outbox", "category:social", "is:muted", "in:chats", "-in:inbox"
       ],
       "reject": [
         "dinner", "lease -remote", "foo -garage", "\"lease garage\"", "\"remote drawer\"", "from:sam", "-from:maya",
-        "subject:remote", "is:read", "is:done", "is:important", "in:sent", "in:trash", "-in:inbox",
+        "subject:remote", "is:read", "is:done", "is:important", "in:sent", "in:trash",
         "label:work-projects", "label:nothing", "-label:home-stuff", "foo bar"
       ]
     },

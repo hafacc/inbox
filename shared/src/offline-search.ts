@@ -109,6 +109,8 @@ function chipHolds(
     }
     case "in": {
       if (value === "anywhere") return true;
+      // A snoozed thread is out of the inbox though it keeps INBOX; the list's filter knows.
+      if (value === "inbox" && chip.negated) return null;
       const id = IN_LABELS[value];
       return id === undefined ? null : thread.labelIds.includes(id);
     }
