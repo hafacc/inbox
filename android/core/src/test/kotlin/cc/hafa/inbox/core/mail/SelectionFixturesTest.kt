@@ -96,6 +96,7 @@ class SelectionFixturesTest {
         for (case in Fixtures.cases(Fixtures.selection, "todos")) {
             val expect = case["expect"] as Map<*, *>
             val pin = expect["pin"] as Map<*, *>
+            val delete = expect["delete"] as Map<*, *>
             val todos = (case["todos"] as List<*>).map { entry ->
                 val todo = entry as Map<*, *>
                 SelectedTodo(todo["id"] as String, todo["done"] as Boolean, todo["pinned"] as Boolean)
@@ -106,6 +107,7 @@ class SelectionFixturesTest {
                     done = strings(expect["done"]),
                     snooze = strings(expect["snooze"]),
                     pin = MixedPin(pin["on"] as Boolean, strings(pin["threads"]), strings(pin["todos"])),
+                    delete = MixedDelete(delete["untrash"] as Boolean, strings(delete["threads"]), strings(delete["todos"])),
                 ),
                 todoSelectionPlan(threads(case["threads"]), todos),
             )
@@ -136,7 +138,7 @@ class SelectionFixturesTest {
     fun disc() {
         for (case in Fixtures.cases(Fixtures.selection, "disc")) {
             val actions = { key: String -> strings(case[key]).map { SelectionDiscAction.valueOf(it.uppercase()) } }
-            assertEquals(case["name"] as String, SelectionDisc(actions("inner"), actions("outer")), selectionDisc(actions("available")))
+            assertEquals(case["name"] as String, SelectionDisc(actions("inner"), actions("outer")), selectionDisc(actions("available"), case["todosAlone"] as Boolean))
         }
     }
 }

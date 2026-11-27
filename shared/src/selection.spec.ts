@@ -73,6 +73,7 @@ type Fixtures = {
   }[];
   disc: {
     name: string;
+    todosAlone: boolean;
     available: SelectionDiscAction[];
     inner: SelectionDiscAction[];
     outer: SelectionDiscAction[];
@@ -145,9 +146,9 @@ describe("selection fixtures (must match Android)", () => {
       expect(selectionActions(threads, todos)).toEqual(want);
     });
   }
-  for (const { name, available, inner, outer } of fixtures.disc) {
+  for (const { name, todosAlone, available, inner, outer } of fixtures.disc) {
     test(`disc: ${name}`, () => {
-      expect(selectionDisc(available)).toEqual({ inner, outer });
+      expect(selectionDisc(available, todosAlone)).toEqual({ inner, outer });
     });
   }
 });

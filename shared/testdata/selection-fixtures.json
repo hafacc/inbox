@@ -1,5 +1,5 @@
 {
-  "_doc": "Selecting several threads and acting on them together (shared/src/selection.ts, Android :core Selection.kt). `toggle`: toggleSelected(selected, id). `range`: selectRange(selected, order, anchor, id). `keepShown`: keepShown(selected, shown). `after`: selectionAfter(action) for each action. `plan`: selectionPlan(threads). `label`: labelChoice(threads, labelId). `category`: selectionCategory(threads). `todos`: todoSelectionPlan(threads, todos). `all`: allSelected(selected, shown) and selectAll(selected, shown). `disc`: selectionDisc(available), the corner button's inner and outer rings, each from the top.",
+  "_doc": "Selecting several threads and acting on them together (shared/src/selection.ts, Android :core Selection.kt). `toggle`: toggleSelected(selected, id). `range`: selectRange(selected, order, anchor, id). `keepShown`: keepShown(selected, shown). `after`: selectionAfter(action) for each action. `plan`: selectionPlan(threads). `label`: labelChoice(threads, labelId). `category`: selectionCategory(threads). `todos`: todoSelectionPlan(threads, todos). `all`: allSelected(selected, shown) and selectAll(selected, shown). `disc`: selectionDisc(available, todosAlone), the corner button's inner and outer rings, each from the top.",
   "toggle": [
     { "name": "selects", "selected": [], "id": "a", "expect": ["a"] },
     { "name": "a new one goes last", "selected": ["b", "a"], "id": "c", "expect": ["b", "a", "c"] },
@@ -213,12 +213,15 @@
     { "name": "no threads", "threads": [], "expect": null }
   ],
   "todos": [
-    {"name": "todos alone: open ones are done, snoozed and pinned", "threads": [], "todos": [{"id": "t1", "done": false, "pinned": false}, {"id": "t2", "done": false, "pinned": true}, {"id": "t3", "done": true, "pinned": false}], "expect": {"done": ["t1", "t2"], "snooze": ["t1", "t2"], "pin": {"on": true, "threads": [], "todos": ["t1"]}}},
-    {"name": "an unpinned thread makes Pin pin, leaving pinned todos", "threads": [{"id": "a", "labelIds": ["INBOX"], "status": "none"}, {"id": "b", "labelIds": ["INBOX", "STARRED"], "status": "none"}], "todos": [{"id": "t1", "done": false, "pinned": true}], "expect": {"done": ["t1"], "snooze": ["t1"], "pin": {"on": true, "threads": ["a"], "todos": []}}},
-    {"name": "an unpinned todo makes Pin pin, leaving pinned threads", "threads": [{"id": "b", "labelIds": ["INBOX", "STARRED"], "status": "none"}], "todos": [{"id": "t1", "done": false, "pinned": false}], "expect": {"done": ["t1"], "snooze": ["t1"], "pin": {"on": true, "threads": [], "todos": ["t1"]}}},
-    {"name": "everything pinned: Pin unpins all", "threads": [{"id": "b", "labelIds": ["INBOX", "STARRED"], "status": "none"}], "todos": [{"id": "t1", "done": false, "pinned": true}, {"id": "t2", "done": true, "pinned": true}], "expect": {"done": ["t1"], "snooze": ["t1"], "pin": {"on": false, "threads": ["b"], "todos": ["t1"]}}},
-    {"name": "only done todos: nothing to do", "threads": [], "todos": [{"id": "t1", "done": true, "pinned": false}], "expect": {"done": [], "snooze": [], "pin": {"on": false, "threads": [], "todos": []}}},
-    {"name": "no todos", "threads": [{"id": "a", "labelIds": ["INBOX"], "status": "none"}], "todos": [], "expect": {"done": [], "snooze": [], "pin": {"on": true, "threads": ["a"], "todos": []}}}
+    {"name": "todos alone: open ones are done, snoozed and pinned", "threads": [], "todos": [{"id": "t1", "done": false, "pinned": false}, {"id": "t2", "done": false, "pinned": true}, {"id": "t3", "done": true, "pinned": false}], "expect": {"done": ["t1", "t2"], "snooze": ["t1", "t2"], "pin": {"on": true, "threads": [], "todos": ["t1"]}, "delete": {"untrash": false, "threads": [], "todos": ["t1", "t2", "t3"]}}},
+    {"name": "an unpinned thread makes Pin pin, leaving pinned todos", "threads": [{"id": "a", "labelIds": ["INBOX"], "status": "none"}, {"id": "b", "labelIds": ["INBOX", "STARRED"], "status": "none"}], "todos": [{"id": "t1", "done": false, "pinned": true}], "expect": {"done": ["t1"], "snooze": ["t1"], "pin": {"on": true, "threads": ["a"], "todos": []}, "delete": {"untrash": false, "threads": ["a", "b"], "todos": ["t1"]}}},
+    {"name": "an unpinned todo makes Pin pin, leaving pinned threads", "threads": [{"id": "b", "labelIds": ["INBOX", "STARRED"], "status": "none"}], "todos": [{"id": "t1", "done": false, "pinned": false}], "expect": {"done": ["t1"], "snooze": ["t1"], "pin": {"on": true, "threads": [], "todos": ["t1"]}, "delete": {"untrash": false, "threads": ["b"], "todos": ["t1"]}}},
+    {"name": "everything pinned: Pin unpins all", "threads": [{"id": "b", "labelIds": ["INBOX", "STARRED"], "status": "none"}], "todos": [{"id": "t1", "done": false, "pinned": true}, {"id": "t2", "done": true, "pinned": true}], "expect": {"done": ["t1"], "snooze": ["t1"], "pin": {"on": false, "threads": ["b"], "todos": ["t1"]}, "delete": {"untrash": false, "threads": ["b"], "todos": ["t1", "t2"]}}},
+    {"name": "only done todos: nothing to do", "threads": [], "todos": [{"id": "t1", "done": true, "pinned": false}], "expect": {"done": [], "snooze": [], "pin": {"on": false, "threads": [], "todos": []}, "delete": {"untrash": false, "threads": [], "todos": ["t1"]}}},
+    {"name": "no todos", "threads": [{"id": "a", "labelIds": ["INBOX"], "status": "none"}], "todos": [], "expect": {"done": [], "snooze": [], "pin": {"on": true, "threads": ["a"], "todos": []}, "delete": {"untrash": false, "threads": ["a"], "todos": []}}},
+    {"name": "trash and other threads with a todo: Delete trashes the rest and deletes the todo", "threads": [{"id": "a", "labelIds": ["TRASH"], "status": "none"}, {"id": "b", "labelIds": ["INBOX"], "status": "none"}], "todos": [{"id": "t1", "done": true, "pinned": false}], "expect": {"done": [], "snooze": [], "pin": {"on": true, "threads": ["a", "b"], "todos": []}, "delete": {"untrash": false, "threads": ["b"], "todos": ["t1"]}}},
+    {"name": "every thread in the trash: Delete moves them to the inbox", "threads": [{"id": "a", "labelIds": ["TRASH"], "status": "none"}, {"id": "b", "labelIds": ["TRASH", "STARRED"], "status": "none"}], "todos": [], "expect": {"done": [], "snooze": [], "pin": {"on": true, "threads": ["a"], "todos": []}, "delete": {"untrash": true, "threads": ["a", "b"], "todos": []}}},
+    {"name": "trash threads with a todo: Delete deletes the todo, leaving the trash", "threads": [{"id": "a", "labelIds": ["TRASH"], "status": "none"}], "todos": [{"id": "t1", "done": false, "pinned": false}], "expect": {"done": ["t1"], "snooze": ["t1"], "pin": {"on": true, "threads": ["a"], "todos": ["t1"]}, "delete": {"untrash": false, "threads": [], "todos": ["t1"]}}}
   ],
   "all": [
     {"name": "none selected selects all", "selected": [], "shown": ["a", "todo:1", "b"], "all": false, "expect": ["a", "todo:1", "b"]},
@@ -240,6 +243,7 @@
         "category",
         "read",
         "spam",
+        "delete",
         "inbox",
         "done"
       ]
@@ -262,6 +266,7 @@
       "expect": [
         "snooze",
         "pin",
+        "delete",
         "done"
       ]
     },
@@ -273,15 +278,20 @@
     }
   ],
   "disc": [
-    { "name": "inbox threads: Done and Snooze inside; Pin first outside", "available": ["done", "snooze", "pin", "label", "read", "spam"], "inner": ["done", "snooze"], "outer": ["pin", "label", "read", "spam"] },
-    { "name": "snoozed threads: Wake now takes Snooze's place, which goes outside after Pin", "available": ["done", "snooze", "wake", "pin", "label", "read", "spam"], "inner": ["done", "wake"], "outer": ["pin", "snooze", "label", "read", "spam"] },
-    { "name": "archived threads: Move to inbox takes Done's place", "available": ["inbox", "snooze", "pin", "label", "read", "spam"], "inner": ["inbox", "snooze"], "outer": ["pin", "label", "read", "spam"] },
-    { "name": "archived and inbox threads: Done goes outside", "available": ["done", "inbox", "snooze", "pin", "label", "read", "spam"], "inner": ["inbox", "snooze"], "outer": ["pin", "done", "label", "read", "spam"] },
-    { "name": "todos: Done and Snooze inside, Pin and Delete outside", "available": ["done", "snooze", "pin", "delete"], "inner": ["done", "snooze"], "outer": ["pin", "delete"] },
-    { "name": "snoozed todos: Wake now takes Snooze's place, Snooze after Pin outside", "available": ["done", "snooze", "wake", "pin", "delete"], "inner": ["done", "wake"], "outer": ["pin", "snooze", "delete"] },
-    { "name": "with no Snooze, Pin joins Move to inbox inside, and a lone Delete joins them", "available": ["inbox", "pin", "delete"], "inner": ["inbox", "pin", "delete"], "outer": [] },
-    { "name": "done todos with nothing to pin: Delete alone inside", "available": ["delete"], "inner": ["delete"], "outer": [] },
-    { "name": "threads and todos together: a lone Pin joins the inner ring, no outer ring", "available": ["done", "snooze", "pin"], "inner": ["done", "snooze", "pin"], "outer": [] },
-    { "name": "only Done and Pin: both inside", "available": ["done", "pin", "label", "read"], "inner": ["done", "pin"], "outer": ["label", "read"] }
+    { "name": "inbox threads: Done and Snooze inside; Pin first outside", "todosAlone": false, "available": ["done", "snooze", "pin", "label", "read", "spam", "delete"], "inner": ["done", "snooze"], "outer": ["pin", "label", "read", "spam", "delete"] },
+    { "name": "snoozed threads: Wake now takes Snooze's place, which goes outside after Pin", "todosAlone": false, "available": ["done", "snooze", "wake", "pin", "label", "read", "spam", "delete"], "inner": ["done", "wake"], "outer": ["pin", "snooze", "label", "read", "spam", "delete"] },
+    { "name": "archived threads: Move to inbox takes Done's place", "todosAlone": false, "available": ["inbox", "snooze", "pin", "label", "read", "spam", "delete"], "inner": ["inbox", "snooze"], "outer": ["pin", "label", "read", "spam", "delete"] },
+    { "name": "archived and inbox threads: Done goes outside", "todosAlone": false, "available": ["done", "inbox", "snooze", "pin", "label", "read", "spam", "delete"], "inner": ["inbox", "snooze"], "outer": ["pin", "done", "label", "read", "spam", "delete"] },
+    { "name": "trash threads: no Done, so Pin joins Snooze inside; Delete (Move to inbox) last outside", "todosAlone": false, "available": ["snooze", "pin", "label", "read", "spam", "delete"], "inner": ["snooze", "pin"], "outer": ["label", "read", "spam", "delete"] },
+    { "name": "todos: Done alone inside; Snooze, Pin and Delete outside", "todosAlone": true, "available": ["done", "snooze", "pin", "delete"], "inner": ["done"], "outer": ["snooze", "pin", "delete"] },
+    { "name": "snoozed todos: Wake now takes Snooze's place first outside, Snooze after Pin", "todosAlone": true, "available": ["done", "snooze", "wake", "pin", "delete"], "inner": ["done"], "outer": ["wake", "pin", "snooze", "delete"] },
+    { "name": "todos with no Snooze: Done alone inside, Pin and Delete outside", "todosAlone": true, "available": ["done", "pin", "delete"], "inner": ["done"], "outer": ["pin", "delete"] },
+    { "name": "todos with nothing to pin: a lone Delete joins Done inside", "todosAlone": true, "available": ["done", "delete"], "inner": ["done", "delete"], "outer": [] },
+    { "name": "todos with no Done: Snooze and Delete inside", "todosAlone": true, "available": ["snooze", "delete"], "inner": ["snooze", "delete"], "outer": [] },
+    { "name": "done todos with nothing to pin: Delete alone inside", "todosAlone": true, "available": ["delete"], "inner": ["delete"], "outer": [] },
+    { "name": "threads and todos together: Done and Snooze inside, Pin and Delete outside", "todosAlone": false, "available": ["done", "snooze", "pin", "delete"], "inner": ["done", "snooze"], "outer": ["pin", "delete"] },
+    { "name": "threads and todos with nothing to pin: a lone Delete joins the inner ring", "todosAlone": false, "available": ["done", "snooze", "delete"], "inner": ["done", "snooze", "delete"], "outer": [] },
+    { "name": "a lone Pin outside joins the inner ring, no outer ring", "todosAlone": false, "available": ["done", "snooze", "pin"], "inner": ["done", "snooze", "pin"], "outer": [] },
+    { "name": "only Done and Pin: both inside", "todosAlone": false, "available": ["done", "pin", "label", "read", "delete"], "inner": ["done", "pin"], "outer": ["label", "read", "delete"] }
   ]
 }

@@ -4521,9 +4521,16 @@ export class MailState {
         if (plan.spam.on) this.markSpam(plan.spam.ids);
         else this.notSpam(plan.spam.ids);
         break;
-      case "delete":
-        this.deleteTodos(this.selectedTodoIds);
+      case "delete": {
+        const { untrash, threads: ids, todos } = todoPlan.delete;
+        const before = this.lastUndo;
+        if (untrash) this.untrash(ids);
+        else this.trash(ids);
+        for (const id of todos) this.#stopEditing(id);
+        const kind = this.lastUndo !== before ? this.lastUndo!.kind : "delete";
+        this.#joinUndo(before, kind, this.todos.remove(todos));
         break;
+      }
     }
   }
 

@@ -69,7 +69,17 @@ data class MixedPin(
     val todos: List<String>,
 )
 
-/** What Done, Snooze and Pin do to selected todos, beside the selected threads. */
+/** Delete across selected threads and todos together, and what it changes in each. */
+data class MixedDelete(
+    /** whether it moves the threads out of the trash to the inbox (every one is there and no todo is selected) rather than deleting */
+    val untrash: Boolean,
+    /** the threads it moves to the trash, or out of it */
+    val threads: List<String>,
+    /** the todos it deletes */
+    val todos: List<String>,
+)
+
+/** What Done, Snooze, Pin and Delete do to selected todos, beside the selected threads. */
 data class TodoSelectionPlan(
     /** todos Done marks done */
     val done: List<String>,
@@ -77,6 +87,8 @@ data class TodoSelectionPlan(
     val snooze: List<String>,
     /** Pin across threads and todos */
     val pin: MixedPin,
+    /** Delete across threads and todos */
+    val delete: MixedDelete,
 )
 
 /** Whether every, some or none of the selected threads carry a label. */
@@ -191,7 +203,11 @@ fun labelChoice(threads: List<SelectedThread>, labelId: String): LabelChoice {
 fun selectionCategory(threads: List<SelectedThread>): String? =
     threads.map { threadCategory(it.labelIds) }.toSet().singleOrNull()
 
-/** What Done, Snooze and Pin do to [todos] selected with [threads]; a done todo is left alone. */
+/**
+ * What Done, Snooze, Pin and Delete do to [todos] selected with [threads]; Done and Snooze leave a
+ * done todo alone. Delete moves the threads not in the trash there and deletes every todo; with
+ * every thread in the trash and no todo it moves them back to the inbox instead.
+ */
 fun todoSelectionPlan(threads: List<SelectedThread>, todos: List<SelectedTodo>): TodoSelectionPlan {
     val openIds = todos.filterNot { it.done }.map { it.id }
     val unpinnedThreads = threads.filterNot { Labels.STARRED in it.labelIds }.map { it.id }
@@ -201,7 +217,13 @@ fun todoSelectionPlan(threads: List<SelectedThread>, todos: List<SelectedTodo>):
     } else {
         MixedPin(false, threads.map { it.id }, openIds)
     }
-    return TodoSelectionPlan(done = openIds, snooze = openIds, pin = pin)
+    val untrashed = threads.filterNot { Labels.TRASH in it.labelIds }
+    val delete = if (threads.isNotEmpty() && untrashed.isEmpty() && todos.isEmpty()) {
+        MixedDelete(true, threads.map { it.id }, emptyList())
+    } else {
+        MixedDelete(false, untrashed.map { it.id }, todos.map { it.id })
+    }
+    return TodoSelectionPlan(done = openIds, snooze = openIds, pin = pin, delete = delete)
 }
 
 /** Whether every one of [shown] is selected (and there is at least one). */
@@ -241,7 +263,7 @@ enum class SelectionAction {
     /** move to the inbox (threads neither in it nor snoozed) */
     INBOX,
 
-    /** delete (todos) */
+    /** delete, or move to the inbox from the trash */
     DELETE,
 
     /** Done */
@@ -258,6 +280,7 @@ private val THREAD_ACTIONS = listOf(
     SelectionAction.CATEGORY,
     SelectionAction.READ,
     SelectionAction.SPAM,
+    SelectionAction.DELETE,
     SelectionAction.INBOX,
     SelectionAction.DONE,
 )
@@ -305,15 +328,15 @@ enum class SelectionDiscAction {
     /** report spam or not spam */
     SPAM,
 
-    /** delete (todos) */
+    /** delete, or move to the inbox from the trash */
     DELETE,
 }
 
 /** The selection's actions on a phone's corner button: the ring next to it and the ring beyond, each from the top. */
 data class SelectionDisc(
-    /** Done (or Move to inbox) and Snooze (or Wake now) */
+    /** Done (or Move to inbox) and Snooze (or Wake now); for todos alone Done alone */
     val inner: List<SelectionDiscAction>,
-    /** the rest, Pin first */
+    /** the rest, Pin first; for todos alone Snooze (or Wake now) first */
     val outer: List<SelectionDiscAction>,
 )
 
@@ -331,12 +354,14 @@ private val DISC_OUTER = listOf(
 /**
  * Where the corner button puts each of [available] (the actions that would change something): the
  * inner ring holds Done and Snooze, Move to inbox taking Done's place and Wake now Snooze's wherever
- * they apply; Pin, a Done or Snooze so displaced, and every other action go on the outer ring.
- * Neither ring holds a lone action beside the other: with Done or Snooze missing Pin joins the inner
- * ring, and an outer ring of one joins it too (threads and todos together have only Done, Snooze
- * and Pin, all next to the button). Web's `selectionDisc` is the same.
+ * they apply; Pin, a Done or Snooze so displaced, and every other action go on the outer ring, in
+ * the open thread's order (Pin, Label, Mark read, Spam, Delete). For [todosAlone] (no thread
+ * selected) the inner ring holds Done alone, and Snooze (or Wake now) goes first on the outer ring,
+ * before Pin and Delete. An outer ring of one, or with nothing next to the button every action,
+ * goes on the inner ring; otherwise, with Done or Snooze missing, Pin joins it, as in the open
+ * thread. Web's `selectionDisc` is the same.
  */
-fun selectionDisc(available: Collection<SelectionDiscAction>): SelectionDisc {
+fun selectionDisc(available: Collection<SelectionDiscAction>, todosAlone: Boolean): SelectionDisc {
     val first = when {
         SelectionDiscAction.INBOX in available -> SelectionDiscAction.INBOX
         SelectionDiscAction.DONE in available -> SelectionDiscAction.DONE
@@ -347,8 +372,9 @@ fun selectionDisc(available: Collection<SelectionDiscAction>): SelectionDisc {
         SelectionDiscAction.SNOOZE in available -> SelectionDiscAction.SNOOZE
         else -> null
     }
-    val placed = listOfNotNull(first, second)
-    val inner = if (placed.size < 2 && SelectionDiscAction.PIN in available) placed + SelectionDiscAction.PIN else placed
-    val outer = DISC_OUTER.filter { it in available && it !in inner }
-    return if (outer.size == 1) SelectionDisc(inner + outer, emptyList()) else SelectionDisc(inner, outer)
+    val placed = if (todosAlone) listOfNotNull(first) else listOfNotNull(first, second)
+    val inner = if (!todosAlone && placed.size < 2 && SelectionDiscAction.PIN in available) placed + SelectionDiscAction.PIN else placed
+    val lead = if (todosAlone) listOfNotNull(second) else emptyList()
+    val outer = lead + DISC_OUTER.filter { it in available && it !in inner && it != second }
+    return if (inner.isEmpty() || outer.size == 1) SelectionDisc(inner + outer, emptyList()) else SelectionDisc(inner, outer)
 }
