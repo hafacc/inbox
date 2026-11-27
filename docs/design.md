@@ -354,7 +354,9 @@ except where the list says.
 - On touch (web: at phone width), pulling the open thread 160 px (dp) past its top or end, starting
   there, closes it as Back does, as in reader but farther, so a scroll that runs on past the edge
   doesn't close it by accident: it follows the finger less and less, an arrow in the gap turns over,
-  and a haptic tick marks crossing that point (either way) and letting go there.
+  and a haptic tick marks crossing that point (either way) and letting go there. Let go past it,
+  the thread shrinks into its row from where it was pulled to, with no spring back first; let go
+  short of it, it springs back.
 - Pulling a list down from its top refreshes it (a forced refresh), as Material's pull to refresh
   does on Android (web: `web/src/lib/list-pull.ts`, `pull-refresh.svelte`): a round spinner comes
   out from under the header at half the finger's speed, and letting go once it is 80 px (dp) down
