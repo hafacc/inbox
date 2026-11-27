@@ -299,14 +299,14 @@ class SnoozeSuggestionsTest {
     fun `this and next weekday labels`() {
         assertEquals("Tomorrow morning, 09:00", label("Wd4@0900", LocalDateTime.of(2026, 9, 24, 9, 0), LocalDateTime.of(2026, 9, 23, 10, 0)))
         assertEquals("This Friday morning, 09:00", label("Wd5@0900", LocalDateTime.of(2026, 9, 25, 9, 0), LocalDateTime.of(2026, 9, 23, 10, 0)))
-        assertEquals("Next Thursday morning, 09:00", label("Wd4@0900", LocalDateTime.of(2026, 10, 1, 9, 0), LocalDateTime.of(2026, 9, 24, 7, 0)))
+        assertEquals("This Thursday morning, 09:00", label("Wd4@0900", LocalDateTime.of(2026, 10, 1, 9, 0), LocalDateTime.of(2026, 9, 24, 7, 0)))
     }
 
     @Test
     fun `weekday-after-next labels`() {
         val monday = LocalDateTime.of(2026, 9, 21, 10, 0)
         assertEquals("Next Wednesday morning, 09:00", label("Wn3@0900", LocalDateTime.of(2026, 9, 30, 9, 0), monday))
-        assertEquals("Monday in 2 weeks, 09:00", label("Wn1@0900", LocalDateTime.of(2026, 10, 5, 9, 0), monday))
+        assertEquals("Next Monday morning, 09:00", label("Wn1@0900", LocalDateTime.of(2026, 10, 5, 9, 0), monday))
     }
 
     @Test
@@ -364,7 +364,8 @@ class SnoozeSuggestionsTest {
         assertEquals(RowIcon.TODAY_DAY, icon("D0@1500", LocalDateTime.of(2026, 9, 21, 15, 0)))
         assertEquals(RowIcon.TOMORROW, icon("D1@0900", LocalDateTime.of(2026, 9, 22, 9, 0)))
         assertEquals(RowIcon.WEEKDAY, icon("D3@0900", LocalDateTime.of(2026, 9, 24, 9, 0)))
-        assertEquals(RowIcon.DAYS, icon("W2@0900", LocalDateTime.of(2026, 10, 5, 9, 0)))
+        assertEquals(RowIcon.WEEKDAY, icon("W2@0900", LocalDateTime.of(2026, 10, 5, 9, 0)))
+        assertEquals(RowIcon.DAYS, icon("D15@0900", LocalDateTime.of(2026, 10, 6, 9, 0)))
         assertEquals(RowIcon.WEEKDAY, icon("Wd5@0900", LocalDateTime.of(2026, 9, 25, 9, 0)))
         assertEquals(RowIcon.MONTHLY, icon("Dom1@0900", LocalDateTime.of(2026, 10, 1, 9, 0)))
         assertEquals(RowIcon.OFFSET, icon("D0_h3", LocalDateTime.of(2026, 9, 21, 15, 0)))
@@ -378,7 +379,8 @@ class SnoozeSuggestionsTest {
         assertEquals("Last · Tomorrow morning", text(LocalDateTime.of(2024, 3, 5, 8, 0)))
         assertEquals("Last · This Friday afternoon", text(LocalDateTime.of(2024, 3, 8, 14, 0)))
         assertEquals("Last · Next Tuesday morning", text(LocalDateTime.of(2024, 3, 12, 8, 0)))
-        assertEquals("Last · Monday in 2 weeks", text(LocalDateTime.of(2024, 3, 18, 8, 0)))
+        assertEquals("Last · This Monday morning", text(LocalDateTime.of(2024, 3, 11, 8, 0)))
+        assertEquals("Last · Next Monday morning", text(LocalDateTime.of(2024, 3, 18, 8, 0)))
         assertEquals("Last · Mar 20", text(LocalDateTime.of(2024, 3, 20, 14, 0)))
         assertEquals("21:05", SnoozeSuggestions.formatClock(epoch(LocalDateTime.of(2026, 9, 24, 21, 5)), zone))
     }
@@ -508,9 +510,9 @@ class SnoozeSuggestionsTest {
         val text = when {
             days <= 0 -> if (region == "night") "Tonight" else "This $region"
             days == 1L && !Regex("^(Wd|Wn)").containsMatchIn(key) -> "Tomorrow $region"
-            days <= 6 -> "This $weekday $region"
-            days <= 13 -> "Next $weekday $region"
-            else -> "$weekday in 2 weeks"
+            days <= 7 -> "This $weekday $region"
+            days <= 14 -> "Next $weekday $region"
+            else -> error("no key here lands $days days out")
         }
         return "$text, %02d:%02d".format(target.hour, target.minute)
     }
