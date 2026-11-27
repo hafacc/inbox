@@ -37,6 +37,7 @@ import cc.hafa.inbox.core.gmail.GmailSendAs
 import cc.hafa.inbox.core.gmail.TokenSource
 import cc.hafa.inbox.core.gmail.isNotFound
 import cc.hafa.inbox.core.gmail.isRetryable
+import cc.hafa.inbox.core.mail.KeptDraftRecord
 import cc.hafa.inbox.core.mail.LocalDraftState
 import cc.hafa.inbox.core.mail.LocalThreadDraft
 import cc.hafa.inbox.core.mail.MessageView
@@ -46,6 +47,7 @@ import cc.hafa.inbox.core.mail.ThreadDetail
 import cc.hafa.inbox.core.mail.decodeBase64Url
 import cc.hafa.inbox.core.mail.draftSnippet
 import cc.hafa.inbox.core.mail.headerValue
+import cc.hafa.inbox.core.mail.heldDraftStates
 import cc.hafa.inbox.core.mail.offlineDraftOf
 import cc.hafa.inbox.core.mail.offlineEditable
 import cc.hafa.inbox.core.mail.parseAddressList
@@ -217,6 +219,17 @@ fun sendStands(current: StoredDraft?, pending: PendingSend, rewrite: Boolean, wa
         rewrite -> current.pendingSend == null && current.content.outboxId == pending.outboxId && waiting
         else -> current.pendingSend == pending
     }
+
+/**
+ * What the device keeps of a draft thrown away, given the draft as it is now ([current]) and as
+ * the composer had it ([content]): a delete waiting for Gmail when Gmail has a copy (by either's
+ * draft id), so the next flush deletes it there; else nothing, and the draft is forgotten.
+ */
+fun thrownAway(current: StoredDraft?, content: DraftContent): StoredDraft? {
+    val draftId = current?.content?.draftId ?: content.draftId ?: return null
+    val stored = current ?: StoredDraft(content, dirty = false, deleted = true, pendingSend = null, updatedAt = 0)
+    return stored.copy(content = content.copy(draftId = draftId), deleted = true, pendingSend = null)
+}
 
 /**
  * Compose and send: the open composer, drafts (on the device, then Gmail), the outbox, the From
@@ -481,22 +494,24 @@ class Sending(
         subject = content.subject,
     )
 
-    // A discard waiting out its undo window already takes the draft out of its thread.
+    // A discard waiting out its undo window already takes the draft out of its thread; only a stored
+    // draft is ever a draft ([heldDraftStates]).
     private fun publishLocal() {
-        val stored = storedLocal.map { draft ->
-            val localId = draft.content.localId
-            val state = when {
-                draft.deleted || localId in discarding -> LocalDraftState.DELETED
-                localId in sendingLocal -> LocalDraftState.SENDING
-                else -> LocalDraftState.DRAFT
+        val stored = storedLocal.associateBy { it.content.localId }
+        val held = heldDraftStates(
+            kept = storedLocal.map { KeptDraftRecord(it.content.localId, it.deleted) },
+            thrown = discarding.keys.toList(),
+            sending = sendingLocal.toList() + sentLocal.keys,
+        )
+        localState.value = held.mapNotNull { entry ->
+            val draft = stored[entry.localId]
+            when {
+                draft != null -> localDraft(draft.content, entry.state, draft.updatedAt)
+                entry.state == LocalDraftState.DELETED ->
+                    discarding[entry.localId]?.let { (session, _) -> localDraft(session.content(), entry.state, 0) }
+                else -> sentLocal[entry.localId]?.first
             }
-            localDraft(draft.content, state, draft.updatedAt)
         }
-        val known = stored.map { it.draft.localId }.toSet()
-        val waiting = discarding.filterKeys { it !in known }.map { (_, entry) ->
-            localDraft(entry.first.content(), LocalDraftState.DELETED, 0)
-        }
-        localState.value = stored + waiting + sentLocal.filterKeys { it !in known }.values.map { it.first }
     }
 
     /**
@@ -1046,7 +1061,8 @@ class Sending(
         val content = session.content()
         scope.launch {
             if (content.isEmpty() && content.draftId == null) {
-                drafts.remove(content.localId)
+                // A save still queued goes with it; one that reached Gmail meanwhile is deleted there.
+                drafts.replace(content.localId) { thrownAway(it, content) }
             } else {
                 drafts.save(content)
                 drafts.pruneFiles(content)
@@ -1092,11 +1108,7 @@ class Sending(
         val content = session.content()
         scope.launch {
             // Left deleted, so the next flush deletes it in Gmail when it has one and forgets it.
-            val kept = withdrawHeld(content.localId, content.outboxId) { current ->
-                val draftId = current?.content?.draftId ?: content.draftId
-                val stored = current ?: StoredDraft(content, dirty = false, deleted = true, pendingSend = null, updatedAt = 0).takeIf { draftId != null }
-                stored?.copy(content = content.copy(draftId = draftId), deleted = true, pendingSend = null)
-            }
+            val kept = withdrawHeld(content.localId, content.outboxId) { thrownAway(it, content) }
             // Never stored: only files fetched for it are left.
             if (kept == null) drafts.remove(content.localId)
             refreshLocal()

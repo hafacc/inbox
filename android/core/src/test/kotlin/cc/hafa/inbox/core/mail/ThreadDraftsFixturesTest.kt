@@ -63,4 +63,21 @@ class ThreadDraftsFixturesTest {
             )
         }
     }
+
+    private fun ids(value: Any?): List<String> = (value as List<*>).map { it as String }
+
+    @Test
+    fun held() {
+        for (case in Fixtures.cases(Fixtures.threadDrafts, "held")) {
+            val kept = (case["kept"] as List<*>).map { entry ->
+                val record = entry as Map<*, *>
+                KeptDraftRecord(record["localId"] as String, record["deleted"] as Boolean)
+            }
+            val expected = (case["expect"] as List<*>).map { entry ->
+                val held = entry as Map<*, *>
+                HeldDraftState(held["localId"] as String, LocalDraftState.valueOf((held["state"] as String).uppercase()), held["kept"] as Boolean)
+            }
+            assertEquals(case["name"] as String, expected, heldDraftStates(kept, ids(case["thrown"]), ids(case["sending"])))
+        }
+    }
 }

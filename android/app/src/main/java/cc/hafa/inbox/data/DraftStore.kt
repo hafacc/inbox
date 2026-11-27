@@ -201,12 +201,26 @@ class DraftStore(context: Context, uid: String, private val dao: MailDao) {
 
     /** Forget a draft and its files on this device. */
     suspend fun remove(localId: String) {
-        mutex.withLock {
-            dao.deleteDraft(localId)
-            memoryRows.remove(localId)
-            memoryFiles.remove(localId)
-        }
+        mutex.withLock { forget(localId) }
         withContext(Dispatchers.IO) { directory(localId).deleteRecursively() }
+    }
+
+    private suspend fun forget(localId: String) {
+        dao.deleteDraft(localId)
+        memoryRows.remove(localId)
+        memoryFiles.remove(localId)
+    }
+
+    /**
+     * Change a draft in one step, as [update] does, forgetting it and its files when [change]
+     * returns null, so a save landing meanwhile can't slip in between.
+     */
+    suspend fun replace(localId: String, change: (StoredDraft?) -> StoredDraft?): StoredDraft? {
+        val next = mutex.withLock {
+            change(current(localId)).also { next -> if (next != null) put(next) else forget(localId) }
+        }
+        if (next == null) withContext(Dispatchers.IO) { directory(localId).deleteRecursively() }
+        return next
     }
 
     /** Remove files the draft no longer lists. */

@@ -147,4 +147,96 @@ describe("ComposerStore", () => {
     await store.deleteComposer("c1");
     expect(await store.pendingDeletes()).toEqual([]);
   });
+
+  it("keeps composers in memory while nothing may be written, and writes them once it may", async () => {
+    const stores = memoryStores();
+    let protection: Protection = { kind: "locked" };
+    const changes: [string, unknown][] = [];
+    const store = new ComposerStore(
+      stores,
+      async () => protection,
+      (localId, kept) => changes.push([localId, kept]),
+    );
+    await store.putComposer(snapshot);
+    await store.putJob(job);
+    expect(stores.raw.has("composers/c1")).toBe(false);
+    expect(stores.raw.has("drafts/c1")).toBe(false);
+    expect(await store.composer("c1")).toEqual(snapshot);
+    expect(await store.holds("c1")).toBe(true);
+    expect(await store.composers()).toEqual([["c1", snapshot]]);
+    expect(changes).toEqual([["c1", snapshot]]);
+    protection = { kind: "plain" };
+    expect(await store.composers()).toEqual([["c1", snapshot]]);
+    expect(await store.jobs()).toEqual([["c1", job]]);
+    expect(stores.raw.get("composers/c1")).toEqual(snapshot);
+    expect(stores.raw.get("drafts/c1")).toEqual(job);
+  });
+
+  it("says each change once it lands, in the order asked", async () => {
+    const stores = memoryStores();
+    const changes: [string, unknown][] = [];
+    let release = () => {};
+    const slow = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let first = true;
+    const store = new ComposerStore(
+      stores,
+      async () => {
+        if (first) {
+          first = false;
+          await slow;
+        }
+        return { kind: "plain" };
+      },
+      (localId, kept) => changes.push([localId, kept]),
+    );
+    // The write waits on the key; the delete asked after it still lands after it.
+    const written = store.putComposer(snapshot);
+    const deleted = store.deleteComposer("c1");
+    release();
+    await Promise.all([written, deleted]);
+    expect(stores.raw.has("composers/c1")).toBe(false);
+    expect(await store.composers()).toEqual([]);
+    expect(changes).toEqual([
+      ["c1", snapshot],
+      ["c1", null],
+    ]);
+  });
+
+  it("changes a kept composer in place, and writes nothing when none is kept", async () => {
+    const stores = memoryStores();
+    const store = new ComposerStore(stores, async () => ({ kind: "plain" }));
+    const withIds = (kept: ComposeSnapshot) => ({
+      ...kept,
+      draftId: "d1",
+      messageId: "m1",
+    });
+    expect(await store.updateComposer("c1", withIds)).toBeUndefined();
+    expect(stores.raw.has("composers/c1")).toBe(false);
+    await store.putComposer(snapshot);
+    expect(await store.updateComposer("c1", withIds)).toEqual(
+      withIds(snapshot),
+    );
+    expect(await store.composer("c1")).toEqual(withIds(snapshot));
+  });
+
+  it("holds a record it can't open, and not a pending delete", async () => {
+    const stores = memoryStores();
+    await stores.put("composers", "c1", {
+      sealed: new Uint8Array([1]),
+    } as never);
+    await stores.put("composers", "c2", {
+      localId: "c2",
+      draftId: "d2",
+      messageId: null,
+      threadId: null,
+      deleted: true,
+    });
+    const store = new ComposerStore(stores, async () => ({ kind: "locked" }));
+    expect(await store.composer("c1")).toBeUndefined();
+    expect(await store.holds("c1")).toBe(true);
+    expect(await store.holds("c2")).toBe(false);
+    expect(await store.holds("c3")).toBe(false);
+  });
 });

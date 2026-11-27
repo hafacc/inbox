@@ -293,7 +293,10 @@ from {from}". Done and Reply work as before.
   saves queued for Gmail) is sealed the same way whenever the account has a key: web seals each
   record with the device key (AES-GCM, as the cache); Android keeps it in the same
   Keystore-encrypted storage. On a device that hasn't unlocked the key there is nothing to seal
-  with, so composer state is not written to the device at all (the Gmail draft still saves);
+  with, so composer state is not written to the device at all (the Gmail draft still saves): it
+  is kept in memory for the session, so a message written there still lists and opens until the
+  app closes, and is written sealed once the device unlocks (Android also writes a send waiting
+  for its draft to reach Gmail sealed at once, so it isn't lost);
   records sealed under a device key that is gone (after sign-out, or the key changed on another device) are deleted unread. Records
   kept from before the account had a key are sealed the next time they are read on an unlocked
   device.

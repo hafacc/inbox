@@ -45,10 +45,7 @@ import {
   UNDO_SEND_DELAY_MS,
 } from "@inbox/shared/send-suggest";
 import type { DevicePartition } from "@inbox/shared/snooze-suggest";
-import {
-  draftSnippet,
-  type LocalDraftState,
-} from "@inbox/shared/thread-drafts";
+import { draftSnippet, heldDraftStates } from "@inbox/shared/thread-drafts";
 import { formatWakeTime } from "@inbox/shared/time-format";
 import {
   collection,
@@ -110,6 +107,8 @@ import {
 import { Composer } from "./composer.svelte";
 import {
   ComposerStore,
+  isPendingDelete,
+  type KeptComposer,
   type PendingDelete,
   type Protection,
 } from "./composer-store";
@@ -132,7 +131,10 @@ import {
   sendEncryption,
 } from "./encrypt-send";
 import {
+  closeThrowsAway,
+  composersOf,
   deletedDraftOf,
+  emptyComposers,
   type LocalDraft,
   localDraftOf,
   unsyncedDrafts,
@@ -181,6 +183,18 @@ function sendAsFrom(
 const SENT_KEEP_MS = 2 * 60 * 1000;
 // Said when a draft can't be opened from the saved copy.
 const OPENS_ONLINE = "This draft opens once you're back online.";
+// Said when a listed draft has nothing left to open, here or in Gmail.
+const DRAFT_GONE = "This draft is gone";
+// Said when a draft kept here is sealed and this device can't open it now.
+const LOCKED_DRAFT = "Unlock encrypted mail to open this draft.";
+
+/** A composer's record on the device, as its thread shows it. */
+type KeptDraft = {
+  /** as its thread shows it; deleted for a delete waiting for Gmail */
+  draft: LocalDraft;
+  /** its Gmail draft, once saved there */
+  draftId: string | null;
+};
 
 /** The pill about a message: undo while a send waits, then what happened; undo after a discard; Open after closing a draft. */
 export type SendPill =
@@ -212,6 +226,33 @@ async function composeProtection(
   if (!encryption.hasKey) return { kind: "plain" };
   const key = encryption.deviceKey();
   return key === null ? { kind: "locked" } : { kind: "sealed", key };
+}
+
+// A composer's record as its thread shows it.
+function keptDraftOf(kept: KeptComposer, updatedAt: number): KeptDraft {
+  return isPendingDelete(kept)
+    ? { draft: deletedDraftOf(kept), draftId: kept.draftId }
+    : { draft: localDraftOf(kept, "draft", updatedAt), draftId: kept.draftId };
+}
+
+function withEntry<Value>(
+  map: ReadonlyMap<string, Value>,
+  key: string,
+  value: Value,
+): ReadonlyMap<string, Value> {
+  const next = new Map(map);
+  next.set(key, value);
+  return next;
+}
+
+function withoutEntry<Value>(
+  map: ReadonlyMap<string, Value>,
+  key: string,
+): ReadonlyMap<string, Value> {
+  if (!map.has(key)) return map;
+  const next = new Map(map);
+  next.delete(key);
+  return next;
 }
 
 function unchangedDoc(
@@ -275,8 +316,41 @@ export class ComposeHub {
   outbox = $state.raw<ReadonlyMap<string, OutboxDoc>>(new Map());
   /** Draft saves waiting for Gmail, by composer id. */
   jobs = $state.raw<ReadonlyMap<string, DraftJob>>(new Map());
-  /** Drafts this device holds, as their threads show them, by composer id. */
-  localDrafts = $state.raw<ReadonlyMap<string, LocalDraft>>(new Map());
+  // Composers' records on the device (`ComposerStore`), by composer id: only these are drafts.
+  #kept = $state.raw<ReadonlyMap<string, KeptDraft>>(new Map());
+  // Drafts thrown away here, hidden from their threads until their undo or their delete is done.
+  #thrown = $state.raw<ReadonlyMap<string, LocalDraft>>(new Map());
+  // Drafts being sent from here, until their thread shows Gmail's copy (or the send stops).
+  #sending = $state.raw<ReadonlyMap<string, LocalDraft>>(new Map());
+  // The order of changes to `#kept`, and the last one of each record, so a read of every record
+  // started earlier doesn't undo a change made meanwhile.
+  #keptSeq = 0;
+  #keptAt = new Map<string, number>();
+
+  /**
+   * Drafts this device holds, as their threads show them, by composer id: each kept record, and
+   * drafts thrown away or being sent here (`heldDraftStates`), so only a kept record is a draft.
+   */
+  readonly localDrafts = $derived.by((): ReadonlyMap<string, LocalDraft> => {
+    const kept = this.#kept;
+    const thrown = this.#thrown;
+    const sending = this.#sending;
+    const held = heldDraftStates({
+      kept: [...kept.values()].map(({ draft }) => ({
+        localId: draft.localId,
+        deleted: draft.state === "deleted",
+      })),
+      thrown: [...thrown.keys()],
+      sending: [...sending.keys()],
+    });
+    const drafts = new Map<string, LocalDraft>();
+    for (const { localId, state } of held) {
+      const draft =
+        kept.get(localId)?.draft ?? thrown.get(localId) ?? sending.get(localId);
+      if (draft !== undefined) drafts.set(localId, { ...draft, state });
+    }
+    return drafts;
+  });
 
   /** New messages kept here that aren't in any Gmail thread yet, newest first: Drafts lists them on their own. */
   readonly newDrafts = $derived.by((): LocalDraft[] =>
@@ -334,14 +408,10 @@ export class ComposeHub {
   #deleting = new Set<string>();
   // The composer last closed with its draft kept, for the pill's Open.
   #closed: Composer | null = null;
-  // Messages thrown away whose undo hasn't passed: the composer, its local draft as it was, and the timer that ends it.
+  // Messages thrown away whose undo hasn't passed: the composer and the timer that ends it.
   #discarding = new Map<
     string,
-    {
-      composer: Composer;
-      before: LocalDraft | null;
-      timer: ReturnType<typeof setTimeout>;
-    }
+    { composer: Composer; timer: ReturnType<typeof setTimeout> }
   >();
   // Sends with undo from this device by outbox id, to the composer id of their local draft.
   #sendingOutbox = new Map<string, string>();
@@ -382,8 +452,10 @@ export class ComposeHub {
       mail.encryption.setDoc(value),
     );
     this.contacts = new ContactBook(mail.tokens, mail.cache);
-    this.#store = new ComposerStore(mail.cache, () =>
-      composeProtection(mail.encryption),
+    this.#store = new ComposerStore(
+      mail.cache,
+      () => composeProtection(mail.encryption),
+      (localId, kept) => this.#keptChanged(localId, kept),
     );
     this.#stats = new SnoozeStatsStore(
       this.#db,
@@ -571,48 +643,115 @@ export class ComposeHub {
     void this.flush();
   }
 
-  // Composers kept on the device, as local drafts of their threads; pending deletes stay hidden.
+  // Composers kept on the device, as their threads show them; pending deletes stay hidden and are
+  // tried again. A blank one that never reached Gmail, with no save queued, is forgotten.
   async #loadLocal(): Promise<void> {
-    const kept = await this.#store.composers().catch(() => []);
-    const deletes = await this.#store.pendingDeletes().catch(() => []);
-    if (this.#disposed) return;
-    const next = new Map(this.localDrafts);
-    for (const pending of deletes) {
-      if (this.#pendingDeletes.has(pending.localId)) continue;
-      this.#pendingDeletes.set(pending.localId, pending);
-      next.set(pending.localId, deletedDraftOf(pending));
+    const since = this.#keptSeq;
+    const kept = await this.#store.composers().catch(() => null);
+    const deletes = await this.#store.pendingDeletes().catch(() => null);
+    if (this.#disposed || kept === null || deletes === null) return;
+    const changed = (localId: string) =>
+      (this.#keptAt.get(localId) ?? 0) > since;
+    const next = new Map<string, KeptDraft>();
+    for (const [localId, entry] of this.#kept) {
+      if (changed(localId)) next.set(localId, entry);
     }
+    for (const pending of deletes) {
+      if (changed(pending.localId)) continue;
+      if (!this.#pendingDeletes.has(pending.localId)) {
+        this.#pendingDeletes.set(pending.localId, pending);
+      }
+      next.set(pending.localId, keptDraftOf(pending, 0));
+    }
+    const empty = new Set(
+      emptyComposers(
+        kept,
+        (localId) => this.jobs.has(localId),
+        (localId) => this.#composersOf(localId).length > 0,
+      ),
+    );
+    const sending = new Map(this.#sending);
     for (const [localId, snapshot] of kept) {
-      if (next.has(localId) || this.#discarded.has(localId)) continue;
-      const sending = this.jobs.get(localId)?.send?.kind === "now";
+      if (changed(localId) || this.#discarded.has(localId)) continue;
+      if (empty.has(localId)) {
+        void this.#forget(localId);
+        continue;
+      }
       next.set(
         localId,
-        localDraftOf(snapshot, sending ? "sending" : "draft", 0),
+        keptDraftOf(snapshot, this.#kept.get(localId)?.draft.updatedAt ?? 0),
       );
+      if (
+        this.jobs.get(localId)?.send?.kind === "now" &&
+        !sending.has(localId)
+      ) {
+        sending.set(localId, localDraftOf(snapshot, "sending", 0));
+      }
     }
-    this.localDrafts = next;
+    this.#kept = next;
+    this.#sending = sending;
   }
 
-  #setLocal(snapshot: ComposeSnapshot, state: LocalDraftState): void {
-    this.#putLocal(localDraftOf(snapshot, state, Date.now()));
+  // The store kept `kept` for `localId` now, or nothing when null.
+  #keptChanged(localId: string, kept: KeptComposer | null): void {
+    this.#keptSeq += 1;
+    this.#keptAt.set(localId, this.#keptSeq);
+    const next = new Map(this.#kept);
+    if (kept === null) next.delete(localId);
+    else next.set(localId, keptDraftOf(kept, Date.now()));
+    this.#kept = next;
   }
 
-  #putLocal(draft: LocalDraft): void {
-    const next = new Map(this.localDrafts);
-    next.set(draft.localId, draft);
-    this.localDrafts = next;
+  #markSending(snapshot: ComposeSnapshot): void {
+    this.#sending = withEntry(
+      this.#sending,
+      snapshot.localId,
+      localDraftOf(snapshot, "sending", Date.now()),
+    );
   }
 
-  #patchLocal(localId: string, patch: Partial<LocalDraft>): void {
-    const current = this.localDrafts.get(localId);
-    if (current !== undefined) this.#putLocal({ ...current, ...patch });
+  #stopSending(localId: string): void {
+    this.#sending = withoutEntry(this.#sending, localId);
   }
 
-  #dropLocal(localId: string): void {
-    if (!this.localDrafts.has(localId)) return;
-    const next = new Map(this.localDrafts);
-    next.delete(localId);
-    this.localDrafts = next;
+  #throw(draft: LocalDraft): void {
+    this.#thrown = withEntry(this.#thrown, draft.localId, {
+      ...draft,
+      state: "deleted",
+    });
+  }
+
+  #unthrow(localId: string): void {
+    this.#thrown = withoutEntry(this.#thrown, localId);
+  }
+
+  // Gmail's ids for a draft this session holds only in memory (thrown away or being sent).
+  #patchHeld(
+    localId: string,
+    patch: Pick<LocalDraft, "messageId" | "draftThreadId">,
+  ): void {
+    const thrown = this.#thrown.get(localId);
+    if (thrown) {
+      this.#thrown = withEntry(this.#thrown, localId, { ...thrown, ...patch });
+    }
+    const sending = this.#sending.get(localId);
+    if (sending) {
+      this.#sending = withEntry(this.#sending, localId, {
+        ...sending,
+        ...patch,
+      });
+    }
+  }
+
+  // Every composer of `localId` this hub holds: open, parked, behind the Saved pill or a discard's undo.
+  #composersOf(localId: string): Composer[] {
+    return composersOf(localId, [
+      this.floating,
+      this.inline,
+      this.parked,
+      this.#closed,
+      ...[...this.#discarding.values()].map(({ composer }) => composer),
+    ]);
   }
 
   // Forget local drafts whose send went once the open thread shows Gmail's copy, or at once when
@@ -629,7 +768,7 @@ export class ComposeHub {
           detail.drafts.some((message) => message.id === draft.messageId));
       if (!stillSending) {
         this.#sentLocal.delete(localId);
-        this.#dropLocal(localId);
+        this.#stopSending(localId);
       }
     }
   }
@@ -1217,12 +1356,22 @@ export class ComposeHub {
     else this.#mail.open(threadId);
   };
 
-  /** Open a draft shown in a thread: the device's copy, else Gmail's. */
+  /**
+   * Open a draft shown in a thread: the device's copy, else Gmail's. One with neither left goes
+   * from where it was listed, saying so.
+   */
   openLocalDraft = async (localId: string): Promise<void> => {
     const kept = await this.#store.composer(localId).catch(() => undefined);
     if (kept === undefined) {
       const messageId = this.localDrafts.get(localId)?.messageId;
-      if (messageId) await this.openDraftMessage(messageId);
+      if (messageId && (await this.#openDraftMessage(messageId))) return;
+      if (this.localDrafts.get(localId)?.state !== "draft") return;
+      if (await this.#store.holds(localId).catch(() => true)) {
+        this.#notice(LOCKED_DRAFT, false);
+      } else {
+        await this.#forget(localId);
+        this.#notice(DRAFT_GONE, false);
+      }
       return;
     }
     if (this.parked?.localId === localId) {
@@ -1248,6 +1397,11 @@ export class ComposeHub {
 
   /** Open the Gmail draft whose message is `messageId` (a draft shown in a thread). */
   openDraftMessage = async (messageId: string): Promise<void> => {
+    await this.#openDraftMessage(messageId);
+  };
+
+  // False only when Gmail answered and has no such draft.
+  async #openDraftMessage(messageId: string): Promise<boolean> {
     let drafts: GmailDraft[];
     try {
       drafts = await this.#mail.gmail.listDrafts();
@@ -1257,25 +1411,25 @@ export class ComposeHub {
       } else {
         this.#notice(`Couldn't open the draft. ${errorText(error)}`, true);
       }
-      return;
+      return true;
     }
     const match = drafts.find((entry) => entry.message.id === messageId);
-    if (match) await this.openDraft(match.id);
-  };
+    if (match === undefined) return false;
+    await this.openDraft(match.id);
+    return true;
+  }
 
-  /** Put a composer away, saving its draft (or forgetting it when it's blank). */
+  /**
+   * Put a composer away, saving its draft. A blank one Gmail has no draft of is thrown away
+   * instead, with a save of it still queued or under way (whose draft is deleted once it lands).
+   */
   close = async (composer: Composer): Promise<void> => {
     if (this.floating === composer) this.floating = null;
     if (this.inline === composer) this.inline = null;
     if (this.parked === composer) this.parked = null;
-    const blank = isBlank(composer.snapshot());
-    if (
-      blank &&
-      composer.draftId === null &&
-      !this.jobs.has(composer.localId)
-    ) {
+    if (closeThrowsAway(composer.snapshot(), this.#draftIdOf(composer))) {
       composer.cancelAutosave();
-      await this.#store.deleteComposer(composer.localId).catch(() => {});
+      await this.#finishDiscard(composer);
       return;
     }
     if (composer.pendingAutosave || composer.saveStatus !== "saved") {
@@ -1368,18 +1522,15 @@ export class ComposeHub {
       this.#notice("Draft discarded", false);
       return;
     }
-    const before = this.localDrafts.get(localId) ?? null;
-    // Gone from its thread at once; Gmail's copy stays hidden until it is deleted.
-    const messageId = snapshot.messageId ?? before?.messageId;
-    if (messageId) {
-      this.#setLocal({ ...snapshot, messageId }, "deleted");
-    } else {
-      this.#dropLocal(localId);
-    }
+    // Gone from its thread and Drafts at once; Gmail's copy stays hidden until it is deleted.
+    const messageId =
+      snapshot.messageId ?? this.localDrafts.get(localId)?.messageId ?? null;
+    this.#throw(
+      localDraftOf({ ...snapshot, messageId }, "deleted", Date.now()),
+    );
     clearTimeout(this.#discarding.get(localId)?.timer);
     this.#discarding.set(localId, {
       composer,
-      before,
       timer: setTimeout(() => {
         const pending = this.#discarding.get(localId);
         if (pending?.composer !== composer) return;
@@ -1403,10 +1554,8 @@ export class ComposeHub {
     if (pending === undefined) return;
     this.#discarding.delete(pill.localId);
     clearTimeout(pending.timer);
-    const { composer, before } = pending;
-    if (before !== null) this.#putLocal(before);
-    else this.#dropLocal(pill.localId);
-    await this.#showAgain(composer);
+    this.#unthrow(pill.localId);
+    await this.#showAgain(pending.composer);
   };
 
   /**
@@ -1430,11 +1579,13 @@ export class ComposeHub {
   // Every device write starts before the first wait, so one made as the page goes away still lands.
   // Resolves once those writes land, without waiting for Gmail.
   async #finishDiscard(composer: Composer): Promise<void> {
-    this.#discarded.add(composer.localId);
-    const job = this.jobs.get(composer.localId);
-    const draftId = composer.draftId ?? job?.draftId ?? null;
+    const localId = composer.localId;
+    this.#discarded.add(localId);
+    const draftId = this.#draftIdOf(composer);
     const forgotten =
-      draftId === null ? this.#forget(composer.localId) : Promise.resolve();
+      draftId === null
+        ? this.#forget(localId).then(() => this.#unthrow(localId))
+        : Promise.resolve();
     this.#dropJob(composer.localId);
     const entry = outboxForDraft(this.outbox.values(), draftId);
     if (entry !== null) {
@@ -1462,7 +1613,7 @@ export class ComposeHub {
   // Resolves once the device holds the delete; the delete in Gmail runs on.
   async #queueDelete(pending: PendingDelete): Promise<void> {
     this.#pendingDeletes.set(pending.localId, pending);
-    this.#putLocal(deletedDraftOf(pending));
+    this.#throw(deletedDraftOf(pending));
     await this.#store
       .putDelete(pending)
       .catch((error) => console.error("draft delete write failed", error));
@@ -1488,14 +1639,24 @@ export class ComposeHub {
       }
       if (this.#pendingDeletes.get(pending.localId) === pending) {
         this.#pendingDeletes.delete(pending.localId);
-        this.#dropLocal(pending.localId);
         await this.#forget(pending.localId);
+        this.#unthrow(pending.localId);
       }
     }
   }
 
   async #forget(localId: string): Promise<void> {
     await this.#store.deleteComposer(localId).catch(() => {});
+  }
+
+  // The Gmail draft a composer is saved as: its own, else its queued save's or its record's.
+  #draftIdOf(composer: Composer): string | null {
+    return (
+      composer.draftId ??
+      this.jobs.get(composer.localId)?.draftId ??
+      this.#kept.get(composer.localId)?.draftId ??
+      null
+    );
   }
 
   #setJob(job: DraftJob): void {
@@ -1606,7 +1767,7 @@ export class ComposeHub {
       return false;
     }
     const localId = randomId();
-    this.#putLocal({
+    this.#sending = withEntry(this.#sending, localId, {
       localId,
       messageId: null,
       state: "sending",
@@ -1837,17 +1998,15 @@ export class ComposeHub {
     const entry = this.outboxOf(composer);
     if (isLocked(entry)) return;
     const snapshot = $state.snapshot(composer.snapshot()) as ComposeSnapshot;
+    // Thrown away while this save waited its turn.
+    if (this.#discarded.has(snapshot.localId)) return;
     if (send === null && isBlank(snapshot) && composer.draftId === null) return;
     void this.#store
       .putComposer(snapshot)
       .catch((error) => console.error("composer write failed", error));
-    this.#setLocal(
-      snapshot,
-      send?.kind === "now" ||
-        this.localDrafts.get(snapshot.localId)?.state === "sending"
-        ? "sending"
-        : "draft",
-    );
+    if (send?.kind === "now" || this.#sending.has(snapshot.localId)) {
+      this.#markSending(snapshot);
+    }
     if (send !== null && this.#sendSaved(composer, snapshot, send)) return;
     composer.saveStatus = "saving";
     // A scheduled encrypted send with Bcc is several messages; an edit saves them all again.
@@ -1982,11 +2141,8 @@ export class ComposeHub {
           console.error("draft save refused", error);
           this.#dropJob(job.localId);
           const composer = this.#composerFor(job.localId);
-          // A send that can't even be saved isn't sending any more.
-          if (this.localDrafts.get(job.localId)?.state === "sending") {
-            if (composer) this.#patchLocal(job.localId, { state: "draft" });
-            else this.#dropLocal(job.localId);
-          }
+          // A send that can't even be saved isn't sending any more: it is its kept draft again.
+          this.#stopSending(job.localId);
           if (composer) {
             composer.saveStatus = "failed";
             composer.error = `Couldn't save the draft. ${errorText(error)}`;
@@ -2060,7 +2216,7 @@ export class ComposeHub {
     draftThreadId: string,
   ): Promise<boolean> {
     // Each save gives the draft a new message id; the thread finds Gmail's copy by it.
-    this.#patchLocal(job.localId, { messageId, draftThreadId });
+    this.#patchHeld(job.localId, { messageId, draftThreadId });
     if (this.#discarded.has(job.localId)) {
       this.#dropDiscarded(job, draftId);
       return true;
@@ -2074,8 +2230,8 @@ export class ComposeHub {
         console.error("outbox draft move failed", error),
       );
     }
-    const composer = this.#composerFor(job.localId);
-    if (composer) {
+    // Every composer of it learns Gmail's ids, one put away too, so none makes a second draft.
+    for (const composer of this.#composersOf(job.localId)) {
       composer.draftId = draftId;
       composer.messageId = messageId;
       composer.draftThreadId = draftThreadId;
@@ -2089,12 +2245,14 @@ export class ComposeHub {
       previews.delete(draftId);
       this.previews = previews;
     }
-    const kept = await this.#store.composer(job.localId).catch(() => undefined);
-    if (kept) {
-      void this.#store
-        .putComposer({ ...kept, draftId, messageId, draftThreadId })
-        .catch((error) => console.error("composer write failed", error));
-    }
+    void this.#store
+      .updateComposer(job.localId, (kept) => ({
+        ...kept,
+        draftId,
+        messageId,
+        draftThreadId,
+      }))
+      .catch((error) => console.error("composer write failed", error));
     // Read again after every wait: undo or a newer save may have come meanwhile.
     const current = this.jobs.get(job.localId);
     if (current?.send && current.version === job.version) {
@@ -2414,7 +2572,7 @@ export class ComposeHub {
     const entry = this.outboxOf(composer);
     if (isLocked(entry)) return;
     this.#putAway(composer);
-    this.#setLocal(snapshot, "sending");
+    this.#markSending(snapshot);
     const queuedAt = Date.now();
     this.pill = {
       kind: "undo",
@@ -2534,7 +2692,7 @@ export class ComposeHub {
     void this.#store
       .putComposer(snapshot)
       .catch((error) => console.error("composer write failed", error));
-    this.#setLocal(snapshot, "draft");
+    this.#stopSending(pill.localId);
     const composer = this.#composer(snapshot);
     composer.saveStatus = "saved";
     if (snapshot.mode !== "new" && this.#mail.inOpenThread(snapshot.threadId)) {
@@ -2644,7 +2802,7 @@ export class ComposeHub {
       this.#settleSent(this.#mail.detail);
     } else if (entry.status === "failed" || entry.status === "blocked") {
       this.#sendingOutbox.delete(entry.id);
-      this.#dropLocal(localId);
+      this.#stopSending(localId);
     }
   }
 
@@ -2721,7 +2879,7 @@ export class ComposeHub {
     const { copies = [], ...rest } = job;
     this.#dropCopyDrafts(copies);
     this.#setJob({ ...rest, send: null });
-    this.#patchLocal(held.localId, { state: "draft" });
+    this.#stopSending(held.localId);
     this.#notice(
       scheduled
         ? "Schedule canceled. The message is in Drafts."
