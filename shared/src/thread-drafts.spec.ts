@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import {
   draftSnippet,
+  draftsOpening,
   type GmailThreadMessage,
   type LocalThreadDraft,
   type ThreadEntry,
@@ -17,6 +18,14 @@ type Fixtures = {
     expect: ThreadEntry[];
   }[];
   snippet: { name: string; markdown: string; expect: string }[];
+  opening: {
+    name: string;
+    inDrafts: boolean;
+    event: string;
+    openBefore: string | null;
+    openAfter: string | null;
+    expect: string | null;
+  }[];
 };
 
 const fixtures: Fixtures = JSON.parse(
@@ -44,6 +53,21 @@ describe("draftSnippet", () => {
   for (const fixture of fixtures.snippet) {
     test(fixture.name, () => {
       expect(draftSnippet(fixture.markdown)).toBe(fixture.expect);
+    });
+  }
+});
+
+describe("draftsOpening", () => {
+  for (const fixture of fixtures.opening) {
+    test(fixture.name, () => {
+      expect(
+        draftsOpening(
+          fixture.inDrafts,
+          { type: fixture.event },
+          fixture.openBefore,
+          fixture.openAfter,
+        ),
+      ).toBe(fixture.expect);
     });
   }
 });

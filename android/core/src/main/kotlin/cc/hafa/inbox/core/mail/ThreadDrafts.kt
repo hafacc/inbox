@@ -109,3 +109,14 @@ fun draftSnippet(markdown: String): String =
         .replace(SPACE_RE, " ")
         .trim()
         .take(SNIPPET_LENGTH)
+
+/**
+ * The thread whose draft opens in place of a thread a tap on its row, or Enter on it, just opened:
+ * in Drafts a row opens its draft in the composer, a reply's too, and the thread stays closed. Null
+ * outside Drafts, for any other step (a thread opened from outside the list opens as usual), or
+ * when the step opened nothing new. Web's `draftsOpening`.
+ */
+fun draftsOpening(inDrafts: Boolean, event: ListEvent<*, *>, openBefore: String?, openAfter: String?): String? {
+    val fromRow = event is ListEvent.Tap || event == ListEvent.Enter
+    return openAfter.takeIf { inDrafts && fromRow && it != null && it != openBefore }
+}

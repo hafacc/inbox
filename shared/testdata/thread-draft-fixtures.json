@@ -1,5 +1,5 @@
 {
-  "_doc": "Drafts in an open thread (shared/src/thread-drafts.ts, Android :core ThreadDrafts.kt). `entries`: threadEntries(messages, local, outbox), `outbox` (absent: none) the Gmail message ids of drafts the Outbox holds: those show nowhere, Gmail's copy or the device's, unless the device holds the draft as sending. `messages` are Gmail's, oldest first, as {id, draft}; `local` are the device's drafts of the thread as {localId, messageId, state, updatedAt}, state one of draft, deleted, sending. `expect` lists what shows, in order: {kind: message|draft, id} for Gmail's copy, {kind: local, localId, sending} for the device's. `snippet`: draftSnippet(markdown), a draft's first words as plain text (at most 200 characters).",
+  "_doc": "Drafts in an open thread (shared/src/thread-drafts.ts, Android :core ThreadDrafts.kt). `entries`: threadEntries(messages, local, outbox), `outbox` (absent: none) the Gmail message ids of drafts the Outbox holds: those show nowhere, Gmail's copy or the device's, unless the device holds the draft as sending. `messages` are Gmail's, oldest first, as {id, draft}; `local` are the device's drafts of the thread as {localId, messageId, state, updatedAt}, state one of draft, deleted, sending. `expect` lists what shows, in order: {kind: message|draft, id} for Gmail's copy, {kind: local, localId, sending} for the device's. `snippet`: draftSnippet(markdown), a draft's first words as plain text (at most 200 characters). `opening`: draftsOpening(inDrafts, event, openBefore, openAfter), the thread whose draft opens in the composer in place of the thread a list step opened (`event` the step's type, open before and after it, null for none): in Drafts only, only for a tap or Enter on a row, and only when it opened a thread not open before; `expect` null when the thread opens as usual.",
   "entries": [
     {
       "name": "nothing",
@@ -682,5 +682,14 @@
       "markdown": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
       "expect": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
     }
+  ],
+  "opening": [
+    {"name": "a row tapped in Drafts opens its draft", "inDrafts": true, "event": "tap", "openBefore": null, "openAfter": "t1", "expect": "t1"},
+    {"name": "Enter on a row in Drafts opens its draft", "inDrafts": true, "event": "enter", "openBefore": null, "openAfter": "t1", "expect": "t1"},
+    {"name": "another row tapped in Drafts opens its draft", "inDrafts": true, "event": "tap", "openBefore": "t1", "openAfter": "t2", "expect": "t2"},
+    {"name": "a row tapped elsewhere opens its thread", "inDrafts": false, "event": "tap", "openBefore": null, "openAfter": "t1", "expect": null},
+    {"name": "a thread opened from outside the list opens in Drafts too", "inDrafts": true, "event": "openThread", "openBefore": null, "openAfter": "t1", "expect": null},
+    {"name": "a thread closing in Drafts opens nothing", "inDrafts": true, "event": "tap", "openBefore": "t1", "openAfter": null, "expect": null},
+    {"name": "the open thread staying open opens nothing", "inDrafts": true, "event": "enter", "openBefore": "t1", "openAfter": "t1", "expect": null}
   ]
 }

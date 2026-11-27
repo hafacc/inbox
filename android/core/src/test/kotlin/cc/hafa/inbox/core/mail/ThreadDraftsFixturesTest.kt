@@ -45,4 +45,22 @@ class ThreadDraftsFixturesTest {
             assertEquals(case["name"] as String, case["expect"] as String, draftSnippet(case["markdown"] as String))
         }
     }
+
+    private fun event(type: String): ListEvent<Nothing, Nothing> = when (type) {
+        "tap" -> ListEvent.Tap("t1")
+        "enter" -> ListEvent.Enter
+        "openThread" -> ListEvent.OpenThread("t1")
+        else -> error("no event $type")
+    }
+
+    @Test
+    fun opening() {
+        for (case in Fixtures.cases(Fixtures.threadDrafts, "opening")) {
+            assertEquals(
+                case["name"] as String,
+                case["expect"] as String?,
+                draftsOpening(case["inDrafts"] as Boolean, event(case["event"] as String), case["openBefore"] as String?, case["openAfter"] as String?),
+            )
+        }
+    }
 }

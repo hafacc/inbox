@@ -294,10 +294,10 @@ later of that date and its wake time. Gmail's message order isn't trusted, and d
   opens again as it was); there is no short reply field under the thread there. Reply, Reply all
   and Forward open the full-screen composer a new message uses, over the thread (the web at phone
   width too, rather than inside the thread card), so they can be parked like it (see "Parking a
-  message on a phone"). Opening an email on a phone always shows the email, in Drafts too: a reply
-  parked in the strip stays there until the strip (or Reply on its thread) is tapped, and a reply
-  draft kept for it shows as its draft card in the thread, which a tap opens full-screen; neither
-  opens over the email by itself. Reply all is offered when it would reach more than one other person
+  message on a phone"). Opening an email on a phone always shows the email: a reply parked in the
+  strip stays there until the strip (or Reply on its thread) is tapped, and a reply draft kept for
+  it shows as its draft row in the thread, which a tap opens full-screen; neither opens over the
+  email by itself. In Drafts a row opens its draft instead (below). Reply all is offered when it would reach more than one other person
   (`offersReplyAll`, `shared/src/compose/reply.ts`).
 
 ### The list
@@ -1078,9 +1078,10 @@ drawer, sheets and menus cover it. One message is parked at a time: opening anot
 "Saved to Drafts" bar whose Open brings it back, and the strip goes; opening the parked message
 itself (its draft in its thread or in Drafts, or Reply on its thread) opens it from the strip.
 On a phone, opening an email always shows the email, never a composer over it: a parked reply stays
-in the strip, and a reply's saved draft shows as its card in the thread (in Drafts too), opening
-full-screen only when tapped. A new message's draft opened in Drafts has no email to show, so it opens
-at once.
+in the strip, and a reply's saved draft shows as its row in the thread, opening full-screen only
+when tapped. In Drafts, a click or tap on a row (or Enter on it) opens its draft in the composer
+right away, a reply's too, and leaves its thread closed (`draftsOpening` in
+`shared/src/thread-drafts.ts`); a row whose draft is gone opens its thread.
 Sending and discarding from the reopened composer work as always. A turn of the phone keeps it
 parked; the web wider than a phone has no strip, so a parked message opens again, floating (or
 in its thread when that is open). The strip doesn't outlive the app (a kill, a reload): the message
