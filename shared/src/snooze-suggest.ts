@@ -1010,7 +1010,6 @@ export type DayPhrase =
   | "inWeeks"
   | "this"
   | "next"
-  | "inTwoWeeks"
   | "calendar";
 
 /** "Today" is the calendar day but the target's day follows the 05:00 rule, so 09:00 seen at 04:50 is "this morning". */
@@ -1030,12 +1029,8 @@ export function dayPhraseOf(
   if (dist === 1) phrase = "tomorrow";
   else if (fam === "Dom" || fam === "DomL" || fam === "Mo") phrase = "calendar";
   else if (dist === 0) phrase = "today";
-  else if (fam === "Wd" || fam === "Wn") {
-    if (dist <= 6) phrase = "this";
-    else if (dist <= 13) phrase = "next";
-    else phrase = "inTwoWeeks";
-  } else if (dist <= 6) phrase = "this";
-  else if (dist <= 13) phrase = "next";
+  else if (dist <= 7) phrase = "this";
+  else if (dist <= 14) phrase = "next";
   else if (dist % 7 === 0 && dist <= 28) phrase = "inWeeks";
   else phrase = "inDays";
   return { phrase, dist, weekday };
@@ -1069,8 +1064,6 @@ function dateLabelPart(
       return { text: `This ${weekdayName(weekday)}`, adjectival: true };
     case "next":
       return { text: `Next ${weekdayName(weekday)}`, adjectival: true };
-    case "inTwoWeeks":
-      return { text: `${weekdayName(weekday)} in 2 weeks`, adjectival: false };
     default:
       return { text: calendarLabelPart(dateRule), adjectival: false };
   }
@@ -1145,7 +1138,7 @@ export function rowIcon(
       ? "todayDay"
       : "todayNight";
   } else if (dist === 1) return "tomorrow";
-  else if ((fam === "D" || fam === "W") && dist >= 14) return "days";
+  else if ((fam === "D" || fam === "W") && dist >= 15) return "days";
   else if (fam === "Wd" || fam === "Wn" || fam === "D" || fam === "W")
     return "weekday";
   else return "monthly";

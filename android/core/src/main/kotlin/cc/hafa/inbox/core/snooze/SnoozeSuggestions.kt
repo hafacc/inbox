@@ -691,23 +691,13 @@ object SnoozeSuggestions {
     private fun dayPhrase(dateRule: String, dist: Int, weekday: DayOfWeek): DayPhrase {
         val today = DayPhrase("today", "", adjectival = false)
         if (dist == 1) return DayPhrase("tomorrow", "Tomorrow", adjectival = true)
-        if (D_RE.matches(dateRule) || W_RE.matches(dateRule)) {
+        if (D_RE.matches(dateRule) || W_RE.matches(dateRule) || WD_RE.matches(dateRule) || WN_RE.matches(dateRule)) {
             return when {
                 dist == 0 -> today
-                dist <= 6 -> DayPhrase("this", "This ${dayName(weekday)}", adjectival = true)
-                dist <= 13 -> DayPhrase("next", "Next ${dayName(weekday)}", adjectival = true)
+                dist <= 7 -> DayPhrase("this", "This ${dayName(weekday)}", adjectival = true)
+                dist <= 14 -> DayPhrase("next", "Next ${dayName(weekday)}", adjectival = true)
                 dist % 7 == 0 && dist <= 28 ->
                     DayPhrase("inWeeks", if (dist == 7) "In a week" else "In ${dist / 7} weeks", adjectival = false)
-                else -> DayPhrase("inDays", "In $dist days", adjectival = false)
-            }
-        }
-        if (WD_RE.matches(dateRule) || WN_RE.matches(dateRule)) {
-            val name = dayName(weekday)
-            return when {
-                dist == 0 -> today
-                dist <= 6 -> DayPhrase("this", "This $name", adjectival = true)
-                dist <= 13 -> DayPhrase("next", "Next $name", adjectival = true)
-                dist == 14 -> DayPhrase("inTwoWeeks", "$name in 2 weeks", adjectival = false)
                 else -> DayPhrase("inDays", "In $dist days", adjectival = false)
             }
         }
@@ -728,7 +718,7 @@ object SnoozeSuggestions {
         return dayPhrase(dateRuleOf(key), labelDist(resolvedEpoch, now, zone), day.dayOfWeek)
     }
 
-    /** Which day phrase a label uses (today, tomorrow, inDays, inWeeks, this, next, inTwoWeeks, calendar). */
+    /** Which day phrase a label uses (today, tomorrow, inDays, inWeeks, this, next, calendar). */
     internal fun phraseKind(key: PatternKey, resolvedEpoch: Long, now: Instant, zone: ZoneId): String =
         phraseFor(key, resolvedEpoch, now, zone).kind
 
@@ -815,7 +805,7 @@ object SnoozeSuggestions {
         return when {
             dist == 0 -> if (region == "morning" || region == "afternoon") RowIcon.TODAY_DAY else RowIcon.TODAY_NIGHT
             dist == 1 -> RowIcon.TOMORROW
-            D_RE.matches(dateRule) || W_RE.matches(dateRule) -> if (dist >= 14) RowIcon.DAYS else RowIcon.WEEKDAY
+            D_RE.matches(dateRule) || W_RE.matches(dateRule) -> if (dist >= 15) RowIcon.DAYS else RowIcon.WEEKDAY
             WD_RE.matches(dateRule) || WN_RE.matches(dateRule) -> RowIcon.WEEKDAY
             else -> RowIcon.MONTHLY
         }

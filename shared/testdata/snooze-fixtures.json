@@ -5,7 +5,7 @@
     "extract": "extractKeys(at, target): keys sorted by code unit; setId = keys joined by \"__\", or null when there are no keys.",
     "quickCredit": "The quick-time slot (HHMM) a commit credits, or null when it credits none: a same-snooze-day commit, or a suggestion whose picked key is an hours offset.",
     "resolve": "resolveKey(key, now) -> epochLocal, or null when it can't resolve more than 60s into the future.",
-    "labelDist": "Label day phrase for key resolved at resolvedLocal from now. dist = max(0, snoozeDay(resolved) - calendarDate(now)); weekday = ISO weekday of snoozeDay(resolved); phrase is one of today|tomorrow|inDays|inWeeks|this|next|inTwoWeeks|calendar; family is the key's date-rule family; region (timed keys only) is the time-of-day name of the resolved time.",
+    "labelDist": "Label day phrase for key resolved at resolvedLocal from now. dist = max(0, snoozeDay(resolved) - calendarDate(now)); weekday = ISO weekday of snoozeDay(resolved); phrase is one of today|tomorrow|inDays|inWeeks|this|next|calendar; family is the key's date-rule family; region (timed keys only) is the time-of-day name of the resolved time.",
     "labelOffset": "Same-day hours-offset label kind: littleWhile for up to 3 hours, muchLater beyond.",
     "quickTimes": "quickTimes(partitions, now): each partition is a wire `tod` map; expect lists the chosen clockMinutes (minutes after local midnight) in clock order. Picked greedily with the same discount as rankDeep, by clock distance around midnight.",
     "rank": "rank(partitions, now): each partition is a wire partition; expectKeys are the chosen rows' keys in row (time) order.",
@@ -337,14 +337,14 @@
   ],
   "labelDist": [
     {
-      "name": "this Thursday on a Thursday after its time reads Next Thursday",
+      "name": "this Thursday on a Thursday after its time reads This Thursday, a week out",
       "now": "2026-09-24T10:00:00",
       "key": "Wd4@0900",
       "resolvedLocal": "2026-10-01T09:00:00",
       "family": "Wd",
       "dist": 7,
       "weekday": 4,
-      "phrase": "next",
+      "phrase": "this",
       "region": "morning"
     },
     {
@@ -388,7 +388,7 @@
       "family": "W",
       "dist": 7,
       "weekday": 3,
-      "phrase": "next",
+      "phrase": "this",
       "region": "morning"
     },
     {
@@ -435,14 +435,14 @@
       "region": "night"
     },
     {
-      "name": "weekday after next on its own weekday, 14 days out",
+      "name": "weekday after next on its own weekday, 14 days out, reads Next",
       "now": "2026-09-24T10:00:00",
       "key": "Wn4@0900",
       "resolvedLocal": "2026-10-08T09:00:00",
       "family": "Wn",
       "dist": 14,
       "weekday": 4,
-      "phrase": "inTwoWeeks",
+      "phrase": "next",
       "region": "morning"
     },
     {
@@ -457,14 +457,47 @@
       "region": "morning"
     },
     {
-      "name": "two weeks from this morning's 09:00",
+      "name": "two weeks from this morning's 09:00 reads Next",
       "now": "2026-09-22T08:00:00",
       "key": "W2@0900",
       "resolvedLocal": "2026-10-06T09:00:00",
       "family": "W",
       "dist": 14,
       "weekday": 2,
+      "phrase": "next",
+      "region": "morning"
+    },
+    {
+      "name": "three weeks from this morning's 09:00 reads In 3 weeks",
+      "now": "2026-09-22T08:00:00",
+      "key": "W3@0900",
+      "resolvedLocal": "2026-10-13T09:00:00",
+      "family": "W",
+      "dist": 21,
+      "weekday": 2,
       "phrase": "inWeeks",
+      "region": "morning"
+    },
+    {
+      "name": "past two weeks, a day count reads In 16 days, as any day count does",
+      "now": "2026-09-22T08:00:00",
+      "key": "D16@0900",
+      "resolvedLocal": "2026-10-08T09:00:00",
+      "family": "D",
+      "dist": 16,
+      "weekday": 4,
+      "phrase": "inDays",
+      "region": "morning"
+    },
+    {
+      "name": "five weeks out reads In 35 days, past the weeks' phrase",
+      "now": "2026-09-22T08:00:00",
+      "key": "D35@0900",
+      "resolvedLocal": "2026-10-27T09:00:00",
+      "family": "D",
+      "dist": 35,
+      "weekday": 2,
+      "phrase": "inDays",
       "region": "morning"
     },
     {
