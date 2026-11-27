@@ -98,6 +98,17 @@ class SnoozeSuggestionsTest {
     }
 
     @Test
+    fun `a set's half-life is 21 days plus 2 per day ahead, at most 90`() {
+        assertEquals(21L, SnoozeSuggestions.setHalfLifeDays("D0_h3"))
+        assertEquals(23L, SnoozeSuggestions.setHalfLifeDays("D1@0900__Wd5@0900"))
+        assertEquals(23L, SnoozeSuggestions.setHalfLifeDays("D0@2335__D1_h0__Dom1@2335__Wd4@2335__Wd4_h0"))
+        assertEquals(35L, SnoozeSuggestions.setHalfLifeDays("D7@0900__W1@0900__Wn3@0900"))
+        assertEquals(89L, SnoozeSuggestions.setHalfLifeDays("D34@0900__Dom10@0900"))
+        assertEquals(90L, SnoozeSuggestions.setHalfLifeDays("D35@0900__Mo1@0900"))
+        assertEquals(90L, SnoozeSuggestions.setHalfLifeDays("D80@0900__Mo3@0900"))
+    }
+
+    @Test
     fun `decay then credit produces the expected set count one half-life later`() {
         // A later-today snooze learns only D0 keys, whose half-life is 21 days.
         val at1 = LocalDateTime.of(2024, 1, 1, 10, 0)
@@ -180,7 +191,7 @@ class SnoozeSuggestionsTest {
             stats = commitOnce(stats, day, day.plusDays(1).withHour(8).withMinute(0)).next
             day = day.plusDays(1)
         }
-        // Each tomorrow snooze also learns its day of the month, so its set fades with the 60-day half-life.
+        // Each snooze names the next 08:00, zero days ahead, so its set fades with a 21-day half-life.
         assertTrue(SnoozeSuggestions.rank(listOf(stats), instant(day.plusDays(600)), zone).isEmpty())
     }
 

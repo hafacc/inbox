@@ -2,7 +2,6 @@ package cc.hafa.inbox.core.send
 
 import cc.hafa.inbox.core.snooze.RowIcon
 import cc.hafa.inbox.core.snooze.SnoozeStatsSnapshot
-import cc.hafa.inbox.core.snooze.SnoozeStatsWire
 import cc.hafa.inbox.core.snooze.SnoozeSuggestions
 import cc.hafa.inbox.core.testing.Fixtures
 import org.junit.Assert.assertEquals
@@ -29,7 +28,7 @@ class SendFixturesTest {
     @Test
     fun rows() {
         for (case in cases("rows")) {
-            val partitions = (case["partitions"] as List<*>).map { SnoozeStatsWire.fromWire(it as Map<*, *>, zone) }
+            val partitions = (case["partitions"] as List<*>).map { Fixtures.partition(it) }
             val rows = SendSuggestions.sendRows(partitions, Instant.ofEpochMilli(epoch(case["now"])), zone)
             val expected = (case["expect"] as List<*>).map {
                 val row = it as Map<*, *>

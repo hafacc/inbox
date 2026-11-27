@@ -1,11 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
-import { fromWire } from "./snooze-stats-wire";
 import {
   bucketOf,
   canonicalSetId,
-  classH,
   commit,
+  type DevicePartition,
   dayPhraseOf,
   emptyPartition,
   extractKeys,
@@ -24,9 +23,21 @@ import {
   rowIcon,
   type SetEntry,
   type SnoozeSource,
+  setHalfLifeDays,
   shownRows,
   undoCommit,
 } from "./snooze-suggest";
+
+// A fixture's partition: its fields as saved, missing ones empty.
+function partitionOf(deviceId: string, raw: unknown): DevicePartition {
+  const {
+    sets = {},
+    tod = {},
+    lastCustom = null,
+    picks = {},
+  } = raw as Partial<DevicePartition>;
+  return { deviceId, sets, tod, lastCustom, picks };
+}
 
 function at(y: number, m: number, d: number, h = 0, mi = 0): Date {
   return new Date(y, m - 1, d, h, mi, 0, 0);
@@ -107,7 +118,7 @@ describe("commit / decay", () => {
     expect(next.sets[setId]?.c).toBe(1); // not 1/keys.length
   });
 
-  test("a repeat commit 21 days later (one short-class half-life) adds to a halved count", () => {
+  test("a repeat commit 21 days later (a same-day set's half-life) adds to a halved count", () => {
     let p = emptyPartition("device-a");
     const day0 = at(2024, 4, 1, 10, 0).getTime();
     const day21 = at(2024, 4, 22, 10, 0).getTime();
@@ -433,7 +444,7 @@ describe("labelFor", () => {
   test("separate 1h and 3h habits show as two little-while rows with different times", () => {
     const now = local("2026-09-22T12:00:00").getTime();
     const t = now;
-    const p = fromWire("a", {
+    const p = partitionOf("a", {
       sets: {
         "D0@1300__D0_h1": { c: 1, t },
         "D0@1305__D0_h1": { c: 1, t },
@@ -639,7 +650,7 @@ describe("shared fixtures (must match Android)", () => {
   for (const c of fixtures.quickTimes) {
     test(`quickTimes: ${c.name}`, () => {
       const partitions = c.partitions.map((tod, i) =>
-        fromWire(`p${i}`, { tod }),
+        partitionOf(`p${i}`, { tod }),
       );
       const got = quickTimes(partitions, local(c.now).getTime()).map(
         (q) => q.clockMinutes,
@@ -650,7 +661,9 @@ describe("shared fixtures (must match Android)", () => {
 
   for (const c of fixtures.rank) {
     test(`rank: ${c.name}`, () => {
-      const partitions = c.partitions.map((raw, i) => fromWire(`p${i}`, raw));
+      const partitions = c.partitions.map((raw, i) =>
+        partitionOf(`p${i}`, raw),
+      );
       const got = rank(partitions, local(c.now).getTime()).map((r) => r.keyId);
       expect(got).toEqual(c.expectKeys);
       const deep = rankDeep(partitions, local(c.now).getTime());
@@ -660,7 +673,9 @@ describe("shared fixtures (must match Android)", () => {
 
   for (const c of fixtures.rankDeep) {
     test(`rankDeep: ${c.name}`, () => {
-      const partitions = c.partitions.map((raw, i) => fromWire(`p${i}`, raw));
+      const partitions = c.partitions.map((raw, i) =>
+        partitionOf(`p${i}`, raw),
+      );
       const deep = rankDeep(partitions, local(c.now).getTime());
       expect(deep.map((r) => r.keyId)).toEqual(c.expectKeys);
       expect(shownRows(deep).map((r) => r.keyId)).toEqual(c.expectShownKeys);
@@ -672,7 +687,9 @@ describe("shared fixtures (must match Android)", () => {
 
   for (const c of fixtures.pickLog) {
     test(`pickLog: ${c.name}`, () => {
-      const partitions = c.partitions.map((raw, i) => fromWire(`p${i}`, raw));
+      const partitions = c.partitions.map((raw, i) =>
+        partitionOf(`p${i}`, raw),
+      );
       const deep = rankDeep(partitions, local(c.now).getTime());
       expect(pickLogKey(deep, local(c.target).getTime())).toBe(c.expect);
     });
@@ -680,7 +697,7 @@ describe("shared fixtures (must match Android)", () => {
 
   for (const c of fixtures.commit) {
     test(`commit: ${c.name}`, () => {
-      const before = fromWire("a", c.partition);
+      const before = partitionOf("a", c.partition);
       const { next, undoSnapshot } = commit(
         before,
         local(c.at).getTime(),
@@ -859,15 +876,17 @@ describe("5am day-boundary consistency (Dom/DomL/Mo vs D/W/Wd/Wn)", () => {
   });
 });
 
-describe("classH", () => {
-  test("short families are 21 days, monthly families are 60", () => {
-    expect(classH("D1@0900")).toBe(21);
-    expect(classH("Wd1_h3")).toBe(21);
-    expect(classH("Dom1@0900")).toBe(60);
-    expect(classH("DomL@0900")).toBe(60);
-    expect(classH("Dom28@0900")).toBe(60);
-    expect(classH("DomL2@0900")).toBe(60);
-    expect(classH("Mo1@0900")).toBe(60);
+describe("setHalfLifeDays", () => {
+  test("21 days plus 2 per day ahead, at most 90", () => {
+    expect(setHalfLifeDays("D0_h3")).toBe(21);
+    expect(setHalfLifeDays("D1@0900__Wd5@0900")).toBe(23);
+    expect(setHalfLifeDays("D0@2335__D1_h0__Dom1@2335__Wd4@2335__Wd4_h0")).toBe(
+      23,
+    );
+    expect(setHalfLifeDays("D7@0900__W1@0900__Wn3@0900")).toBe(35);
+    expect(setHalfLifeDays("D34@0900__Dom10@0900")).toBe(89);
+    expect(setHalfLifeDays("D35@0900__Mo1@0900")).toBe(90);
+    expect(setHalfLifeDays("D80@0900__Mo3@0900")).toBe(90);
   });
 });
 
