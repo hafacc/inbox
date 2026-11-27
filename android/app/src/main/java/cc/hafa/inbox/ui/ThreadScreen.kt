@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -843,18 +844,26 @@ private fun MessageList(
         }
         if (todoActions != null && linked != null) {
             item(key = TODOS_ITEM) {
-                ThreadTodoCard(linked, todos, todoActions, joined = shown.firstOrNull() is ThreadItem.Message)
+                ThreadTodoCard(linked, todos, todoActions, joined = shown.isNotEmpty())
             }
         }
         itemsIndexed(shown, key = { _, item -> threadItemKey(item) }) { index, item ->
+            // The messages and drafts are one card, the email's todo, when shown, at its top.
+            val first = index == 0 && !todosShown
+            val last = index == shown.lastIndex
             if (item !is ThreadItem.Message) {
-                ThreadDraft(state, item)
+                Column(
+                    modifier = Modifier
+                        .padding(horizontal = MESSAGE_CARD_INSET)
+                        .clip(messageShape(first, last))
+                        .background(paper.card),
+                ) {
+                    if (!first) HorizontalDivider(color = paper.separator)
+                    ThreadDraft(state, item)
+                }
                 return@itemsIndexed
             }
             val message = item.message
-            // The email's todo, when shown, is the top of the first message's card.
-            val first = shown.getOrNull(index - 1) !is ThreadItem.Message && !(index == 0 && todosShown)
-            val last = shown.getOrNull(index + 1) !is ThreadItem.Message
             val open = message.id in expanded
             Column(
                 modifier = Modifier
@@ -942,31 +951,29 @@ private fun threadItemKey(item: ThreadItem): String = when (item) {
     is ThreadItem.Local -> "local:${item.draft.draft.localId}"
 }
 
-/** A draft in the thread, or a message being sent from this device. */
+/** A draft in the thread, or a message being sent from this device: a row of the messages' card. */
 @Composable
 private fun ThreadDraft(state: MailState, item: ThreadItem) {
     when (item) {
-        is ThreadItem.Draft -> DraftCard(item.message.snippet, sending = false) { state.sending.openDraftMessage(item.message.id) }
-        is ThreadItem.Local -> DraftCard(item.draft.snippet, item.sending) { state.sending.openLocalDraft(item.draft.draft.localId) }
+        is ThreadItem.Draft -> DraftRow(item.message.snippet, sending = false) { state.sending.openDraftMessage(item.message.id) }
+        is ThreadItem.Local -> DraftRow(item.draft.snippet, item.sending) { state.sending.openLocalDraft(item.draft.draft.localId) }
         is ThreadItem.Message -> Unit
     }
 }
 
 @Composable
-private fun DraftCard(snippet: String, sending: Boolean, onEdit: () -> Unit) {
+private fun DraftRow(snippet: String, sending: Boolean, onEdit: () -> Unit) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier
-            .padding(start = 12.dp, end = 12.dp, top = 8.dp)
             .fillMaxWidth()
             .heightIn(min = 48.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .border(1.dp, paper.border, RoundedCornerShape(12.dp))
-            .background(paper.card)
             .clickable(enabled = !sending, onClickLabel = "Edit draft", onClick = onEdit)
             .padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
+        // Lines the word up with the senders' names past their 36 dp avatars.
+        Spacer(Modifier.width(36.dp))
         Text(
             if (sending) "Sending…" else "Draft",
             style = MaterialTheme.typography.labelLarge,

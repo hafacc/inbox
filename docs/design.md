@@ -557,8 +557,9 @@ except where the list says.
   and Filter mail like this are buttons on the line above the messages, with the label chips and
   the message count ("3 messages"), each in a 48 dp (px) tall tap area, the line 16 in from the
   sides. Below it, on the page color, the messages scroll on a card 4 in from the screen's edges
-  with 12 corners, the email's todo at its top; a draft breaks it with a card of its own, 12 in
-  and 8 below the one before. Each message has one header, folded or not: a 36 avatar, 16 in and
+  with 12 corners, the email's todo at its top; a draft is a row of that card like a message, under
+  a separator, 16 in and 12 above and below, its "Draft" past a 36 space so it lines up with the
+  senders' names. Each message has one header, folded or not: a 36 avatar, 16 in and
   12 above and below, the sender (16 px, semibold while unread), a lock when encrypted, the date,
   then the sender's address when open, then a line of whom it went to (Cc and Bcc too) when open
   or its snippet when folded. A tap on the header folds or opens any message, the last one too

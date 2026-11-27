@@ -310,13 +310,6 @@
     return () => observer.disconnect();
   }
 
-  // Whether the item at `index` starts a phone's card of messages: no message, nor the todo joined
-  // to them, sits above it.
-  function startsCard(index: number): boolean {
-    const above = items[index - 1];
-    return above === undefined ? emailTodo === null : above.kind !== "message";
-  }
-
   function neighborRow(id: string | null): Row | null {
     const row = id === null ? null : rowOf(mail.list, id);
     return row?.kind === "thread" ? row.data : null;
@@ -906,7 +899,7 @@
         <div
           class={[
             "border-t border-separator px-3 sm:px-6 py-3 max-sm:mx-1 max-sm:px-4 max-sm:border-t-0 max-sm:bg-surface max-sm:rounded-t-xl",
-            items[0]?.kind !== "message" && "max-sm:rounded-b-xl",
+            items.length === 0 && "max-sm:rounded-b-xl",
           ]}
         >
           {#key emailTodo.id}
@@ -919,37 +912,40 @@
         {#each items as item, index (item.kind === "local"
           ? `local:${item.draft.localId}`
           : item.message.id)}
-          {#if item.kind === "message"}
-            <!-- On a phone each run of messages is one card, joined to the todo above it. -->
-            <div
-              data-message={item.message.id}
-              class={[
-                "sm:scroll-mt-[calc(4rem+var(--thread-header)+env(safe-area-inset-top))] max-sm:scroll-mt-14 max-sm:mx-1 max-sm:bg-surface max-sm:overflow-hidden",
-                startsCard(index) &&
-                  "max-sm:rounded-t-xl max-sm:[&>*]:border-t-0",
-                items[index + 1]?.kind !== "message" && "max-sm:rounded-b-xl",
-              ]}
-            >
+          <!-- On a phone the messages and drafts are one card, joined to the todo above it. -->
+          <div
+            data-message={item.kind === "message" ? item.message.id : undefined}
+            class={[
+              "max-sm:mx-1 max-sm:bg-surface max-sm:overflow-hidden",
+              item.kind === "message" &&
+                "sm:scroll-mt-[calc(4rem+var(--thread-header)+env(safe-area-inset-top))] max-sm:scroll-mt-14",
+              index === 0 &&
+                emailTodo === null &&
+                "max-sm:rounded-t-xl max-sm:[&>*]:border-t-0",
+              index === items.length - 1 && "max-sm:rounded-b-xl",
+            ]}
+          >
+            {#if item.kind === "message"}
               <MessageItem
                 message={item.message}
                 expanded={expanded.has(item.message.id)}
                 last={item.message.id === detail.messages.at(-1)?.id}
                 onToggle={() => void toggle(item.message.id)}
               />
-            </div>
-          {:else if item.kind === "draft"}
-            <DraftItem
-              snippet={item.message.snippet}
-              sending={false}
-              onOpen={() => void hub.openDraftMessage(item.message.id)}
-            />
-          {:else}
-            <DraftItem
-              snippet={item.draft.snippet}
-              sending={item.sending}
-              onOpen={() => void hub.openLocalDraft(item.draft.localId)}
-            />
-          {/if}
+            {:else if item.kind === "draft"}
+              <DraftItem
+                snippet={item.message.snippet}
+                sending={false}
+                onOpen={() => void hub.openDraftMessage(item.message.id)}
+              />
+            {:else}
+              <DraftItem
+                snippet={item.draft.snippet}
+                sending={item.sending}
+                onOpen={() => void hub.openLocalDraft(item.draft.localId)}
+              />
+            {/if}
+          </div>
         {/each}
         {#if replying}
           {#key replying.localId}
