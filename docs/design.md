@@ -131,10 +131,10 @@ users/{uid}
     inFlightAt?, uncertainSince?, draftMessageId?, messageDate?, idempotencyKey?,
     error?: { code, message }, failedAt?          // server only, but for a device's own send (below)
     deviceClaim?                                  // the claim of a device sending it; a server claim deletes it
-  meta/snoozeStats: { sets, tod, lastCustom,    // learned snooze suggestions: latr's snoozeVotes format,
+  meta/snoozeStats: { setsV2, tod, lastCustom,  // learned snooze suggestions (Suggestions, below),
                      picks?, pickLog? }          // changed only by increment() so devices never overwrite;
                                                  // latr's apps share it and add their opt-in pick log
-  meta/sendStats: { sets, tod, lastCustom }      // learned send-time suggestions, same format, kept apart
+  meta/sendStats: { setsV2, tod, lastCustom }    // learned send-time suggestions, same format, kept apart
   meta/snoozeWaits: { waits: { [fcmToken]: { itemId?, snoozeUntil?, updatedAt } } }
                                                  // the snooze each phone waits on (Notifications)
 
@@ -265,13 +265,23 @@ later of that date and its wake time. Gmail's message order isn't trusted, and d
   list doesn't fill the screen, and show the loading state rather
   than "All done" while they do.
 - **Suggestions:** latr's learned snooze menu, ported with latr's fixtures. Counts sit in this app's own
-  `users/{uid}/meta/snoozeStats` (same format), which latr's apps read and write too, so mail and
-  todos learn one menu. Unlike latr, a snooze learns any day of the month it lands on (`Dom1`..`Dom31`,
-  skipping months without that day), the last day (`DomL`) and the three before it (`DomL1`..`DomL3`),
-  all on the 60-day half-life. These rules lose ties to every other rule, so a day of the month names a
-  row only when more snoozes back it than back any other reading: two snoozes to Dec 10 09:00, from
-  Nov 26 and Dec 3, add up to "The 10th, 09:00". `DomL` reads "End of month"; the others read as the
-  date ("The 28th"). latr's apps drop sets holding these keys when they read the shared counts.
+  `users/{uid}/meta/snoozeStats`, which latr's apps read and write too. Unlike latr, a snooze learns
+  any day of the month it lands on (`Dom1`..`Dom31`, skipping months without that day), the last day
+  (`DomL`) and the three before it (`DomL1`..`DomL3`). These rules lose ties to every other rule, so a
+  day of the month names a row only when more snoozes back it than back any other reading: two
+  snoozes to Dec 10 09:00, from Nov 26 and Dec 3, add up to "The 10th, 09:00". `DomL` reads "End of
+  month"; the others read as the date ("The 28th").
+- **How counts fade:** each set (the keys one snooze matched) keeps one count, which halves over a
+  half-life that grows with how far ahead the set points: 21 days, plus 2 for each day ahead (the `n`
+  of its `D<n>` key, the larger one when a clock key and an hours key disagree by a day), at most 90.
+  A snooze to later today fades over 21 days, one to the same time next week over 35, and anything 35
+  or more days ahead over 90. A simulation of snooze habits picked this: it put the time picked in the
+  menu as often as the earlier rule (21 days, 60 for sets with a month key) did, and a habit the user
+  stopped left the menu sooner. Quick-time counts (`tod`) fade over 21 days. Counts are saved scaled,
+  so each vote is one `increment()`: a vote cast at `at` adds 2^((at − 2026-01-01 UTC) / half-life),
+  and the live count is the saved one times 2^(−(now − 2026-01-01 UTC) / half-life). Set counts live
+  in `setsV2`; latr's apps still read and write `sets` with the earlier rule, so until latr moves to
+  `setsV2` mail and todos share quick times, the last custom time and picks, but not set counts.
 - **Pin:** Gmail's star (`STARRED`), so pins and stars are the same thing everywhere. Pinned threads
   stay put through "Done all". Pins (threads' and todos') show in the theme's accent color.
 - **Important:** Gmail's own `IMPORTANT` label, shown as a small marker in the theme's accent color by the sender and set

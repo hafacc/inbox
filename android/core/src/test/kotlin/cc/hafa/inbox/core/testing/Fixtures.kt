@@ -1,5 +1,8 @@
 package cc.hafa.inbox.core.testing
 
+import cc.hafa.inbox.core.snooze.LastCustom
+import cc.hafa.inbox.core.snooze.SetStat
+import cc.hafa.inbox.core.snooze.SnoozeStatsSnapshot
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -98,6 +101,23 @@ object Fixtures {
     /** One section of a loaded fixture file. */
     @Suppress("UNCHECKED_CAST")
     fun cases(file: Map<String, Any?>, section: String): List<Map<String, Any?>> = file[section] as List<Map<String, Any?>>
+
+    /** A fixture's snooze partition: its sets, tod and lastCustom as saved, missing ones empty. */
+    fun partition(raw: Any?): SnoozeStatsSnapshot {
+        val fields = raw as Map<*, *>
+        val custom = fields["lastCustom"] as Map<*, *>?
+        return SnoozeStatsSnapshot(
+            sets = counters(fields["sets"]),
+            tod = counters(fields["tod"]),
+            lastCustom = custom?.let { LastCustom((it["target"] as Number).toLong(), (it["at"] as Number).toLong()) },
+        )
+    }
+
+    private fun counters(raw: Any?): Map<String, SetStat> =
+        (raw as Map<*, *>? ?: emptyMap<String, Any?>()).entries.associate { (id, value) ->
+            val entry = value as Map<*, *>
+            id as String to SetStat((entry["c"] as Number).toDouble(), (entry["t"] as Number).toLong())
+        }
 
     /** Numbers compared by value, so a JSON `2` equals a Kotlin `2.0`. */
     fun numbersAsDouble(value: Any?): Any? = when (value) {

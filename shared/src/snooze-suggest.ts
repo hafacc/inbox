@@ -6,6 +6,10 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
 const MINUTE_MS = 60 * 1000;
 export const TOD_HALF_LIFE_DAYS = 21;
+// A set's half-life grows with how far ahead it points (see keysHalfLifeDays); a simulation of snooze habits picked these.
+const SET_HALF_LIFE_BASE_DAYS = 21;
+const SET_HALF_LIFE_PER_DAY = 2;
+const SET_HALF_LIFE_MAX_DAYS = 90;
 const SLOT_MINUTES = 5;
 const QUICK_TIMES_MAX = 4;
 const SCORE_EPS = 1e-9;
@@ -343,18 +347,22 @@ function parseKey(keyId: string): ParsedKey {
   };
 }
 
-export function classH(keyId: string): number {
-  const { dateRule } = parseKey(keyId);
-  const fam = familyOf(dateRule);
-  return fam === "Dom" || fam === "DomL" || fam === "Mo" ? 60 : 21;
+/** Half-life in days of the counts of a set holding `keys`: SET_HALF_LIFE_BASE_DAYS plus SET_HALF_LIFE_PER_DAY for each day ahead the set points (its largest `D<n>`), at most SET_HALF_LIFE_MAX_DAYS. */
+function keysHalfLifeDays(keys: string[]): number {
+  let daysAhead = 0;
+  for (const key of keys) {
+    const rule = parseKey(key).dateRule;
+    if (familyOf(rule) === "D") daysAhead = Math.max(daysAhead, numOf(rule));
+  }
+  return Math.min(
+    SET_HALF_LIFE_MAX_DAYS,
+    SET_HALF_LIFE_BASE_DAYS + SET_HALF_LIFE_PER_DAY * daysAhead,
+  );
 }
 
-function classHForSet(keys: string[]): number {
-  return Math.max(...keys.map(classH));
-}
-
+/** Half-life in days of a set's counts. */
 export function setHalfLifeDays(setId: string): number {
-  return classHForSet(splitSetId(setId));
+  return keysHalfLifeDays(splitSetId(setId));
 }
 
 export function canonicalSetId(keys: string[]): string {
@@ -465,7 +473,9 @@ export function commit(
     const setId = canonicalSetId(keys);
     const prev = partition.sets[setId] ?? null;
     prevSet = prev;
-    const decayed = prev ? decay(prev.c, at - prev.t, classHForSet(keys)) : 0;
+    const decayed = prev
+      ? decay(prev.c, at - prev.t, keysHalfLifeDays(keys))
+      : 0;
     nextSets[setId] = { c: decayed + 1, t: at };
     undoSetId = setId;
   }
@@ -529,62 +539,6 @@ export function commit(
       pick: undoPick,
     },
   };
-}
-
-/** A clock key as builds before the first-hit rule resolved it: its date rule counted from `at`'s snooze day. For upgradeLegacySets only. */
-function legacyClockTime(keyId: string, at: Date): number | null {
-  const key = parseKey(keyId);
-  if (key.kind !== "timed") return null;
-  const from = snoozeDay(at);
-  let day: Date;
-  switch (familyOf(key.dateRule)) {
-    case "Dom":
-    case "DomL":
-      day = nextDomRule(key.dateRule, from);
-      break;
-    case "Mo":
-      day = addMonthsClamped(from, numOf(key.dateRule));
-      break;
-    default:
-      day = offsetRuleDay(key.dateRule, at);
-  }
-  const epoch = onSnoozeDay(day, key.clockMinutes);
-  return epoch > at.getTime() + MIN_LEAD_MS ? epoch : null;
-}
-
-/** Sets saved before the first-hit rule, re-learned from the target their clock keys named at their last commit; sets that land on the same new id merge. A set whose clock keys don't agree on one target is kept as saved. */
-export function upgradeLegacySets(
-  sets: Record<string, SetEntry>,
-): Record<string, SetEntry> {
-  const out: Record<string, SetEntry> = {};
-  for (const [setId, entry] of Object.entries(sets)) {
-    const at = new Date(entry.t);
-    const targets = new Set(
-      splitSetId(setId)
-        .filter(isTimedKey)
-        .map((key) => legacyClockTime(key, at)),
-    );
-    const [target] = targets;
-    const keys =
-      targets.size === 1 && target != null
-        ? extractKeys(at, new Date(target))
-        : [];
-    const newId = keys.length > 0 ? canonicalSetId(keys) : setId;
-    const prev = out[newId];
-    if (prev) {
-      const halfLife = classHForSet(splitSetId(newId));
-      const t = Math.max(prev.t, entry.t);
-      out[newId] = {
-        c:
-          decay(prev.c, t - prev.t, halfLife) +
-          decay(entry.c, t - entry.t, halfLife),
-        t,
-      };
-    } else {
-      out[newId] = entry;
-    }
-  }
-  return out;
 }
 
 export function undoCommit(
@@ -724,41 +678,6 @@ function outranks(
   return tie();
 }
 
-/** The day count of the one D-rule key among `keys`, or null unless there is exactly one. */
-function dayCountOf(keys: string[]): number | null {
-  const counts = keys
-    .map((key) => parseKey(key).dateRule)
-    .filter((rule) => familyOf(rule) === "D")
-    .map(numOf);
-  return counts.length === 1 ? counts[0] : null;
-}
-
-/** A set's keys as they read now: none if its clock keys disagree about the day (older builds' 7- and 14-day sets), no offsets off its clock time's day (older builds saved some across midnight). */
-function liveMembers(setId: string): string[] {
-  const keys = splitSetId(setId);
-  const timed = keys.filter(isTimedKey);
-  const days = dayCountOf(timed);
-  if (days === null) return timed;
-  const consistent = timed.every((key) => {
-    const rule = parseKey(key).dateRule;
-    switch (familyOf(rule)) {
-      case "W":
-        return numOf(rule) * 7 === days;
-      case "Wd":
-        return days <= 6;
-      case "Wn":
-        return days >= 7 && days <= 13;
-      default:
-        return true;
-    }
-  });
-  if (!consistent) return [];
-  const offsetDays = dayCountOf(keys.filter((key) => !isTimedKey(key)));
-  const offsetsFit =
-    offsetDays !== null && offsetDays - days >= 0 && offsetDays - days <= 1;
-  return offsetsFit ? keys : timed;
-}
-
 /** Rows in greedy selection order (each pick discounts keys near its time), so a row's index is its rank; the menu shows the first SHOWN_ROWS (see `rank`). */
 export function rankDeep(
   partitions: DevicePartition[],
@@ -772,10 +691,9 @@ export function rankDeep(
   const resolved = new Map<string, number>();
   for (const part of partitions) {
     for (const [setId, entry] of Object.entries(part.sets)) {
-      const members = setMembers.get(setId) ?? liveMembers(setId);
-      if (members.length === 0) continue;
+      const members = setMembers.get(setId) ?? splitSetId(setId);
       setMembers.set(setId, members);
-      const live = decay(entry.c, now - entry.t, classHForSet(members));
+      const live = decay(entry.c, now - entry.t, setHalfLifeDays(setId));
       liveSets.set(setId, (liveSets.get(setId) ?? 0) + live);
       for (const key of members) {
         if (resolved.has(key)) continue;

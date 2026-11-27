@@ -48,8 +48,8 @@ data class SnoozeStatsUndo(
 )
 
 /**
- * The account's learned snooze counts at `users/{uid}/meta/snoozeStats`, in latr's shared format
- * (the same as web), changed only by adding amounts so devices never overwrite each other.
+ * The account's learned snooze counts at `users/{uid}/meta/snoozeStats`, in the same format as
+ * web, changed only by adding amounts so devices never overwrite each other.
  * Main-thread only.
  */
 class SnoozeStatsStore(
@@ -120,7 +120,7 @@ class SnoozeStatsStore(
     // Amounts are added on the server (and to the cached copy while offline), so nothing another device wrote is lost.
     private fun write(deltas: VoteDeltas, extra: Map<String, Any?>) {
         val fields = extra.toMutableMap()
-        if (deltas.sets.isNotEmpty()) fields["sets"] = deltas.sets.mapValues { FieldValue.increment(it.value) }
+        if (deltas.sets.isNotEmpty()) fields[SnoozeStatsWire.SHARED_SETS_FIELD] = deltas.sets.mapValues { FieldValue.increment(it.value) }
         if (deltas.tod.isNotEmpty()) fields["tod"] = deltas.tod.mapValues { FieldValue.increment(it.value) }
         if (fields.isEmpty()) return
         document().set(fields, SetOptions.merge()).addOnFailureListener { Log.w(TAG, "snooze stats write failed", it) }
