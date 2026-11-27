@@ -49,6 +49,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.LabelImportant
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.outlined.CenterFocusStrong
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DoneAll
@@ -174,6 +175,7 @@ import cc.hafa.inbox.core.mail.Person
 import cc.hafa.inbox.core.mail.Row as MailRow
 import cc.hafa.inbox.core.mail.SnoozeStatus
 import cc.hafa.inbox.core.mail.BundleSwipeAction
+import cc.hafa.inbox.core.mail.SweptThread
 import cc.hafa.inbox.core.mail.SwipeSide
 import cc.hafa.inbox.core.mail.ThreadAction
 import cc.hafa.inbox.core.mail.ThreadSummary
@@ -184,6 +186,7 @@ import cc.hafa.inbox.core.mail.bundleLine
 import cc.hafa.inbox.core.mail.bundleRowKey
 import cc.hafa.inbox.core.mail.bundleSwipeAction
 import cc.hafa.inbox.core.mail.bundleSwipeLabel
+import cc.hafa.inbox.core.mail.bundleUnpinsAll
 import cc.hafa.inbox.core.mail.commitThreshold
 import cc.hafa.inbox.core.mail.formatListDate
 import cc.hafa.inbox.core.mail.formatWakeTime
@@ -261,6 +264,8 @@ class RowActions(
     val snoozeBundle: (String, List<String>) -> Unit = { _, _ -> },
     /** Pin all on a bundle, by label id, with the threads it shows */
     val pinBundle: (String, List<String>) -> Unit = { _, _ -> },
+    /** Unpin all on a bundle whose threads and todos are all pinned, by label id, with the threads it shows */
+    val unpinBundle: (String, List<String>) -> Unit = { _, _ -> },
     /** Delete all on a bundle, by label id, with the threads it shows */
     val deleteBundle: (String, List<String>) -> Unit = { _, _ -> },
 )
@@ -1242,7 +1247,7 @@ private fun LazyListScope.listRows(
                         FocusRow(row.key, list, actions) {
                             val rows = row.threads.map { it.data }
                             val bundleTodos = row.todos.map { it.data }
-                            BundleSwipe(row.labelId, rows, bundleTodos.size, row.open, frame.context, actions) { swiping, talkBackActions, hold ->
+                            BundleSwipe(row.labelId, rows, bundleTodos, row.open, frame.context, actions) { swiping, talkBackActions, hold, unpins ->
                                 LabelGroupHead(
                                     row.key,
                                     frame.labels[row.labelId],
@@ -1258,6 +1263,7 @@ private fun LazyListScope.listRows(
                                     swiping,
                                     talkBackActions,
                                     hold,
+                                    unpins,
                                 )
                             }
                         }
@@ -1913,6 +1919,7 @@ private fun LabelGroupHead(
     swiping: Boolean,
     talkBackActions: List<CustomAccessibilityAction>,
     hold: (ThreadAction) -> Unit,
+    unpins: Boolean,
 ) {
     SideEffect { line.targetState = !expanded }
     val name = label?.name ?: labelId
@@ -1946,7 +1953,7 @@ private fun LabelGroupHead(
             .then(if (swiping) Modifier.background(paper.raised) else Modifier)
             .rowHighlight()
             .clickable(onClickLabel = if (expanded) "Close" else "Open") { actions.list(ListEvent.Tap(key)) }
-            .bundleHold(rowMenu, name, hold) { mark }
+            .bundleHold(rowMenu, name, unpins, hold) { mark }
             .semantics { customActions = talkBackActions }
             .padding(horizontal = 20.dp, vertical = 14.dp),
     ) {
@@ -2002,22 +2009,25 @@ private fun LabelGroupHead(
 /**
  * A bundle's row, swiped as a thread's row is ([bundleSwipeAction]): leftward marks every thread and
  * todo in it done, as its Done all does, rightward opens the snooze sheet for them all, the strip
- * under it saying how many, its [todoCount] todos included ("Done · 14"). An open bundle's header doesn't swipe. [content] draws the row,
- * given whether it is being swiped, the swipes (none while open) and its round menu's Pin all and
- * Delete all as TalkBack actions, and what runs a pick from that menu ([ThreadAction.PIN] or [ThreadAction.DELETE]).
+ * under it saying how many, its [todos] included ("Done · 14"). An open bundle's header doesn't swipe. [content] draws the row,
+ * given whether it is being swiped, the swipes (none while open) and its round menu's Pin all (Unpin all
+ * when everything in it is pinned, [bundleUnpinsAll]) and Delete all as TalkBack actions, what runs a pick
+ * from that menu ([ThreadAction.PIN], [ThreadAction.UNPIN] or [ThreadAction.DELETE]), and whether it unpins.
  */
 @Composable
 private fun BundleSwipe(
     labelId: String,
     rows: List<MailRow>,
-    todoCount: Int,
+    todos: List<Todo>,
     open: Boolean,
     context: RowContext,
     actions: RowActions,
-    content: @Composable (swiping: Boolean, talkBackActions: List<CustomAccessibilityAction>, hold: (ThreadAction) -> Unit) -> Unit,
+    content: @Composable (swiping: Boolean, talkBackActions: List<CustomAccessibilityAction>, hold: (ThreadAction) -> Unit, unpins: Boolean) -> Unit,
 ) {
     val ids = rows.map { it.thread.id }
-    val threads = bundleCounts(rows.size, 0, labelId in context.bundlesWithMore, todoCount).threads
+    val more = labelId in context.bundlesWithMore
+    val threads = bundleCounts(rows.size, 0, more, todos.size).threads
+    val unpins = bundleUnpinsAll(rows.map { SweptThread(it.thread.id, it.thread.isPinned) }, todos.map { it.pinned }, more)
     val run: (BundleSwipeAction?) -> Unit = { action ->
         when (action) {
             BundleSwipeAction.DONE -> actions.doneBundle(labelId, ids)
@@ -2026,15 +2036,19 @@ private fun BundleSwipe(
         }
     }
     val hold: (ThreadAction) -> Unit = { action ->
-        if (action == ThreadAction.PIN) actions.pinBundle(labelId, ids) else actions.deleteBundle(labelId, ids)
+        when (action) {
+            ThreadAction.PIN -> actions.pinBundle(labelId, ids)
+            ThreadAction.UNPIN -> actions.unpinBundle(labelId, ids)
+            else -> actions.deleteBundle(labelId, ids)
+        }
     }
     val rightAction = bundleSwipeAction(SwipeSide.START, open)
     val leftAction = bundleSwipeAction(SwipeSide.END, open)
     // TalkBack can't swipe or hold; it offers the same as actions on the row: an open bundle's
     // header doesn't swipe, so only its menu's.
     val menuActions = listOf(
-        CustomAccessibilityAction(BUNDLE_PIN_LABEL) {
-            hold(ThreadAction.PIN)
+        CustomAccessibilityAction(if (unpins) BUNDLE_UNPIN_LABEL else BUNDLE_PIN_LABEL) {
+            hold(if (unpins) ThreadAction.UNPIN else ThreadAction.PIN)
             true
         },
         CustomAccessibilityAction(BUNDLE_DELETE_LABEL) {
@@ -2070,7 +2084,7 @@ private fun BundleSwipe(
             )
         },
     ) { swiping ->
-        content(swiping, talkBackActions, hold)
+        content(swiping, talkBackActions, hold, unpins)
     }
 }
 
@@ -2202,25 +2216,31 @@ internal fun Modifier.rowHold(
     )
 }
 
-// What a bundle's Pin all and Delete all are called, in its round menu and to TalkBack.
+// What a bundle's Pin all, Unpin all and Delete all are called, in its round menu and to TalkBack.
 private const val BUNDLE_PIN_LABEL = "Pin all"
+private const val BUNDLE_UNPIN_LABEL = "Unpin all"
 private const val BUNDLE_DELETE_LABEL = "Delete all"
 
 /**
  * A long press on a bundle's row, closed or the open bundle's header, opens its round menu around
- * the finger, TalkBack's long click on its label's mark ([mark]), as an email's does: Pin all and
- * Delete all placed by [rowHoldWedges], each run by [hold] ([ThreadAction.PIN] or
- * [ThreadAction.DELETE]), the bundle's [name] in the pill.
+ * the finger, TalkBack's long click on its label's mark ([mark]), as an email's does: Pin all (Unpin
+ * all when it [unpins]) and Delete all placed by [rowHoldWedges], each run by [hold]
+ * ([ThreadAction.PIN], [ThreadAction.UNPIN] or [ThreadAction.DELETE]), the bundle's [name] in the pill.
  */
 private fun Modifier.bundleHold(
     menu: HoldMenuState?,
     name: String,
+    unpins: Boolean,
     hold: (ThreadAction) -> Unit,
     mark: () -> LayoutCoordinates?,
 ): Modifier =
     rowMenuHold(menu, "Bundle actions", mark) { center, place ->
         val items = listOf(
-            HoldMenuItem(ThreadAction.PIN.name, BUNDLE_PIN_LABEL, Icons.Outlined.PushPin),
+            if (unpins) {
+                HoldMenuItem(ThreadAction.UNPIN.name, BUNDLE_UNPIN_LABEL, Icons.Filled.PushPin, HoldTone.ON)
+            } else {
+                HoldMenuItem(ThreadAction.PIN.name, BUNDLE_PIN_LABEL, Icons.Outlined.PushPin)
+            },
             HoldMenuItem(ThreadAction.DELETE.name, BUNDLE_DELETE_LABEL, Icons.Outlined.Delete, HoldTone.DANGER),
         )
         HoldMenuSpec(

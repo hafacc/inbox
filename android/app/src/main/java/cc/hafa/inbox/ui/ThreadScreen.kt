@@ -64,7 +64,6 @@ import androidx.compose.material.icons.outlined.MoveToInbox
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.Report
 import androidx.compose.material.icons.outlined.AlarmOff
-import androidx.compose.material.icons.outlined.RestoreFromTrash
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.VerifiedUser
 import androidx.compose.material3.CircularProgressIndicator
@@ -396,7 +395,7 @@ internal fun threadTool(action: ThreadAction, snoozed: Boolean): ThreadTool = wh
     ThreadAction.SPAM -> ThreadTool("Report spam", Icons.Outlined.Report, ToolTone.DANGER)
     ThreadAction.NOT_SPAM -> ThreadTool("Not spam", Icons.Outlined.VerifiedUser)
     ThreadAction.DELETE -> ThreadTool("Delete", Icons.Outlined.Delete, ToolTone.DANGER)
-    ThreadAction.UNTRASH -> ThreadTool("Move to inbox", Icons.Outlined.RestoreFromTrash)
+    ThreadAction.UNTRASH -> ThreadTool("Move to inbox", Icons.Outlined.MoveToInbox)
     ThreadAction.FILTER -> ThreadTool("Filter mail like this", Icons.Outlined.FilterList)
 }
 

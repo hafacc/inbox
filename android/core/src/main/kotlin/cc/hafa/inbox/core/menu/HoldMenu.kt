@@ -115,7 +115,7 @@ const val ROW_ARC = 120f
  * [ROW_ARC] equally, the first before the second counterclockwise. It opens straight up (two
  * slots: up and left, up and right); right and down near the top; turned 45° right near the left
  * edge, at the bottom too; near the right edge it opens leftward instead, mirrored. A null slot
- * leaves its place empty (a done todo has no Pin). Web's `rowHoldWedges` is the same.
+ * leaves its place empty. Web's `rowHoldWedges` is the same.
  */
 fun rowHoldWedges(slots: List<String?>, x: Float, y: Float, width: Float): List<HoldArc> {
     val leftward = x > width - HOLD_SIDE_ROOM

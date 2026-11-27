@@ -14,6 +14,7 @@ import {
   bundlesToFetch,
   bundlesToRemember,
   bundlesToTopUp,
+  bundleUnpinsAll,
   type InboxPageRequest,
   inboxExclusion,
   inboxNextPage,
@@ -85,6 +86,13 @@ type Fixtures = {
     pinned: string[];
     expect: string[];
   }[];
+  unpinAll: {
+    name: string;
+    shown: SweptThread[];
+    todosPinned: boolean[];
+    more: boolean;
+    expect: boolean;
+  }[];
 };
 
 const fixtures = JSON.parse(
@@ -133,6 +141,13 @@ describe("bundle fixtures (must match Android)", () => {
       expect(
         bundleSweepIds(fixture.shown, fixture.listed, fixture.pinned),
       ).toEqual(fixture.expect);
+    });
+  }
+  for (const fixture of fixtures.unpinAll) {
+    test(`bundleUnpinsAll: ${fixture.name}`, () => {
+      expect(
+        bundleUnpinsAll(fixture.shown, fixture.todosPinned, fixture.more),
+      ).toBe(fixture.expect);
     });
   }
   for (const fixture of fixtures.remember) {

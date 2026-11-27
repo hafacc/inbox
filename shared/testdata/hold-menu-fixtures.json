@@ -55,7 +55,7 @@
     { "name": "near the right edge it opens leftward, mirrored: Pin above, Delete to the left", "slots": ["pin", "delete"], "x": 300, "y": 400, "width": 360, "expect": [{ "id": "pin", "from": 75, "to": 135 }, { "id": "delete", "from": 135, "to": 195 }] },
     { "name": "near the top right: Pin to the left, Delete below", "slots": ["pin", "delete"], "x": 300, "y": 120, "width": 360, "expect": [{ "id": "pin", "from": 165, "to": 225 }, { "id": "delete", "from": 225, "to": 285 }] },
     { "name": "near the bottom right: as higher up, mirrored", "slots": ["pin", "delete"], "x": 300, "y": 760, "width": 360, "expect": [{ "id": "pin", "from": 75, "to": 135 }, { "id": "delete", "from": 135, "to": 195 }] },
-    { "name": "an empty slot leaves its place empty: a done todo offers only Delete", "slots": [null, "delete"], "x": 200, "y": 400, "width": 360, "expect": [{ "id": "delete", "from": 30, "to": 90 }] },
+    { "name": "an empty slot leaves its place empty", "slots": [null, "delete"], "x": 200, "y": 400, "width": 360, "expect": [{ "id": "delete", "from": 30, "to": 90 }] },
     { "name": "an empty slot near the right edge", "slots": [null, "delete"], "x": 300, "y": 400, "width": 360, "expect": [{ "id": "delete", "from": 135, "to": 195 }] }
   ],
   "drag": [

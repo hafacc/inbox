@@ -61,7 +61,7 @@ data class SelectedTodo(
 
 /** Pin across selected threads and todos together, and what it changes in each. */
 data class MixedPin(
-    /** whether it pins (some thread or open todo isn't pinned) rather than unpins */
+    /** whether it pins (some thread or todo isn't pinned) rather than unpins */
     val on: Boolean,
     /** the threads it changes */
     val threads: List<String>,
@@ -205,17 +205,17 @@ fun selectionCategory(threads: List<SelectedThread>): String? =
 
 /**
  * What Done, Snooze, Pin and Delete do to [todos] selected with [threads]; Done and Snooze leave a
- * done todo alone. Delete moves the threads not in the trash there and deletes every todo; with
+ * done todo alone, while Pin takes it as it takes an archived thread. Delete moves the threads not in the trash there and deletes every todo; with
  * every thread in the trash and no todo it moves them back to the inbox instead.
  */
 fun todoSelectionPlan(threads: List<SelectedThread>, todos: List<SelectedTodo>): TodoSelectionPlan {
     val openIds = todos.filterNot { it.done }.map { it.id }
     val unpinnedThreads = threads.filterNot { Labels.STARRED in it.labelIds }.map { it.id }
-    val unpinnedTodos = todos.filter { !it.done && !it.pinned }.map { it.id }
+    val unpinnedTodos = todos.filterNot { it.pinned }.map { it.id }
     val pin = if (unpinnedThreads.isNotEmpty() || unpinnedTodos.isNotEmpty()) {
         MixedPin(true, unpinnedThreads, unpinnedTodos)
     } else {
-        MixedPin(false, threads.map { it.id }, openIds)
+        MixedPin(false, threads.map { it.id }, todos.map { it.id })
     }
     val untrashed = threads.filterNot { Labels.TRASH in it.labelIds }
     val delete = if (threads.isNotEmpty() && untrashed.isEmpty() && todos.isEmpty()) {

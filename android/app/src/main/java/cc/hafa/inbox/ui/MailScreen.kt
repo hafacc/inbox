@@ -436,6 +436,7 @@ fun MailScreen(state: MailState, authManager: AuthManager, launcher: LauncherReq
             bundleEndShown = state::noteBundleEnd,
             doneBundle = state::doneBundle,
             pinBundle = state::pinBundle,
+            unpinBundle = state::unpinBundle,
             deleteBundle = state::deleteBundle,
             snoozeBundle = { labelId, threads ->
                 snoozingBundleThreads = threads
