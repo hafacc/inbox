@@ -1,15 +1,22 @@
-<!-- @component A bundle's Pin all and Snooze all (with its menu) buttons, then Done all unless left out, as a thread row's hover actions draw them: on a closed bundle's hover bar, and before the open bundle's own Done all. -->
+<!-- @component A bundle's Pin all (Unpin all when everything in it is pinned) and Snooze all (with its menu) buttons, then Done all unless left out, as a thread row's hover actions draw them: on a closed bundle's hover bar, and before the open bundle's own Done all. -->
 <script lang="ts">
   import type { SnoozeSource } from "@inbox/shared/snooze-suggest";
   import Check from "@lucide/svelte/icons/check";
   import Clock from "@lucide/svelte/icons/clock";
   import Pin from "@lucide/svelte/icons/pin";
-  import { iconButton, snoozeOpenColors, toneColors } from "./icon-button";
+  import PinOff from "@lucide/svelte/icons/pin-off";
+  import {
+    iconButton,
+    pinnedColors,
+    snoozeOpenColors,
+    toneColors,
+  } from "./icon-button";
   import SnoozePopover from "./snooze-popover.svelte";
 
   let {
     snoozeOpen,
     showDone = true,
+    unpins = false,
     onPin,
     onSnoozeToggle,
     onSnooze,
@@ -20,7 +27,9 @@
     snoozeOpen: boolean;
     /** whether Done all shows */
     showDone?: boolean;
-    /** pin them all */
+    /** whether Pin all is Unpin all (`bundleUnpinsAll`) */
+    unpins?: boolean;
+    /** pin them all, or unpin them all */
     onPin: () => void;
     /** open or close Snooze all's menu */
     onSnoozeToggle: () => void;
@@ -41,12 +50,17 @@
   <button
     type="button"
     data-action="pin"
-    aria-label="Pin all"
-    title="Pin all"
+    aria-label={unpins ? "Unpin all" : "Pin all"}
+    title={unpins ? "Unpin all" : "Pin all"}
+    aria-pressed={unpins}
     onclick={onPin}
-    class={iconButton("small", toneColors.pin)}
+    class={iconButton("small", unpins ? pinnedColors : toneColors.pin)}
   >
-    <Pin class="w-[18px] h-[18px]" />
+    {#if unpins}
+      <PinOff class="w-[18px] h-[18px]" />
+    {:else}
+      <Pin class="w-[18px] h-[18px]" />
+    {/if}
   </button>
   <div class="relative">
     <button

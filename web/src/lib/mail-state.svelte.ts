@@ -4114,6 +4114,31 @@ export class MailState {
   };
 
   /**
+   * Unpin all on a label group whose threads and todos are all pinned (`bundleUnpinsAll`): every
+   * one unpinned, as one undo.
+   */
+  unpinGroup = (
+    threadIds: readonly string[],
+    todoIds: readonly string[],
+  ): void => {
+    this.#act(this.#fromFor(threadIds), () => {
+      const before = this.lastUndo;
+      this.setPinned(threadIds, false);
+      const undos = this.selectedTodos(todoIds)
+        .filter((todo) => todo.pinned)
+        .flatMap((todo) => this.todos.togglePin(todo.id) ?? []);
+      this.#joinUndo(
+        before,
+        "pin",
+        undos.length === 0
+          ? null
+          : { before: undos.flatMap((undo) => undo.before), spawned: [] },
+        false,
+      );
+    });
+  };
+
+  /**
    * Delete all on a label group: every thread Done all would take (see `doneGroup`) to the trash,
    * and its todos deleted, as one undo.
    */

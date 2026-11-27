@@ -46,7 +46,7 @@ export type SelectedTodo = {
 
 /** Pin across selected threads and todos together, and what it changes in each. */
 export type MixedPin = {
-  /** whether it pins (some thread or open todo isn't pinned) rather than unpins */
+  /** whether it pins (some thread or todo isn't pinned) rather than unpins */
   on: boolean;
   /** the threads it changes */
   threads: string[];
@@ -223,19 +223,18 @@ export function selectionCategory(
 
 /**
  * What Done, Snooze, Pin and Delete do to `todos` selected with `threads`; Done and Snooze leave a
- * done todo alone. Delete moves the threads not in the trash there and deletes every todo; with
+ * done todo alone, while Pin takes it as it takes an archived thread. Delete moves the threads not in the trash there and deletes every todo; with
  * every thread in the trash and no todo it moves them back to the inbox instead.
  */
 export function todoSelectionPlan(
   threads: readonly SelectedThread[],
   todos: readonly SelectedTodo[],
 ): TodoSelectionPlan {
-  const open = todos.filter((todo) => !todo.done);
-  const openIds = open.map((todo) => todo.id);
+  const openIds = todos.filter((todo) => !todo.done).map((todo) => todo.id);
   const unpinnedThreads = threads.filter(
     (thread) => !thread.labelIds.includes(STARRED),
   );
-  const unpinnedTodos = open.filter((todo) => !todo.pinned);
+  const unpinnedTodos = todos.filter((todo) => !todo.pinned);
   const pin: MixedPin =
     unpinnedThreads.length > 0 || unpinnedTodos.length > 0
       ? {
@@ -246,7 +245,7 @@ export function todoSelectionPlan(
       : {
           on: false,
           threads: threads.map((thread) => thread.id),
-          todos: openIds,
+          todos: todos.map((todo) => todo.id),
         };
   const untrashed = threads.filter(
     (thread) => !thread.labelIds.includes(TRASH),

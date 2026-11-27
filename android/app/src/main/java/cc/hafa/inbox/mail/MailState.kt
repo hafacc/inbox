@@ -2090,6 +2090,18 @@ class MailState(
     }
 
     /**
+     * Unpin all on a bundle whose threads and todos are all pinned (`bundleUnpinsAll`): its [shown]
+     * threads and its todos unpinned, as one undo.
+     */
+    fun unpinBundle(labelId: String, shown: List<String>, origin: ActOrigin = ActOrigin.ROW) {
+        val now = System.currentTimeMillis()
+        val todoIds = bundleTodos(labelId).filter { it.pinned }.map { it.id }
+        val todoPins = todoPlan(todoIds, UndoPlan(UndoKind.PIN, pinned = false), { it.withPinToggled(now) }, todos::togglePins)
+        // The todos go first, so the threads' action names the undo when there are any.
+        carryOut(todoPins + pinPlan(shown, pinned = false), origin)
+    }
+
+    /**
      * Delete all on a bundle: its todos, and every thread Done all would take ([doneBundle]) to the
      * trash, Gmail's other ones listed after, as one undo offered at once.
      */

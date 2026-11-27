@@ -4,7 +4,7 @@
   import AlarmClockOff from "@lucide/svelte/icons/alarm-clock-off";
   import Check from "@lucide/svelte/icons/check";
   import Inbox from "@lucide/svelte/icons/inbox";
-  import MailCheck from "@lucide/svelte/icons/mail-check";
+  import ShieldCheck from "@lucide/svelte/icons/shield-check";
   import { getComposeHub } from "../compose/compose-hub.svelte";
   import type { Row } from "../list-model";
   import { getMailState } from "../mail-state.svelte";
@@ -37,7 +37,7 @@
       onclick={() => mail.notSpam([id])}
       class="relative h-8 flex items-center gap-1.5 px-2.5 rounded-full border border-border bg-surface text-[13px] font-medium hover:bg-surface-hover transition-colors pointer-coarse:after:absolute pointer-coarse:after:-inset-y-2 pointer-coarse:after:inset-x-0 pointer-coarse:after:content-['']"
     >
-      <MailCheck class="w-4 h-4" aria-hidden="true" />
+      <ShieldCheck class="w-4 h-4" aria-hidden="true" />
       Not spam
     </button>
   {:else if snoozed}

@@ -80,6 +80,18 @@ class BundlesFixturesTest {
     }
 
     @Test
+    fun unpinAll() {
+        for (case in Fixtures.cases(Fixtures.bundles, "unpinAll")) {
+            val shown = (case["shown"] as List<*>).map {
+                val thread = it as Map<*, *>
+                SweptThread(thread["id"] as String, thread["pinned"] as Boolean)
+            }
+            val todosPinned = (case["todosPinned"] as List<*>).map { it as Boolean }
+            assertEquals(case["name"] as String, case["expect"], bundleUnpinsAll(shown, todosPinned, case["more"] as Boolean))
+        }
+    }
+
+    @Test
     fun topUp() {
         for (case in Fixtures.cases(Fixtures.bundles, "topUp")) {
             val bundles = (case["bundles"] as List<*>).map {

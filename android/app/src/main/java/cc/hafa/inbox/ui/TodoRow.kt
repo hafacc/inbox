@@ -283,12 +283,8 @@ private fun TodoRowBody(
     }
     var dot by remember { mutableStateOf<LayoutCoordinates?>(null) }
     var placed by remember { mutableStateOf<LayoutCoordinates?>(null) }
-    val openHold = rememberTodoHold(todo, done, actions, onShown = { shownMenu = it }) { dot }
-    val holdLabel = when {
-        done -> "Delete"
-        todo.pinned -> "Unpin or delete"
-        else -> "Pin or delete"
-    }
+    val openHold = rememberTodoHold(todo, actions, onShown = { shownMenu = it }) { dot }
+    val holdLabel = if (todo.pinned) "Unpin or delete" else "Pin or delete"
     // Where in the text the last press landed, for the editor's cursor; null past the text.
     var pressCaret by remember { mutableStateOf<Int?>(null) }
     val androidContext = LocalContext.current
@@ -344,7 +340,7 @@ private fun TodoRowBody(
                     CustomAccessibilityAction(if (todo.pinned) "Unpin" else "Pin") {
                         actions.togglePin(todo.id)
                         true
-                    }.takeIf { !done },
+                    },
                     CustomAccessibilityAction("Delete") {
                         actions.delete(todo.id)
                         true
@@ -454,14 +450,13 @@ private val MARK_SIZE = 20.dp
 
 /**
  * How to open [todo]'s hold menu, around a press at a root point, or on its select dot ([dot]) for
- * TalkBack and the menu key: Pin (or Unpin; not on a done todo) and Delete for this todo alone,
+ * TalkBack and the menu key: Pin (or Unpin) and Delete for this todo alone,
  * placed by [rowHoldWedges]. The returned function opens it, waiting for a tap when sticky, and
  * says whether it opened; [onShown] gets the menu it shows.
  */
 @Composable
 private fun rememberTodoHold(
     todo: Todo,
-    done: Boolean,
     actions: TodoActions,
     onShown: (HoldMenuSpec) -> Unit,
     dot: () -> LayoutCoordinates?,
@@ -471,7 +466,6 @@ private fun rememberTodoHold(
     val density = LocalDensity.current
     val acts by rememberUpdatedState(actions)
     val shown by rememberUpdatedState(todo)
-    val isDone by rememberUpdatedState(done)
     val place by rememberUpdatedState(dot)
     return remember(menu, density) {
         { sticky, pressedAt ->
@@ -493,7 +487,7 @@ private fun rememberTodoHold(
                     center = center,
                     wedges = holdWedges(
                         items,
-                        rowHoldWedges(listOf("pin".takeUnless { isDone }, "delete"), center.x / scale, center.y / scale, screen.width / scale),
+                        rowHoldWedges(listOf("pin", "delete"), center.x / scale, center.y / scale, screen.width / scale),
                     ),
                     pill = current.text.lineSequence().firstOrNull().orEmpty().ifBlank { "Todo" },
                     url = false,

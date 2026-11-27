@@ -7,12 +7,12 @@ import Funnel from "@lucide/svelte/icons/funnel";
 import Inbox from "@lucide/svelte/icons/inbox";
 import ListPlus from "@lucide/svelte/icons/list-plus";
 import Mail from "@lucide/svelte/icons/mail";
-import MailCheck from "@lucide/svelte/icons/mail-check";
 import MailOpen from "@lucide/svelte/icons/mail-open";
 import OctagonAlert from "@lucide/svelte/icons/octagon-alert";
 import Pencil from "@lucide/svelte/icons/pencil";
 import Pin from "@lucide/svelte/icons/pin";
 import PinOff from "@lucide/svelte/icons/pin-off";
+import ShieldCheck from "@lucide/svelte/icons/shield-check";
 import Tag from "@lucide/svelte/icons/tag";
 import Trash2 from "@lucide/svelte/icons/trash-2";
 import type { IconType } from "./components/icons";
@@ -46,7 +46,7 @@ export const ACTION_ICONS: Record<ThreadAction, IconType | null> = {
   read: MailOpen,
   unread: Mail,
   spam: OctagonAlert,
-  notSpam: MailCheck,
+  notSpam: ShieldCheck,
   delete: Trash2,
   untrash: Inbox,
   filter: Funnel,

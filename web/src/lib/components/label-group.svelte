@@ -1,6 +1,10 @@
-<!-- @component A label's threads and todos as a bundle: a row like a thread's, which opens in place into a raised card listing them while the rest of the list dims. Closed, on hover or keyboard focus it shows Pin all, Snooze all and Done all as a thread row shows its actions; on touch, a swipe left marks them all done and right snoozes them all; a long press, closed or on the open bundle's header, opens a round menu around the finger with Pin all and Delete all, placed as a thread's. Open, its header has Pin all and Snooze all (where a pointer hovers) before Done all. -->
+<!-- @component A label's threads and todos as a bundle: a row like a thread's, which opens in place into a raised card listing them while the rest of the list dims. Closed, on hover or keyboard focus it shows Pin all, Snooze all and Done all as a thread row shows its actions; on touch, a swipe left marks them all done and right snoozes them all; a long press, closed or on the open bundle's header, opens a round menu around the finger with Pin all (Unpin all when everything in it is pinned) and Delete all, placed as a thread's. Open, its header has Pin all and Snooze all (where a pointer hovers) before Done all. -->
 <script lang="ts">
-  import { bundleCounts, bundleLine } from "@inbox/shared/bundles";
+  import {
+    bundleCounts,
+    bundleLine,
+    bundleUnpinsAll,
+  } from "@inbox/shared/bundles";
   import { rowHoldWedges } from "@inbox/shared/hold-menu";
   import type { SnoozeSource } from "@inbox/shared/snooze-suggest";
   import {
@@ -14,6 +18,7 @@
   import CheckCheck from "@lucide/svelte/icons/check-check";
   import Clock from "@lucide/svelte/icons/clock";
   import Pin from "@lucide/svelte/icons/pin";
+  import PinOff from "@lucide/svelte/icons/pin-off";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import { MediaQuery } from "svelte/reactivity";
   import { holdMenu } from "../hold-menu.svelte";
@@ -21,7 +26,7 @@
   import { isEditableTarget } from "../keyboard";
   import { bundleFooter } from "../list-status";
   import { getMailState, type MailList } from "../mail-state.svelte";
-  import { displayName } from "../thread-summary";
+  import { displayName, isPinned } from "../thread-summary";
   import BundleActions from "./bundle-actions.svelte";
   import LabelMark from "./label-mark.svelte";
   import LabelSettingsButton from "./label-settings-button.svelte";
@@ -227,8 +232,17 @@
   function doneAll() {
     void mail.doneGroup(labelId, threadIds, todoIds);
   }
+  const unpins = $derived(
+    bundleUnpinsAll(
+      rows.map((row) => ({ id: row.thread.id, pinned: isPinned(row.thread) })),
+      todos.map((todo: Todo) => todo.pinned),
+      mail.bundleHasMore(labelId),
+    ),
+  );
+  const pinWords = $derived(unpins ? "Unpin all" : "Pin all");
   function pinAll() {
-    void mail.pinGroup(labelId, threadIds, todoIds);
+    if (unpins) mail.unpinGroup(threadIds, todoIds);
+    else void mail.pinGroup(labelId, threadIds, todoIds);
   }
   function deleteAll() {
     void mail.trashGroup(labelId, threadIds, todoIds);
@@ -239,7 +253,7 @@
   }
   // A closed bundle's row swipes as a thread's does: left marks every thread done, right snoozes
   // them all. A long press, on the open bundle's header too, opens a round menu around the finger,
-  // as a thread's does, with Pin all and Delete all.
+  // as a thread's does, with Pin all (or Unpin all) and Delete all.
   const swipe = new RowSwipe<BundleSwipeAction>(
     () => ({
       start: bundleSwipeAction("start", expanded),
@@ -268,7 +282,9 @@
         window.innerWidth,
       ).map((wedge) =>
         wedge.id === "pin"
-          ? { ...wedge, label: "Pin all", icon: Pin }
+          ? unpins
+            ? { ...wedge, label: pinWords, icon: PinOff, tone: "on" }
+            : { ...wedge, label: pinWords, icon: Pin }
           : { ...wedge, label: "Delete all", icon: Trash2, tone: "danger" },
       ),
       pill: name,
@@ -386,7 +402,7 @@
           Snooze all
         </button>
       {/if}
-      <button type="button" tabindex="-1" onclick={pinAll}>Pin all</button>
+      <button type="button" tabindex="-1" onclick={pinAll}>{pinWords}</button>
       <button type="button" tabindex="-1" onclick={deleteAll}>
         Delete all
       </button>
@@ -450,6 +466,7 @@
           <BundleActions
             {snoozeOpen}
             showDone={false}
+            {unpins}
             onPin={pinAll}
             onSnoozeToggle={toggleSnooze}
             onSnooze={snoozeAll}
@@ -485,6 +502,7 @@
       >
         <BundleActions
           {snoozeOpen}
+          {unpins}
           onPin={pinAll}
           onSnoozeToggle={toggleSnooze}
           onSnooze={snoozeAll}

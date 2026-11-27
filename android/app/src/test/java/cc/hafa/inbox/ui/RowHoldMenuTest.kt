@@ -65,6 +65,7 @@ class RowHoldMenuTest {
         act = { id, action -> calls += "act:$id:${action.name}" },
         snoozeBundle = { labelId, ids -> calls += "snoozeBundle:$labelId:${ids.joinToString()}" },
         pinBundle = { labelId, ids -> calls += "pinBundle:$labelId:${ids.joinToString()}" },
+        unpinBundle = { labelId, ids -> calls += "unpinBundle:$labelId:${ids.joinToString()}" },
         deleteBundle = { labelId, ids -> calls += "deleteBundle:$labelId:${ids.joinToString()}" },
     )
 
@@ -221,12 +222,14 @@ class RowHoldMenuTest {
     }
 
     @Test
-    fun aDoneTodoOffersOnlyDelete() {
+    fun aDoneTodoOffersPinAndDeleteAsAnArchivedEmailDoes() {
         val todo = Todo.new("d", "Filed taxes", now - 60_000L).copy(state = TodoState.DONE)
         show(listOf(TodoEntry(todo)), todos = listOf(todo), view = View.Fixed(Mailbox.DONE))
         holdAt(compose.onNodeWithText("Filed taxes")) { width, height -> Offset(width / 2f, height / 2f) }
-        // Pin's place, right of the finger near the top, stays empty.
-        assertEquals(listOf("delete" to -105f), shownArcs())
+        assertEquals(listOf("pin" to -45f, "delete" to -105f), shownArcs())
+        compose.onNodeWithContentDescription("Pin").performClick()
+        compose.waitForIdle()
+        assertEquals(listOf("pin:d"), calls)
     }
 
     @Test
@@ -239,6 +242,16 @@ class RowHoldMenuTest {
         compose.onNodeWithContentDescription("Delete all").performClick()
         compose.waitForIdle()
         assertEquals(listOf("deleteBundle:Label_1:b1, b2"), calls)
+    }
+
+    @Test
+    fun aBundleWhoseThreadsAreAllPinnedOffersUnpinAll() {
+        show(listOf(ListEntry.Group("Label_1", listOf(row("b1", listOf("INBOX", "Label_1", "STARRED")), row("b2", listOf("INBOX", "Label_1", "STARRED"))))))
+        holdAt(compose.onNodeWithText("Errands")) { width, height -> Offset(width / 2f, height / 2f) }
+        assertEquals(listOf("Unpin all", "Delete all"), requireNotNull(menu.spec).wedges.map { it.item.label })
+        compose.onNodeWithContentDescription("Unpin all").performClick()
+        compose.waitForIdle()
+        assertEquals(listOf("unpinBundle:Label_1:b1, b2"), calls)
     }
 
     @Test
