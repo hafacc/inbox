@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import {
   type PageStep,
   pageOffset,
+  pageOpacity,
   pageStarts,
   pageStep,
 } from "./thread-pager";
@@ -25,6 +26,7 @@ type Fixtures = {
     hasNext: boolean;
     expect: PageStep | null;
   }[];
+  opacity: { name: string; distance: number; width: number; expect: number }[];
 };
 
 const fixtures: Fixtures = JSON.parse(
@@ -48,6 +50,16 @@ describe("pageOffset", () => {
       expect(
         pageOffset(fixture.dx, fixture.hasPrevious, fixture.hasNext),
       ).toBeCloseTo(fixture.expect);
+    });
+  }
+});
+
+describe("pageOpacity", () => {
+  for (const fixture of fixtures.opacity) {
+    test(fixture.name, () => {
+      expect(pageOpacity(fixture.distance, fixture.width)).toBeCloseTo(
+        fixture.expect,
+      );
     });
   }
 });

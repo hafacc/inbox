@@ -1,5 +1,5 @@
 {
-  "_doc": "Swiping an open thread sideways to its neighbor (shared/src/thread-pager.ts, Android :core ThreadPager.kt). `starts` {x, width, expect}: a swipe from within 24 of either edge is left to Back. `offset` {dx, hasPrevious, hasNext, expect}: the thread follows the finger, a third as far toward a side with no thread. `step` {dx, width, velocity, hasPrevious, hasNext, expect}: let go past 28% of the width, or flung its own way at 600/s once past 30, it moves; leftward is the next thread.",
+  "_doc": "Swiping an open thread sideways to its neighbor (shared/src/thread-pager.ts, Android :core ThreadPager.kt). `starts` {x, width, expect}: a swipe from within 24 of either edge is left to Back. `offset` {dx, hasPrevious, hasNext, expect}: the thread follows the finger, a third as far toward a side with no thread. `step` {dx, width, velocity, hasPrevious, hasNext, expect}: let go past 28% of the width, or flung its own way at 600/s once past 30, it moves; leftward is the next thread. `opacity` {distance, width, expect}: a thread fades from whole where it rests open to half a whole width away.",
   "starts": [
     { "name": "the middle", "x": 180, "width": 360, "expect": true },
     { "name": "the left edge", "x": 10, "width": 360, "expect": false },
@@ -24,5 +24,13 @@
     { "name": "no next thread springs back", "dx": -200, "width": 360, "velocity": -900, "hasPrevious": true, "hasNext": false, "expect": null },
     { "name": "no previous thread springs back", "dx": 200, "width": 360, "velocity": 0, "hasPrevious": false, "hasNext": true, "expect": null },
     { "name": "no travel", "dx": 0, "width": 360, "velocity": 0, "hasPrevious": true, "hasNext": true, "expect": null }
+  ],
+  "opacity": [
+    { "name": "at rest", "distance": 0, "width": 360, "expect": 1 },
+    { "name": "halfway left", "distance": -180, "width": 360, "expect": 0.75 },
+    { "name": "halfway right", "distance": 180, "width": 360, "expect": 0.75 },
+    { "name": "a whole width away", "distance": 360, "width": 360, "expect": 0.5 },
+    { "name": "beyond a whole width, with the gap", "distance": -372, "width": 360, "expect": 0.5 },
+    { "name": "a spring back at a side with no thread", "distance": 30, "width": 360, "expect": 0.9583 }
   ]
 }

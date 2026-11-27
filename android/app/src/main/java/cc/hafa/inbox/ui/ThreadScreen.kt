@@ -155,6 +155,7 @@ import cc.hafa.inbox.core.mail.messageDocument
 import cc.hafa.inbox.core.mail.missingPartLabel
 import cc.hafa.inbox.core.mail.openNeighbors
 import cc.hafa.inbox.core.mail.pageOffset
+import cc.hafa.inbox.core.mail.pageOpacity
 import cc.hafa.inbox.core.mail.pageStarts
 import cc.hafa.inbox.core.mail.pageStep
 import cc.hafa.inbox.core.mail.parseUnsubscribe
@@ -288,12 +289,33 @@ fun ThreadScreen(
                 },
         ) {
             neighbors.previous?.let { previous ->
-                NeighborPage(model, previous, previews[previous], Modifier.graphicsLayer { translationX = offset.value - shift })
+                NeighborPage(
+                    model,
+                    previous,
+                    previews[previous],
+                    Modifier.graphicsLayer {
+                        translationX = offset.value - shift
+                        alpha = pageOpacity(translationX, size.width)
+                    },
+                )
             }
             neighbors.next?.let { next ->
-                NeighborPage(model, next, previews[next], Modifier.graphicsLayer { translationX = offset.value + shift })
+                NeighborPage(
+                    model,
+                    next,
+                    previews[next],
+                    Modifier.graphicsLayer {
+                        translationX = offset.value + shift
+                        alpha = pageOpacity(translationX, size.width)
+                    },
+                )
             }
-            Column(modifier = Modifier.fillMaxSize().background(paper.page).graphicsLayer { translationX = offset.value }) {
+            Column(
+                modifier = Modifier.fillMaxSize().background(paper.page).graphicsLayer {
+                    translationX = offset.value
+                    alpha = pageOpacity(translationX, size.width)
+                },
+            ) {
                 ThreadTopBar(subject, places.marker, onBack = state::close, onMarker = runAction, scrolledUnder = scrolledUnder && detail != null)
                 Box(Modifier.fillMaxSize().clipToBounds().nestedScroll(pull)) {
                     Box(Modifier.fillMaxSize().graphicsLayer { translationY = pull.offset }) {

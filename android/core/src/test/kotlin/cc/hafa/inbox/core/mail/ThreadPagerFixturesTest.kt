@@ -26,6 +26,14 @@ class ThreadPagerFixturesTest {
     }
 
     @Test
+    fun opacity() {
+        for (case in Fixtures.cases(fixtures, "opacity")) {
+            val opacity = pageOpacity(number(case["distance"]), number(case["width"]))
+            assertEquals(case["name"] as String, number(case["expect"]), opacity, 0.001f)
+        }
+    }
+
+    @Test
     fun step() {
         for (case in Fixtures.cases(fixtures, "step")) {
             val step = pageStep(

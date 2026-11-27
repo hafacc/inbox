@@ -12,6 +12,9 @@ export const PAGE_FLING_DISTANCE = 30;
 /** How much of the finger's travel the thread follows toward a side with no thread. */
 export const PAGE_RESISTANCE = 0.3;
 
+/** How opaque a thread is a whole screen's width from where it rests open, while a swipe moves it. */
+export const PAGE_FAR_OPACITY = 0.5;
+
 /** Where a swipe goes: the thread below the open one, or the one above. */
 export type PageStep = "next" | "previous";
 
@@ -41,6 +44,15 @@ export function pageOffset(
   const open =
     toward === "next" ? hasNext : toward === "previous" ? hasPrevious : true;
   return open ? dx : dx * PAGE_RESISTANCE;
+}
+
+/**
+ * How opaque a thread is `distance` from where it rests open (either way) on a screen `width`
+ * wide: whole there, fading evenly to {@link PAGE_FAR_OPACITY} a whole width away and beyond.
+ */
+export function pageOpacity(distance: number, width: number): number {
+  const away = width > 0 ? Math.min(1, Math.abs(distance) / width) : 0;
+  return 1 - (1 - PAGE_FAR_OPACITY) * away;
 }
 
 /**
