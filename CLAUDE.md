@@ -17,8 +17,8 @@ native Android app (`android/`), Firebase backend (`functions/`, `firebase/`), C
 - All clock times are 24-hour (`HH:mm`) on every surface.
 - bun everywhere; biome for lint/format; warnings are errors. `bun run lint`, `bun run test`.
 - Shared tests run in America/New_York (`shared/test-setup.ts`).
-- `shared/src/snooze-*.ts` and `shared/testdata/snooze-fixtures.json` are copied from latr; keep them
-  in step with latr until they move to a common package.
+- `shared/src/snooze-*.ts` and `shared/testdata/snooze-fixtures.json` started as copies of latr's. Inbox's
+  copies are now the source; latr will become a todo front end on inbox, so don't keep them in step with latr.
 - `docs/privacy.md` and `docs/support.md` are the only copy of those pages: the web prerenders them
   at `/privacy` and `/support`, and Android's build copies them into its assets and shows them in a
   sheet (`InfoSheet`) with a button to the web page.
