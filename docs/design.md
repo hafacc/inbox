@@ -355,6 +355,14 @@ except where the list says.
   there, closes it as Back does, as in reader but farther, so a scroll that runs on past the edge
   doesn't close it by accident: it follows the finger less and less, an arrow in the gap turns over,
   and a haptic tick marks crossing that point (either way) and letting go there.
+- Pulling a list down from its top refreshes it (a forced refresh), as Material's pull to refresh
+  does on Android (web: `web/src/lib/list-pull.ts`, `pull-refresh.svelte`): a round spinner comes
+  out from under the header at half the finger's speed, and letting go once it is 80 px (dp) down
+  refreshes; past that it slows and stops at twice that. It spins until the refresh ends, then goes
+  back under the header, as it does when let go short. A haptic tick marks crossing the mark
+  (either way) and letting go there. Reduced motion fades it in place instead. The web blocks the
+  browser's own pull-to-reload and bounce at the page's ends while a list shows. No pull starts
+  while a menu, sheet or dialog is open, on the open thread, or while a refresh it started runs.
 - One bundle is open at a time. It shows its first five items (threads and todos, in date order)
   until j goes past them or "Show more" is pressed. When j goes past its last loaded item and Gmail has more, focus sits on the
   bundle's header while the page loads, then moves to its first new row, even one that sorts above
