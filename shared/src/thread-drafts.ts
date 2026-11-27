@@ -114,3 +114,21 @@ export function draftSnippet(markdown: string): string {
     .trim()
     .slice(0, SNIPPET_LENGTH);
 }
+
+/**
+ * The thread whose draft opens in place of a thread a tap on its row, or Enter on it, just opened:
+ * in Drafts a row opens its draft in the composer, a reply's too, and the thread stays closed. Null
+ * outside Drafts, for any other step (a thread opened from outside the list opens as usual), or
+ * when the step opened nothing new.
+ */
+export function draftsOpening(
+  inDrafts: boolean,
+  event: { type: string },
+  openBefore: string | null,
+  openAfter: string | null,
+): string | null {
+  const fromRow = event.type === "tap" || event.type === "enter";
+  return inDrafts && fromRow && openAfter !== null && openAfter !== openBefore
+    ? openAfter
+    : null;
+}

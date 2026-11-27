@@ -930,6 +930,13 @@ class Sending(
         scope.launch { findAndOpenDraft(onMissing = {}, offline = { openSaved(messageId = messageId) }) { it.message?.id == messageId } }
     }
 
+    /** Open the draft of a row in Drafts, its Gmail threads [threadIds], in the composer; [onMissing] when it has none left. */
+    fun openThreadDraft(threadIds: Set<String>, onMissing: () -> Unit) {
+        scope.launch {
+            findAndOpenDraft(onMissing = onMissing, offline = { openSaved(threadIds = threadIds) }) { it.message?.threadId in threadIds }
+        }
+    }
+
     private suspend fun findAndOpenDraft(onMissing: () -> Unit, offline: suspend () -> Unit, matches: (GmailDraft) -> Boolean) {
         try {
             var pageToken: String? = null

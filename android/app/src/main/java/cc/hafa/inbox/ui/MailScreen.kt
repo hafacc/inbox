@@ -423,7 +423,6 @@ fun MailScreen(state: MailState, authManager: AuthManager, launcher: LauncherReq
     val rowActions = remember(state, sending) {
         RowActions(
             list = state::dispatch,
-            // In Drafts too a tap shows the email, its draft a card in it that opens the composer.
             tap = { key -> state.dispatch(ListEvent.Tap(key)) },
             done = { state.done(it) },
             moveToInbox = { state.moveToInbox(listOf(it)) },
