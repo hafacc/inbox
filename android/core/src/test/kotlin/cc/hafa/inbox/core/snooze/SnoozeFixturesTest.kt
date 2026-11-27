@@ -78,6 +78,18 @@ class SnoozeFixturesTest {
     }
 
     @Test
+    fun label() {
+        for (case in Fixtures.cases("label")) {
+            val name = case["name"]
+            val now = instant(case["now"])
+            val key = case["key"] as String
+            val resolved = SnoozeSuggestions.resolveFuture(key, now, zone)
+            assertEquals("$name: resolved", epoch(case["resolvedLocal"]), resolved)
+            assertEquals("$name: text", case["text"], SnoozeSuggestions.labelFor(key, resolved!!, now, zone))
+        }
+    }
+
+    @Test
     fun quickTimes() {
         for (case in Fixtures.cases("quickTimes")) {
             val partitions = (case["partitions"] as List<*>).map { SnoozeStatsWire.fromWire(mapOf("tod" to it)) }

@@ -76,7 +76,7 @@ class SnoozeSuggestionsTest {
     fun `a commit made 00-05 gets offset keys that agree with its timed keys about the day`() {
         val at = LocalDateTime.of(2024, 1, 8, 1, 0)
         assertEquals(DayOfWeek.MONDAY, at.dayOfWeek)
-        assertEquals(setOf("D0@0100", "Wd1@0100", "D1_h0", "Wd1_h0"), keys(at, at.plusDays(1)))
+        assertEquals(setOf("D0@0100", "Wd1@0100", "Dom8@0100", "D1_h0", "Wd1_h0"), keys(at, at.plusDays(1)))
     }
 
     @Test
@@ -92,15 +92,16 @@ class SnoozeSuggestionsTest {
     @Test
     fun `a daytime commit gets no offset keys when the gap rounds negative`() {
         assertEquals(
-            setOf("D0@0800", "Wd2@0800"),
+            setOf("D0@0800", "Wd2@0800", "Dom2@0800"),
             keys(LocalDateTime.of(2024, 1, 1, 10, 0), LocalDateTime.of(2024, 1, 2, 8, 0)),
         )
     }
 
     @Test
     fun `decay then credit produces the expected set count one half-life later`() {
+        // A later-today snooze learns only D0 keys, whose half-life is 21 days.
         val at1 = LocalDateTime.of(2024, 1, 1, 10, 0)
-        val target1 = LocalDateTime.of(2024, 1, 2, 8, 0)
+        val target1 = LocalDateTime.of(2024, 1, 1, 18, 0)
         val r1 = commitOnce(SnoozeStatsSnapshot(), at1, target1)
         val id = requireNotNull(r1.touchedSetId)
         assertEquals(1.0, r1.next.sets.getValue(id).c, 1e-9)
@@ -179,7 +180,8 @@ class SnoozeSuggestionsTest {
             stats = commitOnce(stats, day, day.plusDays(1).withHour(8).withMinute(0)).next
             day = day.plusDays(1)
         }
-        assertTrue(SnoozeSuggestions.rank(listOf(stats), instant(day.plusDays(400)), zone).isEmpty())
+        // Each tomorrow snooze also learns its day of the month, so its set fades with the 60-day half-life.
+        assertTrue(SnoozeSuggestions.rank(listOf(stats), instant(day.plusDays(600)), zone).isEmpty())
     }
 
     @Test

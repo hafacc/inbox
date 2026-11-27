@@ -1,7 +1,7 @@
 {
   "_doc": {
     "zone": "All local date-times are America/New_York wall-clock ISO strings without an offset (earlier offset on a fall-back ambiguity). Epoch values are milliseconds.",
-    "keys": "KEY = RULE ( \"@\" HHMM | \"_h\" H ), RULE = Dn (n >= 0) | W1-4 | Wd1-7 | Wn1-7 | Dom1 | Dom15 | DomL | Mo1-3, HHMM = local wall-clock time rounded to 5 minutes, H = 0-12. Regex: ^(D(0|[1-9]\\d*)|W[1-4]|Wd[1-7]|Wn[1-7]|Dom1|Dom15|DomL|Mo[1-3])(@([01]\\d|2[0-3])[0-5][05]|_h([0-9]|1[0-2]))$ A clock key's D/W/Wd/Wn/Dom/DomL count from its first hit (the first time HHMM comes round at least 60s after the reference time), so D0 is the next HHMM, D1 the one after; Wd is the first hit on that weekday, Wn the second; Mo counts from the reference time's snooze day. Hour offsets count from the reference time's snooze day.",
+    "keys": "KEY = RULE ( \"@\" HHMM | \"_h\" H ), RULE = Dn (n >= 0) | W1-4 | Wd1-7 | Wn1-7 | Dom1-31 | DomL | DomL1-3 | Mo1-3, HHMM = local wall-clock time rounded to 5 minutes, H = 0-12. Regex: ^(D(0|[1-9]\\d*)|W[1-4]|Wd[1-7]|Wn[1-7]|Dom([1-9]|[12]\\d|3[01])|DomL[1-3]?|Mo[1-3])(@([01]\\d|2[0-3])[0-5][05]|_h([0-9]|1[0-2]))$ A clock key's D/W/Wd/Wn/Dom/DomL count from its first hit (the first time HHMM comes round at least 60s after the reference time), so D0 is the next HHMM, D1 the one after; Wd is the first hit on that weekday, Wn the second; Dom<n> is the first hit on day n of a month, skipping months without one, DomL on a month's last day and DomL<k> k days before it; Mo counts from the reference time's snooze day. Hour offsets count from the reference time's snooze day.",
     "extract": "extractKeys(at, target): keys sorted by code unit; setId = keys joined by \"__\", or null when there are no keys.",
     "quickCredit": "The quick-time slot (HHMM) a commit credits, or null when it credits none: a same-snooze-day commit, or a suggestion whose picked key is an hours offset.",
     "resolve": "resolveKey(key, now) -> epochLocal, or null when it can't resolve more than 60s into the future.",
@@ -12,7 +12,8 @@
     "wire": "fromWire(raw) must equal normalized, and toWire(fromWire(raw)) must equal normalized. picks keeps only keys 1..20 or none with a positive integer count. A raw partition without v >= 2 was saved before clock keys counted from their first hit: each set's clock keys are resolved the old way (date rule counted from the snooze day of its t) and, if they agree on one target, the set is re-extracted from (t, target) keeping c and t; sets that land on one id merge (both decayed to the later t, summed). toWire always writes v: 2.",
     "rankDeep": "rankDeep(partitions, now): the first 20 distinct rows in greedy selection order (a row's 1-based index is its rank). After each pick every other key's score drops by the pick's score x 2^(-|minutes apart| / 30), floored at 0; the floor still applies to the undiscounted score, and equal discounted scores go to the higher undiscounted one. Keys spent because they land at the same time as a winner take no index. expectShownKeys are the menu's rows: the first 5, in time order.",
     "pickLog": "pickLogKey(rankDeep(partitions, now), target): the 1-based rank of the deep row whose time is target's minute, however it was picked, or none when no row is.",
-    "commit": "commit(partition, at, target, source, pickedKey) -> expect, the partition's whole sets and tod afterwards (c within a relative 1e-9, t exact); undoing it must give back partition exactly. Besides crediting its own set and quick-time slot, a commit multiplies every other set's c by 1 - 2^(-|minutes apart| / 30), taking the largest such share among the set's clock keys, each resolved at `at` and measured from the target's 5-minute slot; t is left alone. A set with a clock key landing exactly on that slot, and a set with no clock keys, keep their c. When a quick-time slot is credited every other slot's c is multiplied by 1 - 2^(-clock minutes apart / 30), the short way round midnight. Sets lose votes on every commit, whatever its source or picked key; quick-time slots only when one is credited."
+    "commit": "commit(partition, at, target, source, pickedKey) -> expect, the partition's whole sets and tod afterwards (c within a relative 1e-9, t exact); undoing it must give back partition exactly. Besides crediting its own set and quick-time slot, a commit multiplies every other set's c by 1 - 2^(-|minutes apart| / 30), taking the largest such share among the set's clock keys, each resolved at `at` and measured from the target's 5-minute slot; t is left alone. A set with a clock key landing exactly on that slot, and a set with no clock keys, keep their c. When a quick-time slot is credited every other slot's c is multiplied by 1 - 2^(-clock minutes apart / 30), the short way round midnight. Sets lose votes on every commit, whatever its source or picked key; quick-time slots only when one is credited.",
+    "label": "labelFor(key, resolveKey(key, now), now) -> text; resolvedLocal is where the key resolves."
   },
   "extract": [
     {
@@ -26,8 +27,8 @@
       "name": "spring forward: Sat 10:00 to Sun 10:00 is 23h elapsed but still tomorrow same time",
       "at": "2026-03-07T10:00:00",
       "target": "2026-03-08T10:00:00",
-      "keys": ["D0@1000", "D1_h0", "Wd7@1000", "Wd7_h0"],
-      "setId": "D0@1000__D1_h0__Wd7@1000__Wd7_h0"
+      "keys": ["D0@1000", "D1_h0", "Dom8@1000", "Wd7@1000", "Wd7_h0"],
+      "setId": "D0@1000__D1_h0__Dom8@1000__Wd7@1000__Wd7_h0"
     },
     {
       "name": "fall back: Sat 10:00 to Sun Nov 1 10:00 is 25h elapsed but still tomorrow same time",
@@ -40,29 +41,29 @@
       "name": "Wed 15:00 to Thu 09:00: the next 09:00 and this Thursday, no offset",
       "at": "2026-09-23T15:00:00",
       "target": "2026-09-24T09:00:00",
-      "keys": ["D0@0900", "Wd4@0900"],
-      "setId": "D0@0900__Wd4@0900"
+      "keys": ["D0@0900", "Dom24@0900", "Wd4@0900"],
+      "setId": "D0@0900__Dom24@0900__Wd4@0900"
     },
     {
       "name": "a post-midnight commit to that morning is the next 08:30, on that morning's weekday",
       "at": "2026-09-23T00:30:00",
       "target": "2026-09-23T08:30:00",
-      "keys": ["D0@0830", "Wd3@0830"],
-      "setId": "D0@0830__Wd3@0830"
+      "keys": ["D0@0830", "Dom23@0830", "Wd3@0830"],
+      "setId": "D0@0830__Dom23@0830__Wd3@0830"
     },
     {
       "name": "an offset crossing into the next snooze day isn't learned: Wed 22:54 to Fri 08:00",
       "at": "2026-09-23T22:54:00",
       "target": "2026-09-25T08:00:00",
-      "keys": ["D1@0800", "Wd5@0800"],
-      "setId": "D1@0800__Wd5@0800"
+      "keys": ["D1@0800", "Dom25@0800", "Wd5@0800"],
+      "setId": "D1@0800__Dom25@0800__Wd5@0800"
     },
     {
       "name": "the 05:00 day boundary is wall-clock on the spring-forward morning",
       "at": "2026-03-07T22:00:00",
       "target": "2026-03-08T05:30:00",
-      "keys": ["D0@0530", "Wd7@0530"],
-      "setId": "D0@0530__Wd7@0530"
+      "keys": ["D0@0530", "Dom8@0530", "Wd7@0530"],
+      "setId": "D0@0530__Dom8@0530__Wd7@0530"
     },
     {
       "name": "45 days out is its own day count, counted from the next 10:00 (the offset from today)",
@@ -75,15 +76,15 @@
       "name": "8 days after the next 09:00 is a day count, not a week",
       "at": "2026-09-12T10:00:00",
       "target": "2026-09-21T09:00:00",
-      "keys": ["D8@0900", "Wn1@0900"],
-      "setId": "D8@0900__Wn1@0900"
+      "keys": ["D8@0900", "Dom21@0900", "Wn1@0900"],
+      "setId": "D8@0900__Dom21@0900__Wn1@0900"
     },
     {
       "name": "a week counts from the next 09:00, not from today",
       "at": "2026-09-12T10:00:00",
       "target": "2026-09-20T09:00:00",
-      "keys": ["D7@0900", "W1@0900", "Wn7@0900"],
-      "setId": "D7@0900__W1@0900__Wn7@0900"
+      "keys": ["D7@0900", "Dom20@0900", "W1@0900", "Wn7@0900"],
+      "setId": "D7@0900__Dom20@0900__W1@0900__Wn7@0900"
     },
     {
       "name": "300 days out is its own day count",
@@ -96,22 +97,22 @@
       "name": "09:07 rounds down to the 09:05 slot",
       "at": "2026-09-22T10:00:00",
       "target": "2026-09-24T09:07:00",
-      "keys": ["D1@0905", "Wd4@0905"],
-      "setId": "D1@0905__Wd4@0905"
+      "keys": ["D1@0905", "Dom24@0905", "Wd4@0905"],
+      "setId": "D1@0905__Dom24@0905__Wd4@0905"
     },
     {
       "name": "09:08 rounds up to the 09:10 slot",
       "at": "2026-09-22T10:00:00",
       "target": "2026-09-24T09:08:00",
-      "keys": ["D1@0910", "Wd4@0910"],
-      "setId": "D1@0910__Wd4@0910"
+      "keys": ["D1@0910", "Dom24@0910", "Wd4@0910"],
+      "setId": "D1@0910__Dom24@0910__Wd4@0910"
     },
     {
       "name": "04:58 clamps to 04:55 so it stays in its own snooze day",
       "at": "2026-09-22T10:00:00",
       "target": "2026-09-24T04:58:00",
-      "keys": ["D1@0455", "Wd3@0455"],
-      "setId": "D1@0455__Wd3@0455"
+      "keys": ["D1@0455", "Dom23@0455", "Wd3@0455"],
+      "setId": "D1@0455__Dom23@0455__Wd3@0455"
     },
     {
       "name": "same-day snooze credits only later-today keys",
@@ -131,8 +132,8 @@
       "name": "22:00 to tomorrow 09:00 is the next 09:00, and tomorrow's weekday",
       "at": "2026-09-22T22:00:00",
       "target": "2026-09-23T09:00:00",
-      "keys": ["D0@0900", "Wd3@0900"],
-      "setId": "D0@0900__Wd3@0900"
+      "keys": ["D0@0900", "Dom23@0900", "Wd3@0900"],
+      "setId": "D0@0900__Dom23@0900__Wd3@0900"
     },
     {
       "name": "08:00 to today 09:00 is the next 09:00 too",
@@ -169,6 +170,62 @@
       "target": "2026-10-01T09:00:00",
       "keys": ["D0@0900", "Dom1@0900", "Wd4@0900"],
       "setId": "D0@0900__Dom1@0900__Wd4@0900"
+    },
+    {
+      "name": "Nov 26 to Dec 10 09:00 learns the 10th beside the weekday after next",
+      "at": "2026-11-26T10:00:00",
+      "target": "2026-12-10T09:00:00",
+      "keys": ["D13@0900", "Dom10@0900", "Wn4@0900"],
+      "setId": "D13@0900__Dom10@0900__Wn4@0900"
+    },
+    {
+      "name": "Dec 3 to Dec 10 09:00 learns the 10th too, beside this Thursday",
+      "at": "2026-12-03T10:00:00",
+      "target": "2026-12-10T09:00:00",
+      "keys": ["D6@0900", "Dom10@0900", "Wd4@0900"],
+      "setId": "D6@0900__Dom10@0900__Wd4@0900"
+    },
+    {
+      "name": "a snooze to Nov 28 learns the 28th and two days before the last",
+      "at": "2026-11-26T10:00:00",
+      "target": "2026-11-28T09:00:00",
+      "keys": ["D1@0900", "Dom28@0900", "DomL2@0900", "Wd6@0900"],
+      "setId": "D1@0900__Dom28@0900__DomL2@0900__Wd6@0900"
+    },
+    {
+      "name": "a snooze to Nov 30 learns the 30th and the last day",
+      "at": "2026-11-26T10:00:00",
+      "target": "2026-11-30T09:00:00",
+      "keys": ["D3@0900", "Dom30@0900", "DomL@0900", "Wd1@0900"],
+      "setId": "D3@0900__Dom30@0900__DomL@0900__Wd1@0900"
+    },
+    {
+      "name": "a snooze to Feb 26, 2027 learns the 26th and two days before the last (a 28-day month)",
+      "at": "2027-02-20T10:00:00",
+      "target": "2027-02-26T09:00:00",
+      "keys": ["D5@0900", "Dom26@0900", "DomL2@0900", "Wd5@0900"],
+      "setId": "D5@0900__Dom26@0900__DomL2@0900__Wd5@0900"
+    },
+    {
+      "name": "a snooze to Feb 25, 2027 learns three days before the last",
+      "at": "2027-02-20T10:00:00",
+      "target": "2027-02-25T09:00:00",
+      "keys": ["D4@0900", "Dom25@0900", "DomL3@0900", "Wd4@0900"],
+      "setId": "D4@0900__Dom25@0900__DomL3@0900__Wd4@0900"
+    },
+    {
+      "name": "a snooze to Dec 31 learns the 31st past November, which has none",
+      "at": "2026-11-26T10:00:00",
+      "target": "2026-12-31T09:00:00",
+      "keys": ["D34@0900", "Dom31@0900"],
+      "setId": "D34@0900__Dom31@0900"
+    },
+    {
+      "name": "a snooze to the 28th of next month learns no day of the month: the 28th of this month comes first",
+      "at": "2026-11-26T10:00:00",
+      "target": "2026-12-28T09:00:00",
+      "keys": ["D31@0900"],
+      "setId": "D31@0900"
     }
   ],
   "quickCredit": [
@@ -333,6 +390,84 @@
       "now": "2026-09-22T10:00:00",
       "key": "Mo1@0900",
       "epochLocal": "2026-10-22T09:00:00"
+    },
+    {
+      "name": "the 10th from Dec 3 is Dec 10",
+      "now": "2026-12-03T10:00:00",
+      "key": "Dom10@0900",
+      "epochLocal": "2026-12-10T09:00:00"
+    },
+    {
+      "name": "the 31st skips November",
+      "now": "2026-11-05T10:00:00",
+      "key": "Dom31@0900",
+      "epochLocal": "2026-12-31T09:00:00"
+    },
+    {
+      "name": "the 31st skips February",
+      "now": "2027-01-31T10:00:00",
+      "key": "Dom31@0900",
+      "epochLocal": "2027-03-31T09:00:00"
+    },
+    {
+      "name": "the 30th skips February",
+      "now": "2027-02-01T10:00:00",
+      "key": "Dom30@0900",
+      "epochLocal": "2027-03-30T09:00:00"
+    },
+    {
+      "name": "the 29th skips February 2027",
+      "now": "2027-02-01T10:00:00",
+      "key": "Dom29@0900",
+      "epochLocal": "2027-03-29T09:00:00"
+    },
+    {
+      "name": "the 29th falls in February 2028",
+      "now": "2028-02-01T10:00:00",
+      "key": "Dom29@0900",
+      "epochLocal": "2028-02-29T09:00:00"
+    },
+    {
+      "name": "the 28th in December",
+      "now": "2026-12-01T10:00:00",
+      "key": "Dom28@0900",
+      "epochLocal": "2026-12-28T09:00:00"
+    },
+    {
+      "name": "two days before the last in December is the 29th",
+      "now": "2026-12-01T10:00:00",
+      "key": "DomL2@0900",
+      "epochLocal": "2026-12-29T09:00:00"
+    },
+    {
+      "name": "the 28th in February 2027",
+      "now": "2027-02-01T10:00:00",
+      "key": "Dom28@0900",
+      "epochLocal": "2027-02-28T09:00:00"
+    },
+    {
+      "name": "two days before the last in February 2027 is the 26th",
+      "now": "2027-02-01T10:00:00",
+      "key": "DomL2@0900",
+      "epochLocal": "2027-02-26T09:00:00"
+    },
+    {
+      "name": "a day before the last in February 2027 is the 27th",
+      "now": "2027-02-01T10:00:00",
+      "key": "DomL1@0900",
+      "epochLocal": "2027-02-27T09:00:00"
+    },
+    {
+      "name": "three days before the last in February 2027 is the 25th",
+      "now": "2027-02-01T10:00:00",
+      "key": "DomL3@0900",
+      "epochLocal": "2027-02-25T09:00:00"
+    },
+    {
+      "name": "two days before the last, once passed, is next month's",
+      "now": "2026-11-28T10:00:00",
+      "key": "DomL2@0900",
+      "epochLocal": "2026-12-29T09:00:00"
     }
   ],
   "labelDist": [
@@ -914,6 +1049,130 @@
         }
       ],
       "expectKeys": ["D0@2000", "D1@0900", "D2@0900", "D3@0900", "D4@0900"]
+    },
+    {
+      "name": "two snoozes to Dec 10 09:00 from different days add up as the 10th",
+      "now": "2026-12-03T10:05:00",
+      "partitions": [
+        {
+          "v": 2,
+          "sets": {
+            "D13@0900__Dom10@0900__Wn4@0900": { "c": 1, "t": 1795705200000 },
+            "D6@0900__Dom10@0900__Wd4@0900": { "c": 1, "t": 1796310000000 }
+          },
+          "tod": {},
+          "lastCustom": null
+        }
+      ],
+      "expectKeys": ["Dom10@0900"]
+    },
+    {
+      "name": "a single snooze to Dec 10 keeps its weekday label",
+      "now": "2026-11-26T10:05:00",
+      "partitions": [
+        {
+          "v": 2,
+          "sets": {
+            "D13@0900__Dom10@0900__Wn4@0900": { "c": 1, "t": 1795705200000 }
+          },
+          "tod": {},
+          "lastCustom": null
+        }
+      ],
+      "expectKeys": ["Wn4@0900"]
+    },
+    {
+      "name": "a single snooze to tomorrow keeps its day count",
+      "now": "2026-11-26T10:05:00",
+      "partitions": [
+        {
+          "v": 2,
+          "sets": {
+            "D0@0900__Dom27@0900__DomL3@0900__Wd5@0900": {
+              "c": 1,
+              "t": 1795705200000
+            }
+          },
+          "tod": {},
+          "lastCustom": null
+        }
+      ],
+      "expectKeys": ["D0@0900"]
+    },
+    {
+      "name": "a single snooze to Nov 28 keeps its weekday, not the 28th or two before the last",
+      "now": "2026-11-26T10:05:00",
+      "partitions": [
+        {
+          "v": 2,
+          "sets": {
+            "D1@0900__Dom28@0900__DomL2@0900__Wd6@0900": {
+              "c": 1,
+              "t": 1795705200000
+            }
+          },
+          "tod": {},
+          "lastCustom": null
+        }
+      ],
+      "expectKeys": ["Wd6@0900"]
+    },
+    {
+      "name": "a single far snooze to the 1st reads as its day count",
+      "now": "2026-10-05T10:05:00",
+      "partitions": [
+        {
+          "v": 2,
+          "sets": { "D26@0900__Dom1@0900": { "c": 1, "t": 1791208800000 } },
+          "tod": {},
+          "lastCustom": null
+        }
+      ],
+      "expectKeys": ["D26@0900"]
+    },
+    {
+      "name": "snoozes to two days before the last of two months add up",
+      "now": "2027-01-05T10:00:00",
+      "partitions": [
+        {
+          "v": 2,
+          "sets": {
+            "D7@0900__Dom28@0900__DomL2@0900__W1@0900__Wn6@0900": {
+              "c": 1,
+              "t": 1795186800000
+            },
+            "D8@0900__Dom29@0900__DomL2@0900__Wn2@0900": {
+              "c": 1,
+              "t": 1797778800000
+            }
+          },
+          "tod": {},
+          "lastCustom": null
+        }
+      ],
+      "expectKeys": ["DomL2@0900"]
+    },
+    {
+      "name": "the same snooze to Nov 28 adds up with Dec 28 as the 28th",
+      "now": "2027-01-05T10:00:00",
+      "partitions": [
+        {
+          "v": 2,
+          "sets": {
+            "D7@0900__Dom28@0900__DomL2@0900__W1@0900__Wn6@0900": {
+              "c": 1,
+              "t": 1795186800000
+            },
+            "D9@0900__Dom28@0900__DomL3@0900__Wn1@0900": {
+              "c": 1,
+              "t": 1797606000000
+            }
+          },
+          "tod": {},
+          "lastCustom": null
+        }
+      ],
+      "expectKeys": ["Dom28@0900"]
     }
   ],
   "wire": [
@@ -1029,7 +1288,9 @@
       },
       "normalized": {
         "v": 2,
-        "sets": { "D0@0800__Wd4@0800": { "c": 3, "t": 1790211600000 } },
+        "sets": {
+          "D0@0800__Dom24@0800__Wd4@0800": { "c": 3, "t": 1790211600000 }
+        },
         "tod": {},
         "lastCustom": null,
         "picks": {}
@@ -1045,7 +1306,10 @@
       "normalized": {
         "v": 2,
         "sets": {
-          "D1@0900__D1_h2__Wd4@0900__Wd4_h2": { "c": 2, "t": 1790161200000 }
+          "D1@0900__D1_h2__Dom24@0900__Wd4@0900__Wd4_h2": {
+            "c": 2,
+            "t": 1790161200000
+          }
         },
         "tod": {},
         "lastCustom": null,
@@ -1076,13 +1340,18 @@
       "name": "old sets landing on one new set merge, decayed to the later commit",
       "raw": {
         "sets": {
-          "D1_h9__D2@0800__Wd4_h9__Wd5@0800": { "c": 1, "t": 1790218440000 },
+          "D1_h9__D2@0800__Wd4_h9__Wd5@0800": { "c": 1, "t": 1796266440000 },
           "D2@0800__Wd5@0800": { "c": 2, "t": 1788404040000 }
         }
       },
       "normalized": {
         "v": 2,
-        "sets": { "D1@0800__Wd5@0800": { "c": 2, "t": 1790218440000 } },
+        "sets": {
+          "D1@0800__Dom4@0800__Wd5@0800": {
+            "c": 1.6989849670895096,
+            "t": 1796266440000
+          }
+        },
         "tod": {},
         "lastCustom": null,
         "picks": {}
@@ -1611,9 +1880,7 @@
       "pickedKey": "D0@1900",
       "partition": {
         "v": 2,
-        "sets": {
-          "D0@2000": { "c": 8, "t": 1790092800000 }
-        },
+        "sets": { "D0@2000": { "c": 8, "t": 1790092800000 } },
         "tod": {},
         "lastCustom": null
       },
@@ -1657,22 +1924,19 @@
       "pickedKey": "D1_h2",
       "partition": {
         "v": 2,
-        "sets": {
-          "D1@2000": { "c": 8, "t": 1790092800000 }
-        },
-        "tod": {
-          "2000": { "c": 8, "t": 1790092800000 }
-        },
+        "sets": { "D1@2000": { "c": 8, "t": 1790092800000 } },
+        "tod": { "2000": { "c": 8, "t": 1790092800000 } },
         "lastCustom": null
       },
       "expect": {
         "sets": {
-          "D1@1900__D1_h2__Wd3@1900__Wd3_h2": { "c": 1, "t": 1790110800000 },
+          "D1@1900__D1_h2__Dom23@1900__Wd3@1900__Wd3_h2": {
+            "c": 1,
+            "t": 1790110800000
+          },
           "D1@2000": { "c": 6, "t": 1790092800000 }
         },
-        "tod": {
-          "2000": { "c": 8, "t": 1790092800000 }
-        }
+        "tod": { "2000": { "c": 8, "t": 1790092800000 } }
       }
     },
     {
@@ -1697,7 +1961,7 @@
       },
       "expect": {
         "sets": {
-          "D0@1900__Wd3@1900": { "c": 1, "t": 1790125200000 },
+          "D0@1900__Dom23@1900__Wd3@1900": { "c": 1, "t": 1790125200000 },
           "D0@2000": { "c": 6, "t": 1790092800000 },
           "D1@2000": { "c": 7.999999999999993, "t": 1790092800000 }
         },
@@ -1717,9 +1981,7 @@
       "pickedKey": null,
       "partition": {
         "v": 2,
-        "sets": {
-          "D1@0015": { "c": 8, "t": 1790092800000 }
-        },
+        "sets": { "D1@0015": { "c": 8, "t": 1790092800000 } },
         "tod": {
           "0015": { "c": 8, "t": 1790092800000 },
           "1150": { "c": 8, "t": 1790092800000 }
@@ -1728,7 +1990,7 @@
       },
       "expect": {
         "sets": {
-          "D1@2350__Wd3@2350": { "c": 1, "t": 1790085600000 },
+          "D1@2350__Dom23@2350__Wd3@2350": { "c": 1, "t": 1790085600000 },
           "D1@0015": { "c": 3.510151806762508, "t": 1790092800000 }
         },
         "tod": {
@@ -1737,6 +1999,113 @@
           "1150": { "c": 7.999999523162842, "t": 1790092800000 }
         }
       }
+    }
+  ],
+  "label": [
+    {
+      "name": "the 1st",
+      "now": "2026-10-10T10:00:00",
+      "key": "Dom1@0900",
+      "resolvedLocal": "2026-11-01T09:00:00",
+      "text": "The 1st, 09:00"
+    },
+    {
+      "name": "the 2nd",
+      "now": "2026-10-10T10:00:00",
+      "key": "Dom2@0900",
+      "resolvedLocal": "2026-11-02T09:00:00",
+      "text": "The 2nd, 09:00"
+    },
+    {
+      "name": "the 3rd",
+      "now": "2026-10-10T10:00:00",
+      "key": "Dom3@0900",
+      "resolvedLocal": "2026-11-03T09:00:00",
+      "text": "The 3rd, 09:00"
+    },
+    {
+      "name": "the 4th",
+      "now": "2026-10-10T10:00:00",
+      "key": "Dom4@0900",
+      "resolvedLocal": "2026-11-04T09:00:00",
+      "text": "The 4th, 09:00"
+    },
+    {
+      "name": "the 11th",
+      "now": "2026-10-01T10:00:00",
+      "key": "Dom11@0900",
+      "resolvedLocal": "2026-10-11T09:00:00",
+      "text": "The 11th, 09:00"
+    },
+    {
+      "name": "the 12th",
+      "now": "2026-10-01T10:00:00",
+      "key": "Dom12@0900",
+      "resolvedLocal": "2026-10-12T09:00:00",
+      "text": "The 12th, 09:00"
+    },
+    {
+      "name": "the 13th",
+      "now": "2026-10-01T10:00:00",
+      "key": "Dom13@0900",
+      "resolvedLocal": "2026-10-13T09:00:00",
+      "text": "The 13th, 09:00"
+    },
+    {
+      "name": "the 21st",
+      "now": "2026-10-01T10:00:00",
+      "key": "Dom21@0900",
+      "resolvedLocal": "2026-10-21T09:00:00",
+      "text": "The 21st, 09:00"
+    },
+    {
+      "name": "the 22nd",
+      "now": "2026-10-01T10:00:00",
+      "key": "Dom22@0900",
+      "resolvedLocal": "2026-10-22T09:00:00",
+      "text": "The 22nd, 09:00"
+    },
+    {
+      "name": "the 23rd",
+      "now": "2026-10-01T10:00:00",
+      "key": "Dom23@0900",
+      "resolvedLocal": "2026-10-23T09:00:00",
+      "text": "The 23rd, 09:00"
+    },
+    {
+      "name": "the 31st",
+      "now": "2026-10-01T10:00:00",
+      "key": "Dom31@2030",
+      "resolvedLocal": "2026-10-31T20:30:00",
+      "text": "The 31st, 20:30"
+    },
+    {
+      "name": "the last day keeps its own words",
+      "now": "2026-10-01T10:00:00",
+      "key": "DomL@0900",
+      "resolvedLocal": "2026-10-31T09:00:00",
+      "text": "End of month, 09:00"
+    },
+    {
+      "name": "two days before the last reads as the date it lands on",
+      "now": "2027-02-01T10:00:00",
+      "key": "DomL2@0900",
+      "resolvedLocal": "2027-02-26T09:00:00",
+      "text": "The 26th, 09:00"
+    },
+    {
+      "name": "a day before the last in a 31-day month",
+      "now": "2026-12-01T10:00:00",
+      "key": "DomL1@0900",
+      "resolvedLocal": "2026-12-30T09:00:00",
+      "text": "The 30th, 09:00"
+    },
+    {
+      "name": "a day of the month landing tomorrow reads tomorrow",
+      "now": "2026-12-09T10:00:00",
+      "key": "Dom10@0900",
+      "resolvedLocal": "2026-12-10T09:00:00",
+      "text": "Tomorrow morning, 09:00"
     }
   ]
 }
