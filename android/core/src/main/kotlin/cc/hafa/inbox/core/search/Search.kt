@@ -319,8 +319,15 @@ fun gmailChip(chip: Chip): Chip {
     }
 }
 
-/** Gmail's `q` for a query's chips and free text: our local chips left out, the rest as [gmailChip] has them. */
-fun gmailQueryText(chips: List<Chip>, free: String): String = queryText(chips.filterNot(::isLocalChip).map(::gmailChip), free)
+/**
+ * Gmail's `q` for a query's chips and free text: our local chips left out, and `-in:inbox` too,
+ * since a snoozed thread stays in Gmail's inbox and the list's filter keeps it; the rest as
+ * [gmailChip] has them.
+ */
+fun gmailQueryText(chips: List<Chip>, free: String): String =
+    queryText(chips.filterNot { isLocalChip(it) || outOfInbox(it) }.map(::gmailChip), free)
+
+private fun outOfInbox(chip: Chip): Boolean = chip.operator == "in" && chip.value.lowercase() == "inbox" && chip.negated
 
 /**
  * Split search field text into chips and free text, aware of the cursor.

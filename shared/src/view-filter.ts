@@ -19,6 +19,8 @@ export type ViewFilter = {
   excludes: readonly string[];
   /** whether snoozed threads show: only them, never, or either */
   snoozed: "only" | "never" | "either";
+  /** whether threads must be in the inbox (INBOX and not snoozed), out of it, or either */
+  inbox: "in" | "out" | "either";
 };
 
 /** A thread as a filter sees it. */
@@ -36,7 +38,6 @@ const HIDDEN = [SPAM, TRASH];
 
 // Search terms that name a system label, as `in:` or `is:` values.
 const SEARCH_LABELS: Readonly<Record<string, string>> = {
-  "in:inbox": INBOX,
   "in:spam": SPAM,
   "in:trash": TRASH,
   "in:sent": "SENT",
@@ -53,8 +54,9 @@ const GROUPING = /[(){}]|\bOR\b|\bAND\b/;
 
 /**
  * The filter of `view`. A search is read from its plain top-level terms that name labels
- * (`in:inbox`, `is:starred` or `is:pinned`, `label:name` through `labelIdOf`, each possibly
- * negated with `-`, and `is:done`, which is `-in:inbox`);
+ * (`is:starred` or `is:pinned`, `label:name` through `labelIdOf`, each possibly negated with `-`,
+ * and `is:done`, which is out of Gmail's inbox), `in:inbox`, which keeps the threads the Inbox
+ * shows (in Gmail's inbox and not snoozed), and `-in:inbox` the others (snoozed ones included);
  * other terms leave it unfiltered on them, and grouping (`OR`, parentheses, braces) leaves only
  * spam and trash out. Spam and trash are left out of every list but their own and a search that
  * asks for them (`in:spam`, `in:trash`, `in:anywhere`).
@@ -65,21 +67,61 @@ export function viewFilter(
 ): ViewFilter {
   switch (view.kind) {
     case "inbox":
-      return { requires: [INBOX], excludes: HIDDEN, snoozed: "never" };
+      return {
+        requires: [INBOX],
+        excludes: HIDDEN,
+        snoozed: "never",
+        inbox: "either",
+      };
     case "snoozed":
-      return { requires: [], excludes: HIDDEN, snoozed: "only" };
+      return {
+        requires: [],
+        excludes: HIDDEN,
+        snoozed: "only",
+        inbox: "either",
+      };
     case "done":
-      return { requires: [], excludes: [INBOX, ...HIDDEN], snoozed: "never" };
+      return {
+        requires: [],
+        excludes: [INBOX, ...HIDDEN],
+        snoozed: "never",
+        inbox: "either",
+      };
     case "sent":
-      return { requires: ["SENT"], excludes: HIDDEN, snoozed: "either" };
+      return {
+        requires: ["SENT"],
+        excludes: HIDDEN,
+        snoozed: "either",
+        inbox: "either",
+      };
     case "drafts":
-      return { requires: ["DRAFT"], excludes: HIDDEN, snoozed: "either" };
+      return {
+        requires: ["DRAFT"],
+        excludes: HIDDEN,
+        snoozed: "either",
+        inbox: "either",
+      };
     case "spam":
-      return { requires: [SPAM], excludes: [], snoozed: "either" };
+      return {
+        requires: [SPAM],
+        excludes: [],
+        snoozed: "either",
+        inbox: "either",
+      };
     case "trash":
-      return { requires: [TRASH], excludes: [], snoozed: "either" };
+      return {
+        requires: [TRASH],
+        excludes: [],
+        snoozed: "either",
+        inbox: "either",
+      };
     case "label":
-      return { requires: [view.labelId], excludes: HIDDEN, snoozed: "either" };
+      return {
+        requires: [view.labelId],
+        excludes: HIDDEN,
+        snoozed: "either",
+        inbox: "either",
+      };
     case "search":
       return searchFilter(view.query, labelIdOf);
   }
@@ -97,12 +139,23 @@ function searchFilter(
   const requires = new Set<string>();
   const excludes = new Set<string>();
   let snoozed: ViewFilter["snoozed"] = "either";
+  let inbox: ViewFilter["inbox"] = "either";
   if (!GROUPING.test(query)) {
     for (const term of terms) {
       const negated = term.startsWith("-");
       const bare = (negated ? term.slice(1) : term).toLowerCase();
       if (bare === "in:snoozed" || bare === "is:snoozed") {
         snoozed = negated ? "never" : "only";
+        continue;
+      }
+      if (bare === "in:inbox") {
+        const wanted = negated ? "out" : "in";
+        if (inbox !== "either" && inbox !== wanted) {
+          // `in:inbox -in:inbox` keeps nothing.
+          requires.add(INBOX);
+          excludes.add(INBOX);
+        }
+        inbox = wanted;
         continue;
       }
       if (bare === "is:done") {
@@ -122,7 +175,7 @@ function searchFilter(
       if (!requires.has(hidden)) excludes.add(hidden);
     }
   }
-  return { requires: [...requires], excludes: [...excludes], snoozed };
+  return { requires: [...requires], excludes: [...excludes], snoozed, inbox };
 }
 
 /** Whether `thread` belongs in a list with `filter`. */
@@ -133,6 +186,10 @@ export function keepsThread(
   const { labelIds, snoozed } = thread;
   if (filter.snoozed === "only" && !snoozed) return false;
   if (filter.snoozed === "never" && snoozed) return false;
+  if (filter.inbox !== "either") {
+    const inInbox = labelIds.includes(INBOX) && !snoozed;
+    if (inInbox !== (filter.inbox === "in")) return false;
+  }
   return (
     filter.requires.every((label) => labelIds.includes(label)) &&
     !filter.excludes.some((label) => labelIds.includes(label))

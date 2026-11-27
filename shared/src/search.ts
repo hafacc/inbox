@@ -384,11 +384,25 @@ export function gmailChip(chip: Chip): Chip {
   }
 }
 
-/** Gmail's `q` for a query's chips and free text: our local chips left out, the rest as {@link gmailChip} has them. */
+/**
+ * Gmail's `q` for a query's chips and free text: our local chips left out, and `-in:inbox` too,
+ * since a snoozed thread stays in Gmail's inbox and the list's filter keeps it; the rest as
+ * {@link gmailChip} has them.
+ */
 export function gmailQueryText(chips: readonly Chip[], free: string): string {
   return queryText(
-    chips.filter((chip) => !isLocalChip(chip)).map(gmailChip),
+    chips
+      .filter((chip) => !isLocalChip(chip) && !outOfInbox(chip))
+      .map(gmailChip),
     free,
+  );
+}
+
+function outOfInbox(chip: Chip): boolean {
+  return (
+    chip.operator === "in" &&
+    chip.value.toLowerCase() === "inbox" &&
+    chip.negated
   );
 }
 

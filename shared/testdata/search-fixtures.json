@@ -11,7 +11,7 @@
     "help": "The search help both apps list: every operator in OPERATORS order, its detail (OPERATOR_DETAILS) and one example (OPERATOR_EXAMPLES); common is COMMON_OPERATORS. own is OWN_TERMS: our own terms and what each lists.",
     "awaitsValue": "awaitsValue(parseQuery(text, cursor).context): true when the context is a value with nothing after the colon, past the cursor too (an operator alone, or only an opening quote). There Enter completes the highlighted suggestion, else the first, else searches without that operator (withoutOperator); elsewhere Enter searches unless a suggestion is highlighted.",
     "withoutOperator": "withoutOperator(free, parseQuery(text, cursor).context): the free text with the operator under the cursor taken out, one space left between the words either side.",
-    "gmailQuery": "gmailQueryText(chips, free): queryText with the local chips left out, is:pinned as is:starred, is:done as -in:inbox and -is:done as in:inbox."
+    "gmailQuery": "gmailQueryText(chips, free): queryText with the local chips and -in:inbox left out, is:pinned as is:starred, is:done as -in:inbox and -is:done as in:inbox."
   },
   "parse": [
     {
@@ -2005,6 +2005,33 @@
       ],
       "free": "",
       "expect": "-is:starred"
+    },
+    {
+      "chips": [
+        {
+          "operator": "in",
+          "value": "Inbox",
+          "negated": true
+        },
+        {
+          "operator": "from",
+          "value": "ana",
+          "negated": false
+        }
+      ],
+      "free": "",
+      "expect": "from:ana"
+    },
+    {
+      "chips": [
+        {
+          "operator": "in",
+          "value": "inbox",
+          "negated": false
+        }
+      ],
+      "free": "milk",
+      "expect": "in:inbox milk"
     }
   ]
 }
