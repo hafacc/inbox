@@ -41,8 +41,8 @@ android {
         applicationId = "cc.hafa.inbox"
         minSdk = 34
         targetSdk = 36
-        versionCode = 4
-        versionName = "0.1.3"
+        versionCode = 5
+        versionName = "0.1.4"
     }
 
     // storeFile, storePassword, keyAlias and keyPassword come from android/keystore.properties

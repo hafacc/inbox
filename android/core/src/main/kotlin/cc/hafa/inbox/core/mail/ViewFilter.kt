@@ -59,6 +59,18 @@ enum class SnoozedRule {
     EITHER,
 }
 
+/** Whether a list's threads must be in the inbox, as the Inbox shows it. */
+enum class InboxRule {
+    /** in Gmail's inbox and not snoozed */
+    IN,
+
+    /** out of Gmail's inbox, or snoozed */
+    OUT,
+
+    /** in or out */
+    EITHER,
+}
+
 /** What a list's threads must and mustn't carry. */
 data class ViewFilter(
     /** labels a thread must carry */
@@ -67,6 +79,8 @@ data class ViewFilter(
     val excludes: List<String>,
     /** whether snoozed threads show */
     val snoozed: SnoozedRule,
+    /** whether threads must be in the inbox */
+    val inbox: InboxRule = InboxRule.EITHER,
 )
 
 /** A thread as a filter sees it. */
@@ -98,7 +112,6 @@ private val HIDDEN = listOf(Labels.SPAM, Labels.TRASH)
 
 // Search terms that name a system label, as `in:` or `is:` values.
 private val SEARCH_LABELS = mapOf(
-    "in:inbox" to Labels.INBOX,
     "in:spam" to Labels.SPAM,
     "in:trash" to Labels.TRASH,
     "in:sent" to Labels.SENT,
@@ -115,8 +128,9 @@ private val GROUPING = Regex("""[(){}]|\bOR\b|\bAND\b""")
 
 /**
  * The filter of [view]. A search is read from its plain top-level terms that name labels
- * (`in:inbox`, `is:starred` or `is:pinned`, `label:name` through [labelIdOf], each possibly
- * negated with `-`, and `is:done`, which is `-in:inbox`);
+ * (`is:starred` or `is:pinned`, `label:name` through [labelIdOf], each possibly negated with `-`,
+ * and `is:done`, which is out of Gmail's inbox), `in:inbox`, which keeps the threads the Inbox
+ * shows (in Gmail's inbox and not snoozed), and `-in:inbox` the others (snoozed ones included);
  * other terms leave it unfiltered on them, and grouping (`OR`, parentheses, braces) leaves only
  * spam and trash out. Spam and trash are left out of every list but their own and a search that
  * asks for them (`in:spam`, `in:trash`, `in:anywhere`).
@@ -141,12 +155,23 @@ private fun searchFilter(query: String, labelIdOf: (String) -> String?): ViewFil
     val requires = linkedSetOf<String>()
     val excludes = linkedSetOf<String>()
     var snoozed = SnoozedRule.EITHER
+    var inbox = InboxRule.EITHER
     if (!GROUPING.containsMatchIn(query)) {
         for (term in terms) {
             val negated = term.startsWith("-")
             val bare = (if (negated) term.drop(1) else term).lowercase()
             if (bare == "in:snoozed" || bare == "is:snoozed") {
                 snoozed = if (negated) SnoozedRule.NEVER else SnoozedRule.ONLY
+                continue
+            }
+            if (bare == "in:inbox") {
+                val wanted = if (negated) InboxRule.OUT else InboxRule.IN
+                if (inbox != InboxRule.EITHER && inbox != wanted) {
+                    // `in:inbox -in:inbox` keeps nothing.
+                    requires += Labels.INBOX
+                    excludes += Labels.INBOX
+                }
+                inbox = wanted
                 continue
             }
             if (bare == "is:done") {
@@ -163,7 +188,7 @@ private fun searchFilter(query: String, labelIdOf: (String) -> String?): ViewFil
             if (hidden !in requires) excludes += hidden
         }
     }
-    return ViewFilter(requires.toList(), excludes.toList(), snoozed)
+    return ViewFilter(requires.toList(), excludes.toList(), snoozed, inbox)
 }
 
 /** Whether [thread] belongs in a list with [filter]. */
@@ -171,6 +196,10 @@ fun keepsThread(filter: ViewFilter, thread: FilteredThread): Boolean {
     val (labelIds, snoozed) = thread
     if (filter.snoozed == SnoozedRule.ONLY && !snoozed) return false
     if (filter.snoozed == SnoozedRule.NEVER && snoozed) return false
+    if (filter.inbox != InboxRule.EITHER) {
+        val inInbox = Labels.INBOX in labelIds && !snoozed
+        if (inInbox != (filter.inbox == InboxRule.IN)) return false
+    }
     return filter.requires.all { it in labelIds } && filter.excludes.none { it in labelIds }
 }
 

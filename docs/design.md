@@ -762,10 +762,12 @@ On the web, with Show todos on:
 - **Search** lists matching todos (text with markers removed) among the threads, with no heading
   or count of their own;
   `is:todo` shows only todos, `-is:todo` none, `label:` those whose tags name the label (above).
-  The terms that describe inbox state hold for todos too: `in:inbox` keeps those not done (snoozed
-  ones too, as a snoozed email stays in Gmail's inbox), `is:done` the done ones, `is:snoozed` the
+  The terms that describe inbox state hold for todos too: `in:inbox` keeps those neither done nor
+  snoozed, `is:done` the done ones, `is:snoozed` the
   snoozed ones, `is:pinned` (or `is:starred`) the pinned ones, each negated the others; any other
-  mail operator leaves todos out. An email whose todo's text matches (words, tags, `label:`) is
+  mail operator leaves todos out. Emails follow the same rule: `in:inbox` lists what the Inbox
+  shows (in Gmail's inbox and not snoozed), `-in:inbox` the rest, snoozed threads still in Gmail's
+  inbox included, so `in:inbox is:snoozed` lists nothing and `-in:inbox is:snoozed` the snoozed. An email whose todo's text matches (words, tags, `label:`) is
   listed among the threads, read from the cache or Gmail when the search didn't bring it
   (`searchEmailTodos`, the `emailTodos` cases of `search-scope-fixtures.json`), and those terms
   are held to the email's own state by the search's filter, as for any thread; `is:todo` lists
@@ -1096,7 +1098,9 @@ Online: Gmail's `q` syntax from the client. Offline: plain-text search over the 
   `subject:`, `filename:`, `after:`, `before:`, `older_than:`, `newer_than:`, plus our own
   `is:snoozed`, `is:todo`, `is:pinned`, `is:done` and `in:outbox`) and turns each finished one into a
   chip in the field. `is:pinned` goes to Gmail as `is:starred`, and `is:done` (anything archived:
-  mail out of the inbox, and done todos) as `-in:inbox` (`gmailQueryText`). With todos shown, a
+  mail out of the inbox, and done todos) as `-in:inbox` (`gmailQueryText`); `-in:inbox` itself
+  doesn't go to Gmail, which keeps snoozed threads in its inbox, and the list's filter (`viewFilter`)
+  holds it, as it does `in:inbox`. With todos shown, a
   finished `#tag` turns into a chip too, drawn like a todo's tag (in its label's color when it names
   one). A `#name` naming a user label (by `tagKey`, any case) searches exactly as that label's
   `label:` term does: its mail and the todos tagged with it, with the rest of the query as before

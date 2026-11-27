@@ -236,6 +236,144 @@
       "expect": false
     },
     {
+      "name": "a search with in:inbox drops a snoozed thread, as the inbox does",
+      "view": {
+        "kind": "search",
+        "query": "in:inbox"
+      },
+      "thread": {
+        "labelIds": [
+          "INBOX"
+        ],
+        "snoozed": true
+      },
+      "expect": false
+    },
+    {
+      "name": "a search with -in:inbox keeps a snoozed thread still in Gmail's inbox",
+      "view": {
+        "kind": "search",
+        "query": "-in:inbox"
+      },
+      "thread": {
+        "labelIds": [
+          "INBOX"
+        ],
+        "snoozed": true
+      },
+      "expect": true
+    },
+    {
+      "name": "a search with -in:inbox keeps a done thread",
+      "view": {
+        "kind": "search",
+        "query": "-in:inbox"
+      },
+      "thread": {
+        "labelIds": [],
+        "snoozed": false
+      },
+      "expect": true
+    },
+    {
+      "name": "in:inbox and is:snoozed together keep no snoozed thread",
+      "view": {
+        "kind": "search",
+        "query": "in:inbox is:snoozed"
+      },
+      "thread": {
+        "labelIds": [
+          "INBOX"
+        ],
+        "snoozed": true
+      },
+      "expect": false
+    },
+    {
+      "name": "-in:inbox and is:snoozed together keep a snoozed thread",
+      "view": {
+        "kind": "search",
+        "query": "-in:inbox is:snoozed"
+      },
+      "thread": {
+        "labelIds": [
+          "INBOX"
+        ],
+        "snoozed": true
+      },
+      "expect": true
+    },
+    {
+      "name": "-in:inbox and -is:snoozed together drop a snoozed thread",
+      "view": {
+        "kind": "search",
+        "query": "-in:inbox -is:snoozed"
+      },
+      "thread": {
+        "labelIds": [
+          "INBOX"
+        ],
+        "snoozed": true
+      },
+      "expect": false
+    },
+    {
+      "name": "-in:inbox and -is:snoozed together keep a done thread",
+      "view": {
+        "kind": "search",
+        "query": "-in:inbox -is:snoozed"
+      },
+      "thread": {
+        "labelIds": [],
+        "snoozed": false
+      },
+      "expect": true
+    },
+    {
+      "name": "in:inbox and -in:inbox together keep nothing",
+      "view": {
+        "kind": "search",
+        "query": "in:inbox -in:inbox"
+      },
+      "thread": {
+        "labelIds": [
+          "INBOX"
+        ],
+        "snoozed": false
+      },
+      "expect": false
+    },
+    {
+      "name": "in:inbox and a label hold together",
+      "view": {
+        "kind": "search",
+        "query": "in:inbox label:receipts"
+      },
+      "thread": {
+        "labelIds": [
+          "INBOX",
+          "Label_7"
+        ],
+        "snoozed": false
+      },
+      "expect": true
+    },
+    {
+      "name": "in:inbox and a label drop a snoozed thread with the label",
+      "view": {
+        "kind": "search",
+        "query": "in:inbox label:receipts"
+      },
+      "thread": {
+        "labelIds": [
+          "INBOX",
+          "Label_7"
+        ],
+        "snoozed": true
+      },
+      "expect": false
+    },
+    {
       "name": "a search for is:starred drops an unpinned thread",
       "view": {
         "kind": "search",
@@ -384,6 +522,34 @@
         "snoozed": false
       },
       "expect": false
+    },
+    {
+      "name": "a search with is:done drops a snoozed thread, which isn't done",
+      "view": {
+        "kind": "search",
+        "query": "is:done"
+      },
+      "thread": {
+        "labelIds": [
+          "INBOX"
+        ],
+        "snoozed": true
+      },
+      "expect": false
+    },
+    {
+      "name": "a search with -is:done keeps a snoozed thread",
+      "view": {
+        "kind": "search",
+        "query": "-is:done"
+      },
+      "thread": {
+        "labelIds": [
+          "INBOX"
+        ],
+        "snoozed": true
+      },
+      "expect": true
     },
     {
       "name": "a search with is:pinned drops an unpinned thread",

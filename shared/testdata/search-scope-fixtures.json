@@ -1,5 +1,5 @@
 {
-  "_doc": "What a search lists (shared/src/search-scope.ts, Android :core SearchScope.kt). `tags`: searchTagTerms(query, labelTags(labels)), the query as it runs, with each `#name` naming a user label written as that label's `label:` term; any other `#name` stays a todo tag. `scope`: searchScope(query), the query as it runs: Gmail's query (null when Gmail lists no mail for it), whether spam and trash are asked for, which todos show (none, all, snoozed) and whether only snoozed threads show; `is:pinned` and `is:done` reach Gmail as `is:starred` and `-in:inbox`. `todos`: searchTodos(todos, query, now, labels), which runs the query as `tags` does, the ids in order; every todo is `base` with the listed fields replaced; times are epoch milliseconds, local times read in `zone`; `labels` are the account's labels, which `label:` reads against todos' tags (labelTags). `in:inbox` keeps todos not done, `is:done` the done ones, `is:pinned`/`is:starred` the pinned ones, `is:snoozed` the snoozed ones; each negated keeps the others. `emailTodos`: searchEmailTodos(todos, query, labels), which runs it the same way, the thread ids of the emails listed for their todo's text, in order; each todo is {threadId, text}. Whether the email is in the inbox, snoozed, pinned or done is the email's own, held to it by the list's filter, so those terms, negated or not, drop none here; a mail operator lists none.",
+  "_doc": "What a search lists (shared/src/search-scope.ts, Android :core SearchScope.kt). `tags`: searchTagTerms(query, labelTags(labels)), the query as it runs, with each `#name` naming a user label written as that label's `label:` term; any other `#name` stays a todo tag. `scope`: searchScope(query), the query as it runs: Gmail's query (null when Gmail lists no mail for it), whether spam and trash are asked for, which todos show (none, all, snoozed) and whether only snoozed threads show; `is:pinned` and `is:done` reach Gmail as `is:starred` and `-in:inbox`; `-in:inbox` itself doesn't reach Gmail, since a snoozed thread keeps Gmail's inbox and the list's filter keeps it. `todos`: searchTodos(todos, query, now, labels), which runs the query as `tags` does, the ids in order; every todo is `base` with the listed fields replaced; times are epoch milliseconds, local times read in `zone`; `labels` are the account's labels, which `label:` reads against todos' tags (labelTags). `in:inbox` keeps todos neither done nor snoozed, `is:done` the done ones, `is:pinned`/`is:starred` the pinned ones, `is:snoozed` the snoozed ones; each negated keeps the others. `emailTodos`: searchEmailTodos(todos, query, labels), which runs it the same way, the thread ids of the emails listed for their todo's text, in order; each todo is {threadId, text}. Whether the email is in the inbox, snoozed, pinned or done is the email's own, held to it by the list's filter, so those terms, negated or not, drop none here; a mail operator lists none.",
   "zone": "America/New_York",
   "labels": [
     {"id": "L1", "name": "Read Later", "type": "user"},
@@ -20,13 +20,13 @@
     { "name": "label: keeps todos", "query": "label:read-later", "expect": { "gmailQuery": "label:read-later", "includeSpamTrash": false, "todos": "all", "snoozedOnly": false } },
     { "name": "label: with a mail operator leaves todos out", "query": "label:read-later from:ana", "expect": { "gmailQuery": "label:read-later from:ana", "includeSpamTrash": false, "todos": "none", "snoozedOnly": false } },
     { "name": "in:inbox keeps todos", "query": "in:inbox", "expect": { "gmailQuery": "in:inbox", "includeSpamTrash": false, "todos": "all", "snoozedOnly": false } },
-    { "name": "-in:inbox keeps todos", "query": "-in:inbox milk", "expect": { "gmailQuery": "-in:inbox milk", "includeSpamTrash": false, "todos": "all", "snoozedOnly": false } },
+    { "name": "-in:inbox keeps todos and asks Gmail for all mail, snoozed threads still in its inbox included", "query": "-in:inbox milk", "expect": { "gmailQuery": "milk", "includeSpamTrash": false, "todos": "all", "snoozedOnly": false } },
     { "name": "is:done asks Gmail for mail out of the inbox and keeps todos", "query": "is:done", "expect": { "gmailQuery": "-in:inbox", "includeSpamTrash": false, "todos": "all", "snoozedOnly": false } },
     { "name": "-is:done asks Gmail for the inbox", "query": "-is:done milk", "expect": { "gmailQuery": "in:inbox milk", "includeSpamTrash": false, "todos": "all", "snoozedOnly": false } },
     { "name": "is:pinned asks Gmail for starred mail and keeps todos", "query": "is:pinned", "expect": { "gmailQuery": "is:starred", "includeSpamTrash": false, "todos": "all", "snoozedOnly": false } },
     { "name": "is:starred keeps todos", "query": "is:starred", "expect": { "gmailQuery": "is:starred", "includeSpamTrash": false, "todos": "all", "snoozedOnly": false } },
     { "name": "-is:snoozed keeps todos", "query": "-is:snoozed milk", "expect": { "gmailQuery": "milk", "includeSpamTrash": false, "todos": "all", "snoozedOnly": false } },
-    { "name": "is:snoozed in:inbox keeps the snoozed todos", "query": "is:snoozed in:inbox", "expect": { "gmailQuery": "in:inbox", "includeSpamTrash": false, "todos": "snoozed", "snoozedOnly": true } },
+    { "name": "is:snoozed in:inbox asks Gmail for the inbox", "query": "is:snoozed in:inbox", "expect": { "gmailQuery": "in:inbox", "includeSpamTrash": false, "todos": "snoozed", "snoozedOnly": true } },
     { "name": "is:done with a mail operator leaves todos out", "query": "is:done from:ana", "expect": { "gmailQuery": "-in:inbox from:ana", "includeSpamTrash": false, "todos": "none", "snoozedOnly": false } },
     { "name": "is:unread leaves todos out", "query": "is:unread", "expect": { "gmailQuery": "is:unread", "includeSpamTrash": false, "todos": "none", "snoozedOnly": false } },
     { "name": "in:outbox alone lists no Gmail mail", "query": "in:outbox", "expect": { "gmailQuery": null, "includeSpamTrash": false, "todos": "none", "snoozedOnly": false } },
@@ -79,15 +79,48 @@
       "ids": ["new", "done", "old"]
     },
     {
-      "name": "in:inbox lists the todos not done, snoozed ones too",
+      "name": "in:inbox lists the todos neither done nor snoozed",
       "query": "in:inbox",
+      "now": 1794492000000,
+      "todos": [
+        { "id": "active", "modifiedAt": 1794480000000 },
+        { "id": "snoozed", "snoozeUntil": "2026-11-20T08:00:00", "modifiedAt": 1794470000000 },
+        { "id": "woke", "snoozeUntil": "2026-11-12T07:00:00", "modifiedAt": 1794465000000 },
+        { "id": "done", "state": "DONE", "modifiedAt": 1794460000000 }
+      ],
+      "ids": ["active", "woke"]
+    },
+    {
+      "name": "-in:inbox lists the done and the snoozed todos",
+      "query": "-in:inbox",
       "now": 1794492000000,
       "todos": [
         { "id": "active", "modifiedAt": 1794480000000 },
         { "id": "snoozed", "snoozeUntil": "2026-11-20T08:00:00", "modifiedAt": 1794470000000 },
         { "id": "done", "state": "DONE", "modifiedAt": 1794460000000 }
       ],
-      "ids": ["active", "snoozed"]
+      "ids": ["snoozed", "done"]
+    },
+    {
+      "name": "in:inbox with is:snoozed lists no todos",
+      "query": "in:inbox is:snoozed",
+      "now": 1794492000000,
+      "todos": [
+        { "id": "active", "modifiedAt": 1794480000000 },
+        { "id": "snoozed", "snoozeUntil": "2026-11-20T08:00:00", "modifiedAt": 1794470000000 }
+      ],
+      "ids": []
+    },
+    {
+      "name": "-in:inbox with is:snoozed lists the snoozed todos",
+      "query": "-in:inbox is:snoozed",
+      "now": 1794492000000,
+      "todos": [
+        { "id": "active", "modifiedAt": 1794480000000 },
+        { "id": "snoozed", "snoozeUntil": "2026-11-20T08:00:00", "modifiedAt": 1794470000000 },
+        { "id": "done", "state": "DONE", "modifiedAt": 1794460000000 }
+      ],
+      "ids": ["snoozed"]
     },
     {
       "name": "is:done lists the done todos",

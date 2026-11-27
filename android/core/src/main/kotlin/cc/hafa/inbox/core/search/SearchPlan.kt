@@ -142,7 +142,12 @@ private suspend fun chipHolds(
         "to", "cc", "bcc", "deliveredto" -> saved()?.let { value in it.recipients }
         "subject" -> value in thread.subject.lowercase()
         "label" -> labelNames.entries.firstOrNull { labelQueryValue(it.value) == value }?.let { it.key in labels } ?: false
-        "in" -> if (value == "anywhere") true else IN_LABELS[value]?.let { it in labels }
+        "in" -> when {
+            value == "anywhere" -> true
+            // A snoozed thread is out of the inbox though it keeps INBOX; the list's filter knows.
+            value == "inbox" && chip.negated -> null
+            else -> IN_LABELS[value]?.let { it in labels }
+        }
         "is" -> when (value) {
             "unread" -> thread.unread
             "read" -> !thread.unread
