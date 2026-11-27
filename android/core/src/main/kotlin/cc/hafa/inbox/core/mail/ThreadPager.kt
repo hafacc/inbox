@@ -20,6 +20,9 @@ const val PAGE_FLING_DISTANCE = 30f
 /** How much of the finger's travel the thread follows toward a side with no thread. */
 const val PAGE_RESISTANCE = 0.3f
 
+/** How opaque a thread is a whole screen's width from where it rests open, while a swipe moves it. */
+const val PAGE_FAR_OPACITY = 0.5f
+
 /** Where a swipe goes: the thread below the open one, or the one above. */
 enum class PageStep {
     /** the thread below */
@@ -47,6 +50,15 @@ fun pageOffset(dx: Float, hasPrevious: Boolean, hasNext: Boolean): Float {
         null -> true
     }
     return if (open) dx else dx * PAGE_RESISTANCE
+}
+
+/**
+ * How opaque a thread is [distance] from where it rests open (either way) on a screen [width] wide:
+ * whole there, fading evenly to [PAGE_FAR_OPACITY] a whole width away and beyond.
+ */
+fun pageOpacity(distance: Float, width: Float): Float {
+    val away = if (width > 0f) minOf(1f, abs(distance) / width) else 0f
+    return 1f - (1f - PAGE_FAR_OPACITY) * away
 }
 
 /**

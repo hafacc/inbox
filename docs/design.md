@@ -603,7 +603,10 @@ except where the list says.
   leaves out invites and attachments, and marks nothing read. On the web a neighbor is light text
   (each message it would show expanded as its sender and plain text) until a swipe toward it
   starts, when its messages are drawn in full, and stay so while it is the neighbor; so the open
-  thread never carries its neighbors' message frames while nothing slides. Let go past 28% of the width, or flung its own way at 600 px (dp) per second once
+  thread never carries its neighbors' message frames while nothing slides. As they slide, the
+  thread going fades evenly to half its opacity a whole width away and the one coming in from half
+  to whole, following where each is through the drag and as it settles (`pageOpacity`). Let go
+  past 28% of the width, or flung its own way at 600 px (dp) per second once
   past 30, the swipe opens the neighbor as a tap on its row would (focus and the list's place
   follow; it is marked read), with nothing growing or shrinking; short of that, or toward a side
   with no thread (where the drag follows the finger a third as far), it springs back

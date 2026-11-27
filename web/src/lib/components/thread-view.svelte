@@ -11,6 +11,7 @@
   import {
     type PageStep,
     pageOffset,
+    pageOpacity,
     pageStarts,
     pageStep,
   } from "@inbox/shared/thread-pager";
@@ -712,10 +713,15 @@
       style:transform={shift === 0 && page === 0
         ? undefined
         : `translate(${page}px, ${shift}px)`}
+      style:opacity={page === 0
+        ? undefined
+        : pageOpacity(page, innerWidth.current ?? 0)}
       class={[
         "relative bg-surface scroll-mt-20 rounded-[20px] shadow-raised max-sm:min-h-full max-sm:bg-transparent max-sm:rounded-none max-sm:shadow-none max-sm:pb-[calc(var(--thread-corner)+56px)] max-sm:[--thread-corner:calc(5.5rem+var(--safe-bottom))]",
         menuOpen && "z-20",
-        !dragging && !paging && "transition-transform duration-200 ease-out",
+        !dragging &&
+          !paging &&
+          "transition-[transform,opacity] duration-200 ease-out",
       ]}
     >
       {#if pull !== 0}
@@ -828,9 +834,15 @@
                   aria-hidden="true"
                   inert
                   style:transform={`translateX(${neighbor.side * ((innerWidth.current ?? 0) + PAGE_GAP) + page}px)`}
+                  style:opacity={pageOpacity(
+                    neighbor.side * ((innerWidth.current ?? 0) + PAGE_GAP) +
+                      page,
+                    innerWidth.current ?? 0,
+                  )}
                   class={[
                     "fixed z-[16] left-0 w-screen top-0 bottom-0 pt-safe pl-safe pr-safe overflow-hidden pointer-events-none bg-bg",
-                    !paging && "transition-transform duration-200 ease-out",
+                    !paging &&
+                      "transition-[transform,opacity] duration-200 ease-out",
                   ]}
                 >
                   {#key neighbor.row.thread.id}
