@@ -4,7 +4,7 @@ import {
   type LocalDraftState,
   type LocalThreadDraft,
 } from "@inbox/shared/thread-drafts";
-import type { ComposeSnapshot } from "./compose-model";
+import { type ComposeSnapshot, isBlank } from "./compose-model";
 import type { PendingDelete } from "./composer-store";
 
 /** A draft this device holds, as its thread shows it. */
@@ -79,4 +79,50 @@ export function unsyncedDrafts(
     if (draft.state === "deleted") waiting.add(draft.localId);
   }
   return waiting.size;
+}
+
+/**
+ * Whether putting a composer away throws it away rather than keeping it as a draft: it is blank and
+ * Gmail has no draft of it (`draftId`), so a save of it still queued or under way goes with it.
+ */
+export function closeThrowsAway(
+  snapshot: ComposeSnapshot,
+  draftId: string | null,
+): boolean {
+  return isBlank(snapshot) && draftId === null;
+}
+
+/**
+ * The kept composers with nothing worth keeping, to forget when read: blank, never saved to Gmail,
+ * with no save queued (`queued`) and not open anywhere (`open`).
+ */
+export function emptyComposers(
+  kept: Iterable<[string, ComposeSnapshot]>,
+  queued: (localId: string) => boolean,
+  open: (localId: string) => boolean,
+): string[] {
+  return [...kept].flatMap(([localId, snapshot]) =>
+    closeThrowsAway(snapshot, snapshot.draftId) &&
+    !queued(localId) &&
+    !open(localId)
+      ? [localId]
+      : [],
+  );
+}
+
+/**
+ * Every distinct composer of `localId` among `composers` (the one on screen, parked, put away
+ * behind a pill), so Gmail's ids for its draft reach each one.
+ */
+export function composersOf<Held extends { localId: string }>(
+  localId: string,
+  composers: Iterable<Held | null>,
+): Held[] {
+  const found: Held[] = [];
+  for (const composer of composers) {
+    if (composer?.localId === localId && !found.includes(composer)) {
+      found.push(composer);
+    }
+  }
+  return found;
 }

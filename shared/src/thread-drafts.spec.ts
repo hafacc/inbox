@@ -4,6 +4,9 @@ import {
   draftSnippet,
   draftsOpening,
   type GmailThreadMessage,
+  type HeldDraftState,
+  type HeldDraftsInput,
+  heldDraftStates,
   type LocalThreadDraft,
   type ThreadEntry,
   threadEntries,
@@ -26,6 +29,7 @@ type Fixtures = {
     openAfter: string | null;
     expect: string | null;
   }[];
+  held: (HeldDraftsInput & { name: string; expect: HeldDraftState[] })[];
 };
 
 const fixtures: Fixtures = JSON.parse(
@@ -68,6 +72,14 @@ describe("draftsOpening", () => {
           fixture.openAfter,
         ),
       ).toBe(fixture.expect);
+    });
+  }
+});
+
+describe("heldDraftStates (must match Android)", () => {
+  for (const { name, expect: expected, ...input } of fixtures.held) {
+    test(name, () => {
+      expect(heldDraftStates(input)).toEqual(expected);
     });
   }
 });

@@ -1512,7 +1512,21 @@ and shown notifications, and cancels the snooze alarm (sign-out first removes th
   Gmail yet (written offline, or not saved there yet) has a row of its own in a card at the top of
   Drafts, "Not in Gmail yet", newest first: "To" its recipients, its subject and first words; a tap opens it in the composer. Once Gmail has it, its thread's row takes
   over. These rows aren't part of the list's keyboard focus, and the list's empty text doesn't
-  show while there are any.
+  show while there are any. They come only from what the device keeps of its composers (web:
+  IndexedDB `composers`; Android: the Room `drafts` table), with what it is doing to them laid
+  over: one thrown away here (its undo still open, or its delete in Gmail not done) or being
+  sent shows as such, and with no record left it is never listed as a draft
+  (`heldDraftStates` in `shared/src/thread-drafts.ts`, fixtures `held` in
+  `shared/testdata/thread-draft-fixtures.json`). While nothing may be written (encrypted mail not
+  unlocked on this device), the record is kept in memory for the session, as on Android, so it is
+  listed and opens until the app closes. Closing a blank message that Gmail has no draft of
+  throws it away, a save of it still queued or under way with it (a draft that save makes in
+  Gmail is deleted once it lands); a blank record with no Gmail draft and no queued save left
+  from before is forgotten when the device reads its records. Gmail's ids for a saved draft
+  reach every composer holding it, one put away behind "Saved to Drafts" or a discard's undo
+  too, so reopening it never makes a second Gmail draft. On the web, a row whose record and Gmail
+  draft are both gone (another tab threw it away, say) leaves the list on a tap, saying "This draft is gone"; one sealed while this device
+  can't open it says "Unlock encrypted mail to open this draft."
   A draft the device knows went is one an outbox doc said was `sent`; the device keeps that record
   (by its draft and message) until the saved copy no longer holds the message as a draft, so the
   draft doesn't come back once the doc is deleted while the device is offline and hasn't synced.

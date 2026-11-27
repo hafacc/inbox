@@ -132,3 +132,55 @@ export function draftsOpening(
     ? openAfter
     : null;
 }
+
+/** What the device knows of its drafts, for `heldDraftStates`. */
+export type HeldDraftsInput = {
+  /** drafts the device keeps a record of, with whether the record is a delete waiting for Gmail */
+  kept: readonly { localId: string; deleted: boolean }[];
+  /** drafts thrown away here: in their undo window, or their delete in Gmail not done */
+  thrown: readonly string[];
+  /** drafts being sent from here, until Gmail shows the sent message */
+  sending: readonly string[];
+};
+
+/** A draft the device holds, as `heldDraftStates` gives it. */
+export type HeldDraftState = {
+  /** the draft's id on this device */
+  localId: string;
+  /** where it stands */
+  state: LocalDraftState;
+  /** whether the device keeps a record of it (else only this session's memory knows it) */
+  kept: boolean;
+};
+
+/**
+ * The drafts this device holds and where each stands. Every kept record is one: deleted when it
+ * is a delete or was thrown away here, else sending when it is being sent, else a draft. A draft
+ * with no record is held only while thrown away (deleted) or sending, so it is never a draft:
+ * only a draft whose record the device still keeps can be listed and opened. Kept records come
+ * first in their order, then the rest, thrown away before sending, each once.
+ */
+export function heldDraftStates(input: HeldDraftsInput): HeldDraftState[] {
+  const thrown = new Set(input.thrown);
+  const sending = new Set(input.sending);
+  const seen = new Set<string>();
+  const held: HeldDraftState[] = [];
+  for (const record of input.kept) {
+    if (seen.has(record.localId)) continue;
+    seen.add(record.localId);
+    const state: LocalDraftState =
+      record.deleted || thrown.has(record.localId)
+        ? "deleted"
+        : sending.has(record.localId)
+          ? "sending"
+          : "draft";
+    held.push({ localId: record.localId, state, kept: true });
+  }
+  for (const localId of [...input.thrown, ...input.sending]) {
+    if (seen.has(localId)) continue;
+    seen.add(localId);
+    const state = thrown.has(localId) ? "deleted" : "sending";
+    held.push({ localId, state, kept: false });
+  }
+  return held;
+}
