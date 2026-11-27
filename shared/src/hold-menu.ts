@@ -135,7 +135,7 @@ export const ROW_ARC = 120;
  * {@link ROW_ARC} equally, the first before the second counterclockwise. It opens straight up (two
  * slots: up and left, up and right); right and down near the top; turned 45° right near the left
  * edge, at the bottom too; near the right edge it opens leftward instead, mirrored. A null slot
- * leaves its place empty (a done todo has no Pin).
+ * leaves its place empty.
  */
 export function rowHoldWedges<Id extends string>(
   slots: readonly (Id | null)[],

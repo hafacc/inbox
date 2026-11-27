@@ -228,6 +228,24 @@ export function bundleSweepIds(
 }
 
 /**
+ * Whether a bundle's Pin all is Unpin all: it shows at least one thread or todo, every one of
+ * `shown` (its loaded threads) and of its todos (`todosPinned`, each todo's pinned) is pinned, and
+ * Gmail has no more of the label's (`more`). Unpin all unpins every one of them.
+ */
+export function bundleUnpinsAll(
+  shown: readonly SweptThread[],
+  todosPinned: readonly boolean[],
+  more: boolean,
+): boolean {
+  return (
+    !more &&
+    shown.length + todosPinned.length > 0 &&
+    shown.every((thread) => thread.pinned) &&
+    todosPinned.every((pinned) => pinned)
+  );
+}
+
+/**
  * The bundle labels a page of history touched: a message carrying the label was added, deleted or
  * relabeled, or the label itself was added or removed. Their first page is fetched again; the
  * rest stay as they are.

@@ -1,6 +1,7 @@
 {
   "_doc": {
     "about": "Inbox bundles' own Gmail lists, run by shared/src/bundles.spec.ts and Android :core (BundlesFixturesTest).",
+    "unpinAll": "bundleUnpinsAll(shown, todosPinned, more): whether Pin all is Unpin all: at least one thread or todo, every shown thread ({id, pinned}) and todo (each its pinned) pinned, and Gmail has no more (more).",
     "sweep": "bundleSweepIds(shown, listed, pinned): what Done all or a swipe on a bundle acts on: shown ({id, pinned}, its loaded threads) but pinned ones, then listed (the label's inbox ids Gmail listed, when it has more) but those in pinned, each once.",
     "ids": "inboxThreadIds(inboxIds, bundles, labels): the inbox's own ids, then each bundle list's ids that still carry its label, each once.",
     "fetch": "bundlesToFetch(bundleLabels, inboxLabels, fetched, remembered): bundle labels not fetched yet that a thread of the inbox's own list carries or that are remembered from last session, in bundleLabels order.",
@@ -211,5 +212,14 @@
     { "name": "a pinned one stays", "shown": [{ "id": "a", "pinned": true }, { "id": "b", "pinned": false }], "listed": [], "pinned": [], "expect": ["b"] },
     { "name": "Gmail has more", "shown": [{ "id": "a", "pinned": false }, { "id": "b", "pinned": false }], "listed": ["a", "b", "c", "d", "e"], "pinned": ["d"], "expect": ["a", "b", "c", "e"] },
     { "name": "the listing failed", "shown": [{ "id": "a", "pinned": false }], "listed": [], "pinned": [], "expect": ["a"] }
+  ],
+  "unpinAll": [
+    { "name": "an unpinned thread: Pin all", "shown": [{ "id": "a", "pinned": true }, { "id": "b", "pinned": false }], "todosPinned": [], "more": false, "expect": false },
+    { "name": "every thread pinned: Unpin all", "shown": [{ "id": "a", "pinned": true }, { "id": "b", "pinned": true }], "todosPinned": [], "more": false, "expect": true },
+    { "name": "every thread and todo pinned: Unpin all", "shown": [{ "id": "a", "pinned": true }], "todosPinned": [true, true], "more": false, "expect": true },
+    { "name": "an unpinned todo: Pin all", "shown": [{ "id": "a", "pinned": true }], "todosPinned": [true, false], "more": false, "expect": false },
+    { "name": "only pinned todos: Unpin all", "shown": [], "todosPinned": [true], "more": false, "expect": true },
+    { "name": "Gmail has more: Pin all", "shown": [{ "id": "a", "pinned": true }], "todosPinned": [], "more": true, "expect": false },
+    { "name": "empty: Pin all", "shown": [], "todosPinned": [], "more": false, "expect": false }
   ]
 }

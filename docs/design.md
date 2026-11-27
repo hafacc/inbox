@@ -436,7 +436,9 @@ except where the list says.
   `core/menu/HoldMenu.kt`; fixtures in `shared/testdata/hold-menu-fixtures.json`): wedges on one or two
   rings, the danger color for destructive ones and Done's green for Done when lit, the 30% scrim, the
   grow-in, the finger's ring, a haptic tick as the finger enters a wedge, and a pill naming the wedge under
-  the finger. A finger up to 28 past the outermost wedge at its angle still counts for it.
+  the finger. A finger up to 28 past the outermost wedge at its angle still counts for it. Not spam is
+  a shield with a check on both platforms, apart from Report spam's octagon, and Move to inbox an
+  inbox tray, out of the trash as well.
 - **The view's name.** On a phone (Android, and the web at phone width, the only place the top bar
   names the view) the top bar holds the menu button, which opens the side menu, then the view's name.
   A tap on the name glides the list back to its top (at once with reduced motion or animations off).
@@ -485,14 +487,17 @@ except where the list says.
   its name in the pill: Pin all
   and Delete all, acting on every thread and todo Done all takes (those shown and the rest Gmail
   lists, with one undo that covers those listed later): Pin all pins them, so they leave the bundle
-  for the inbox, and Delete all moves the threads to the trash and deletes the todos. The bundle's swipes stay Done all and Snooze all. Sliding,
+  for the inbox, and Delete all moves the threads to the trash and deletes the todos. When every
+  thread and todo it shows is pinned and Gmail has no more, Pin all is Unpin all (Unpin's icon and
+  color), unpinning them all with one undo, there and wherever Pin all shows
+  (`bundleUnpinsAll` in `shared/src/bundles.ts`, `unpinAll` in the bundle fixtures). The bundle's swipes stay Done all and Snooze all. Sliding,
   letting go, taps and Back work as on an email's; TalkBack's long press on the row opens it on the
   label's mark for taps, and the row's actions for TalkBack and screen readers are Done all, Snooze
   all, Pin all and Delete all; on an open bundle's header, which doesn't swipe and shows its own
   Done all, Pin all and Delete all.
 - **Hold menu.** Holding a todo for 450 ms, on its select dot or anywhere else on the row, opens a
   third of a disc (120°) centered where the finger is, cut into equal wedges, with a pill above naming the todo: Pin
-  (Unpin when pinned; not on a done todo, whose place stays empty) and Delete, with the usual undo,
+  (Unpin when pinned; on a done todo too, as on an archived email) and Delete, with the usual undo,
   acting on that todo only, even while others are selected. A right click on the dot, the menu key
   (on the dot or a focused row) and TalkBack's long press open it on the dot instead. Every row's
   disc (a todo's, an email's, a bundle's) is placed alike (`rowHoldWedges` in

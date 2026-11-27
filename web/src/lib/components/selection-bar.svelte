@@ -16,11 +16,11 @@
   import ListChecks from "@lucide/svelte/icons/list-checks";
   import ListX from "@lucide/svelte/icons/list-x";
   import Mail from "@lucide/svelte/icons/mail";
-  import MailCheck from "@lucide/svelte/icons/mail-check";
   import MailOpen from "@lucide/svelte/icons/mail-open";
   import OctagonAlert from "@lucide/svelte/icons/octagon-alert";
   import Pin from "@lucide/svelte/icons/pin";
   import PinOff from "@lucide/svelte/icons/pin-off";
+  import ShieldCheck from "@lucide/svelte/icons/shield-check";
   import Tag from "@lucide/svelte/icons/tag";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import X from "@lucide/svelte/icons/x";
@@ -124,7 +124,7 @@
       case "spam":
         return plan.spam.on
           ? { id: action, label: spamWords, icon: OctagonAlert, tone: "danger" }
-          : { id: action, label: spamWords, icon: MailCheck };
+          : { id: action, label: spamWords, icon: ShieldCheck };
       case "delete":
         return todoPlan.delete.untrash
           ? { id: action, label: deleteWords, icon: Inbox }
@@ -299,7 +299,7 @@
         {#if plan.spam.on}
           <OctagonAlert class="w-[18px] h-[18px]" />
         {:else}
-          <MailCheck class="w-[18px] h-[18px]" />
+          <ShieldCheck class="w-[18px] h-[18px]" />
         {/if}
       </button>
     {/if}

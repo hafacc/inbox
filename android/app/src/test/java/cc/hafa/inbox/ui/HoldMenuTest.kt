@@ -16,7 +16,7 @@ class HoldMenuTest {
     private val delete = HoldMenuItem("delete", "Delete", Icons.Outlined.Delete, HoldTone.DANGER)
 
     @Test
-    fun aDoneTodoLaysOutOnlyDelete() {
+    fun anEmptySlotLeavesOnlyTheOtherWedge() {
         assertEquals(listOf(delete), holdWedges(listOf(pin, delete), rowHoldWedges(listOf(null, "delete"), 40f, 400f, 360f)).map { it.item })
     }
 

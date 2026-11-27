@@ -359,7 +359,7 @@
     const { x, y } = center;
     const id = todo.id;
     const items: HoldMenuItem[] = rowHoldWedges(
-      [isDone ? null : "pin", "delete"] as const,
+      ["pin", "delete"] as const,
       x,
       y,
       window.innerWidth,
@@ -542,9 +542,7 @@
       aria-label={`${selected ? "Unselect" : "Select"} todo`}
       aria-pressed={selected}
       aria-haspopup="menu"
-      title={selected
-        ? "Unselect (hold for Pin and Delete)"
-        : "Select (hold for Pin and Delete)"}
+      title={`${selected ? "Unselect" : "Select"} (hold for ${todo.pinned ? "Unpin" : "Pin"} and Delete)`}
       class={[
         "group/check hit-target shrink-0 self-start flex items-center justify-center rounded-full select-none touch-none [-webkit-touch-callout:none] hover:bg-surface-muted transition-colors",
         compact ? "w-8 h-8 mt-2" : "w-9 h-9 mt-1.5",
@@ -695,7 +693,7 @@
             Wake now
           </button>
         {/if}
-        {#if !isDone && !snoozed}
+        {#if !snoozed}
           <button
             type="button"
             data-action="pin"

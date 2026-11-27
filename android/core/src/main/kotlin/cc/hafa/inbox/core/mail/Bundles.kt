@@ -177,6 +177,15 @@ fun bundleSweepIds(shown: List<SweptThread>, listed: List<String>, pinned: List<
 }
 
 /**
+ * Whether a bundle's Pin all is Unpin all: it shows at least one thread or todo, every one of
+ * [shown] (its loaded threads) and of its todos ([todosPinned], each todo's pinned) is pinned, and
+ * Gmail has no more of the label's ([more]). Unpin all unpins every one of them. Web's
+ * `bundleUnpinsAll` is the same.
+ */
+fun bundleUnpinsAll(shown: List<SweptThread>, todosPinned: List<Boolean>, more: Boolean): Boolean =
+    !more && shown.size + todosPinned.size > 0 && shown.all { it.pinned } && todosPinned.all { it }
+
+/**
  * The bundle labels a page of history touched: a message carrying the label was added, deleted or
  * relabeled, or the label itself was added or removed. Their first page is fetched again; the
  * rest stay as they are.
