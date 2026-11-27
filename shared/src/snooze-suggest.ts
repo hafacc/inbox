@@ -18,7 +18,7 @@ export const SHOWN_ROWS = 5;
 export const DEEP_ROWS = 20;
 
 export const KEY_RE =
-  /^(D(0|[1-9]\d*)|W[1-4]|Wd[1-7]|Wn[1-7]|Dom1|Dom15|DomL|Mo[1-3])(@([01]\d|2[0-3])[0-5][05]|_h([0-9]|1[0-2]))$/;
+  /^(D(0|[1-9]\d*)|W[1-4]|Wd[1-7]|Wn[1-7]|Dom([1-9]|[12]\d|3[01])|DomL[1-3]?|Mo[1-3])(@([01]\d|2[0-3])[0-5][05]|_h([0-9]|1[0-2]))$/;
 export const SLOT_RE = /^([01]\d|2[0-3])[0-5][05]$/;
 export const PICK_RE = /^([1-9]|1\d|20|none)$/;
 
@@ -97,28 +97,42 @@ function slotClockMinutes(slot: string): number {
   );
 }
 
-/** The next occurrence of `day`-of-month strictly after `a` (an occurrence on `a` itself doesn't count). */
+/** The first date strictly after `a` that `dayIn` picks in its month; a month where it gives no day is skipped. */
+function nextMonthDay(
+  a: Date,
+  dayIn: (year: number, month: number) => number | null,
+): Date {
+  for (let k = 0; ; k++) {
+    const month = new Date(a.getFullYear(), a.getMonth() + k, 1);
+    const day = dayIn(month.getFullYear(), month.getMonth());
+    if (day === null) continue;
+    const candidate = new Date(month.getFullYear(), month.getMonth(), day);
+    if (dateOnly(candidate).getTime() > dateOnly(a).getTime()) return candidate;
+  }
+}
+
+function daysInMonth(y: number, m: number): number {
+  return new Date(y, m + 1, 0).getDate();
+}
+
+/** The next `day`-of-month strictly after `a`, skipping months too short to have it. */
 function nextDom(a: Date, day: number): Date {
-  const y = a.getFullYear();
-  const m = a.getMonth();
-  let candidate = new Date(y, m, day);
-  if (dateOnly(candidate).getTime() <= dateOnly(a).getTime()) {
-    candidate = new Date(y, m + 1, day);
-  }
-  return candidate;
+  return nextMonthDay(a, (y, m) => (day <= daysInMonth(y, m) ? day : null));
 }
 
-function monthEnd(y: number, m: number): Date {
-  return new Date(y, m + 1, 0);
+/** The next date `back` days before a month's last strictly after `a`. */
+function nextMonthEnd(a: Date, back = 0): Date {
+  return nextMonthDay(a, (y, m) => daysInMonth(y, m) - back);
 }
 
-/** The next month-end strictly after `a` (a is a month-end doesn't count). */
-function nextMonthEnd(a: Date): Date {
-  let candidate = monthEnd(a.getFullYear(), a.getMonth());
-  if (dateOnly(candidate).getTime() <= dateOnly(a).getTime()) {
-    candidate = monthEnd(a.getFullYear(), a.getMonth() + 1);
-  }
-  return candidate;
+const FROM_MONTH_END_RE = /^DomL([1-3]?)$/;
+
+/** The next date a day-of-month rule (Dom1..Dom31, DomL, DomL1..DomL3) names strictly after `a`. */
+function nextDomRule(dateRule: string, a: Date): Date {
+  const fromEnd = dateRule.match(FROM_MONTH_END_RE);
+  return fromEnd
+    ? nextMonthEnd(a, fromEnd[1] === "" ? 0 : Number(fromEnd[1]))
+    : nextDom(a, numOf(dateRule));
 }
 
 function addMonthsClamped(a: Date, k: number): Date {
@@ -234,9 +248,8 @@ function clockRuleDay(dateRule: string, anchor: Date, now: Date): Date {
     case "Wn":
       return nextWeekdayInRange(anchor, num, 7, 13);
     case "Dom":
-      return nextDom(addDays(anchor, -1), num);
     case "DomL":
-      return nextMonthEnd(addDays(anchor, -1));
+      return nextDomRule(dateRule, addDays(anchor, -1));
     default:
       return addMonthsClamped(snoozeDay(now), num);
   }
@@ -250,7 +263,16 @@ function clockRulesFor(a: Date, t: Date, clockMinutes: number): string[] {
   if (d < 0) return [];
   if (sameDate(st, snoozeDay(a))) return [`D${d}`];
   const dow = isoDow(st);
-  const candidates = [`D${d}`, `Wd${dow}`, `Wn${dow}`, "Dom1", "Dom15", "DomL"];
+  const candidates = [
+    `D${d}`,
+    `Wd${dow}`,
+    `Wn${dow}`,
+    `Dom${st.getDate()}`,
+    "DomL",
+    "DomL1",
+    "DomL2",
+    "DomL3",
+  ];
   if (d % 7 === 0 && d >= 7 && d <= 28) candidates.push(`W${d / 7}`);
   candidates.push("Mo1", "Mo2", "Mo3");
   return candidates.filter((rule) =>
@@ -514,17 +536,14 @@ function legacyClockTime(keyId: string, at: Date): number | null {
   const key = parseKey(keyId);
   if (key.kind !== "timed") return null;
   const from = snoozeDay(at);
-  const num = numOf(key.dateRule);
   let day: Date;
   switch (familyOf(key.dateRule)) {
     case "Dom":
-      day = nextDom(from, num);
-      break;
     case "DomL":
-      day = nextMonthEnd(from);
+      day = nextDomRule(key.dateRule, from);
       break;
     case "Mo":
-      day = addMonthsClamped(from, num);
+      day = addMonthsClamped(from, numOf(key.dateRule));
       break;
     default:
       day = offsetRuleDay(key.dateRule, at);
@@ -650,7 +669,7 @@ export type Row = {
 
 export type LastRow = { time: number; text: string };
 
-// Lower wins, after clock time over offset: a day count landing today/tomorrow, then named days (Wd/Wn/Dom/DomL), then counted ones (D/W/Mo), shorter period first.
+// Lower wins, after clock time over offset: a day count landing today/tomorrow, then named weekdays (Wd/Wn), then counted ones (D/W/Mo), shorter period first, then days of the month (Dom/DomL), which nearly every snooze also matches.
 function tieRank(keyId: string, time: number, now: Date): number {
   const { dateRule } = parseKey(keyId);
   switch (familyOf(dateRule)) {
@@ -660,13 +679,12 @@ function tieRank(keyId: string, time: number, now: Date): number {
       return 1;
     case "Wn":
       return 2;
-    case "Dom":
-    case "DomL":
-      return 3;
     case "W":
       return 5;
-    default: // Mo
+    case "Mo":
       return 6;
+    default: // Dom, DomL
+      return 7;
   }
 }
 
@@ -1036,9 +1054,12 @@ export function dayPhraseOf(
   return { phrase, dist, weekday };
 }
 
-function calendarLabelPart(dateRule: string): string {
+function calendarLabelPart(dateRule: string, resolved: Date): string {
   if (dateRule === "DomL") return "End of month";
   const num = numOf(dateRule);
+  if (dateRule.startsWith("DomL")) {
+    return `The ${ordinal(snoozeDay(resolved).getDate())}`;
+  }
   if (familyOf(dateRule) === "Dom") return `The ${ordinal(num)}`;
   return num === 1 ? "In a month" : `In ${num} months`;
 }
@@ -1065,7 +1086,7 @@ function dateLabelPart(
     case "next":
       return { text: `Next ${weekdayName(weekday)}`, adjectival: true };
     default:
-      return { text: calendarLabelPart(dateRule), adjectival: false };
+      return { text: calendarLabelPart(dateRule, resolved), adjectival: false };
   }
 }
 

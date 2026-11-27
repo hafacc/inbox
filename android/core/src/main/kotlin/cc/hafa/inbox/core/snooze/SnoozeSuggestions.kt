@@ -71,7 +71,7 @@ object SnoozeSuggestions {
     const val SHOWN_ROWS = 5
     const val DEEP_ROWS = 20
 
-    val KEY_RE = Regex("^(D(0|[1-9]\\d*)|W[1-4]|Wd[1-7]|Wn[1-7]|Dom1|Dom15|DomL|Mo[1-3])(@([01]\\d|2[0-3])[0-5][05]|_h([0-9]|1[0-2]))$")
+    val KEY_RE = Regex("^(D(0|[1-9]\\d*)|W[1-4]|Wd[1-7]|Wn[1-7]|Dom([1-9]|[12]\\d|3[01])|DomL[1-3]?|Mo[1-3])(@([01]\\d|2[0-3])[0-5][05]|_h([0-9]|1[0-2]))$")
     val SLOT_RE = Regex("^([01]\\d|2[0-3])[0-5][05]$")
     val PICK_RE = Regex("^([1-9]|1\\d|20|none)$")
 
@@ -93,7 +93,9 @@ object SnoozeSuggestions {
     private val WD_RE = Regex("^Wd([1-7])$")
     private val WN_RE = Regex("^Wn([1-7])$")
     private val MO_RE = Regex("^Mo([1-3])$")
-    private val LONG_PERIOD_RULES = setOf("Dom1", "Dom15", "DomL", "Mo1", "Mo2", "Mo3")
+    private val DOM_RE = Regex("^Dom([1-9]|[12]\\d|3[01])$")
+    private val FROM_MONTH_END_RE = Regex("^DomL([1-3]?)$")
+    private val LONG_PERIOD_FAMILIES = setOf("Dom", "DomL", "Mo")
 
     /** The set of pattern keys a commit from [at] to [target] matches. Empty if no date rule reaches it. */
     fun extract(at: Instant, target: Instant, zone: ZoneId): Set<PatternKey> =
@@ -109,7 +111,7 @@ object SnoozeSuggestions {
         if (d < 0) return emptySet()
         if (targetDay == snoozeDay(LocalDateTime.ofInstant(at, zone))) return setOf("D$d@$slot")
         val dow = targetDay.dayOfWeek.value
-        val candidates = mutableListOf("D$d", "Wd$dow", "Wn$dow", "Dom1", "Dom15", "DomL")
+        val candidates = mutableListOf("D$d", "Wd$dow", "Wn$dow", "Dom${targetDay.dayOfMonth}", "DomL", "DomL1", "DomL2", "DomL3")
         if (d % 7 == 0L && d in 7..28) candidates += "W${d / 7}"
         candidates += listOf("Mo1", "Mo2", "Mo3")
         return candidates.filter { clockRuleDay(it, anchor, at, zone) == targetDay }.map { "$it@$slot" }.toSet()
@@ -172,23 +174,36 @@ object SnoozeSuggestions {
         W_RE.matchEntire(dateRule)?.let { return anchor.plusWeeks(it.groupValues[1].toLong()) }
         WD_RE.matchEntire(dateRule)?.let { return nextWeekday(anchor, DayOfWeek.of(it.groupValues[1].toInt()), 0, 6) }
         WN_RE.matchEntire(dateRule)?.let { return nextWeekday(anchor, DayOfWeek.of(it.groupValues[1].toInt()), 7, 13) }
-        if (dateRule == "Dom1") return nextDayOfMonth(anchor.minusDays(1), 1)
-        if (dateRule == "Dom15") return nextDayOfMonth(anchor.minusDays(1), 15)
-        if (dateRule == "DomL") return nextMonthEnd(anchor.minusDays(1))
+        domRuleDay(dateRule, anchor.minusDays(1))?.let { return it }
         MO_RE.matchEntire(dateRule)?.let {
             return snoozeDay(LocalDateTime.ofInstant(now, zone)).plusMonths(it.groupValues[1].toLong())
         }
         return null
     }
 
-    private fun nextDayOfMonth(from: LocalDate, dayOfMonth: Int): LocalDate {
-        val thisMonth = from.withDayOfMonth(dayOfMonth)
-        return if (thisMonth > from) thisMonth else from.plusMonths(1).withDayOfMonth(dayOfMonth)
+    /** The first date strictly after [from] that [dayIn] picks in its month; a month where it gives no day is skipped. */
+    private fun nextMonthDay(from: LocalDate, dayIn: (YearMonth) -> Int?): LocalDate {
+        var month = YearMonth.from(from)
+        while (true) {
+            val candidate = dayIn(month)?.let { month.atDay(it) }
+            if (candidate != null && candidate > from) return candidate
+            month = month.plusMonths(1)
+        }
     }
 
-    private fun nextMonthEnd(from: LocalDate): LocalDate {
-        val thisMonthEnd = YearMonth.from(from).atEndOfMonth()
-        return if (thisMonthEnd > from) thisMonthEnd else YearMonth.from(from.plusMonths(1)).atEndOfMonth()
+    /** The next [dayOfMonth] strictly after [from], skipping months too short to have it. */
+    private fun nextDayOfMonth(from: LocalDate, dayOfMonth: Int): LocalDate =
+        nextMonthDay(from) { month -> dayOfMonth.takeIf { it <= month.lengthOfMonth() } }
+
+    /** The next date [back] days before a month's last strictly after [from]. */
+    private fun nextMonthEnd(from: LocalDate, back: Int = 0): LocalDate =
+        nextMonthDay(from) { month -> month.lengthOfMonth() - back }
+
+    /** The next date a day-of-month rule (Dom1..Dom31, DomL, DomL1..DomL3) names strictly after [from], or null for any other rule. */
+    private fun domRuleDay(dateRule: String, from: LocalDate): LocalDate? {
+        DOM_RE.matchEntire(dateRule)?.let { return nextDayOfMonth(from, it.groupValues[1].toInt()) }
+        FROM_MONTH_END_RE.matchEntire(dateRule)?.let { return nextMonthEnd(from, it.groupValues[1].toIntOrNull() ?: 0) }
+        return null
     }
 
     /** The calendar day this instant belongs to for pattern purposes: a 05:00 boundary, so 1am counts as "last night". */
@@ -221,7 +236,8 @@ object SnoozeSuggestions {
         else -> "D"
     }
 
-    private fun classH(dateRule: String): Long = if (dateRule in LONG_PERIOD_RULES) LONG_HALF_LIFE_DAYS else SHORT_HALF_LIFE_DAYS
+    private fun classH(dateRule: String): Long =
+        if (familyOfRule(dateRule) in LONG_PERIOD_FAMILIES) LONG_HALF_LIFE_DAYS else SHORT_HALF_LIFE_DAYS
 
     private fun classHForKey(key: PatternKey): Long = classH(dateRuleOf(key))
 
@@ -381,14 +397,10 @@ object SnoozeSuggestions {
         if (!isTimedKey(key) || !KEY_RE.matches(key)) return null
         val from = snoozeDay(LocalDateTime.ofInstant(at, zone))
         val dateRule = dateRuleOf(key)
-        val day = when (dateRule) {
-            "Dom1" -> nextDayOfMonth(from, 1)
-            "Dom15" -> nextDayOfMonth(from, 15)
-            "DomL" -> nextMonthEnd(from)
-            else -> MO_RE.matchEntire(dateRule)?.let { from.plusMonths(it.groupValues[1].toLong()) }
-                ?: offsetRuleDay(dateRule, from)
-                ?: return null
-        }
+        val day = domRuleDay(dateRule, from)
+            ?: MO_RE.matchEntire(dateRule)?.let { from.plusMonths(it.groupValues[1].toLong()) }
+            ?: offsetRuleDay(dateRule, from)
+            ?: return null
         return onSnoozeDay(day, slotClockMinutes(key.substringAfter('@')), zone).takeIf { it > at.toEpochMilli() + MIN_LEAD_MS }
     }
 
@@ -541,16 +553,16 @@ object SnoozeSuggestions {
         return last.target
     }
 
-    // On a tie, after clock time over offset, lower wins: a day count landing today/tomorrow, then a named weekday/day of month, then a count of days/weeks/months.
+    // On a tie, after clock time over offset, lower wins: a day count landing today/tomorrow, then a named weekday, then a count of days/weeks/months, then a day of the month, which nearly every snooze also matches.
     private fun tieRank(key: PatternKey, time: Long, now: Instant, zone: ZoneId): Int {
         val dateRule = dateRuleOf(key)
         return when {
             D_RE.matches(dateRule) -> if (labelDist(time, now, zone) <= 1) 0 else 4
             WD_RE.matches(dateRule) -> 1
             WN_RE.matches(dateRule) -> 2
-            dateRule == "Dom1" || dateRule == "Dom15" || dateRule == "DomL" -> 3
             W_RE.matches(dateRule) -> 5
-            else -> 6
+            MO_RE.matches(dateRule) -> 6
+            else -> 7
         }
     }
 
@@ -688,7 +700,19 @@ object SnoozeSuggestions {
 
     private data class DayPhrase(val kind: String, val text: String, val adjectival: Boolean)
 
-    private fun dayPhrase(dateRule: String, dist: Int, weekday: DayOfWeek): DayPhrase {
+    private fun ordinal(n: Int): String {
+        val suffix = when {
+            n % 100 in 11..13 -> "th"
+            n % 10 == 1 -> "st"
+            n % 10 == 2 -> "nd"
+            n % 10 == 3 -> "rd"
+            else -> "th"
+        }
+        return "$n$suffix"
+    }
+
+    private fun dayPhrase(dateRule: String, dist: Int, day: LocalDate): DayPhrase {
+        val weekday = day.dayOfWeek
         val today = DayPhrase("today", "", adjectival = false)
         if (dist == 1) return DayPhrase("tomorrow", "Tomorrow", adjectival = true)
         if (D_RE.matches(dateRule) || W_RE.matches(dateRule) || WD_RE.matches(dateRule) || WN_RE.matches(dateRule)) {
@@ -701,10 +725,11 @@ object SnoozeSuggestions {
                 else -> DayPhrase("inDays", "In $dist days", adjectival = false)
             }
         }
+        val fromMonthEnd = FROM_MONTH_END_RE.matchEntire(dateRule)?.groupValues?.get(1)
         val text = when {
-            dateRule == "Dom1" -> "The 1st"
-            dateRule == "Dom15" -> "The 15th"
-            dateRule == "DomL" -> "End of month"
+            fromMonthEnd == "" -> "End of month"
+            fromMonthEnd != null -> "The ${ordinal(day.dayOfMonth)}"
+            DOM_RE.matches(dateRule) -> "The ${ordinal(dateRule.removePrefix("Dom").toInt())}"
             else -> {
                 val n = MO_RE.matchEntire(dateRule)?.groupValues?.get(1)?.toInt() ?: 1
                 if (n == 1) "In a month" else "In $n months"
@@ -715,7 +740,7 @@ object SnoozeSuggestions {
 
     private fun phraseFor(key: PatternKey, resolvedEpoch: Long, now: Instant, zone: ZoneId): DayPhrase {
         val day = snoozeDay(LocalDateTime.ofInstant(Instant.ofEpochMilli(resolvedEpoch), zone))
-        return dayPhrase(dateRuleOf(key), labelDist(resolvedEpoch, now, zone), day.dayOfWeek)
+        return dayPhrase(dateRuleOf(key), labelDist(resolvedEpoch, now, zone), day)
     }
 
     /** Which day phrase a label uses (today, tomorrow, inDays, inWeeks, this, next, calendar). */

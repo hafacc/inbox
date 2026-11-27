@@ -73,7 +73,7 @@ describe("extractKeys", () => {
 
   test("a lone far-out custom pick (17 days) is its own day count", () => {
     const keys = extractKeys(at(2024, 3, 4, 9, 0), at(2024, 3, 21, 9, 0));
-    expect(keys).toEqual(["D16@0900", "D17_h0"]);
+    expect(keys).toEqual(["D16@0900", "Dom21@0900", "D17_h0"]);
   });
 
   test("the next 1st-of-month within range credits Dom1", () => {
@@ -111,12 +111,12 @@ describe("commit / decay", () => {
     let p = emptyPartition("device-a");
     const day0 = at(2024, 4, 1, 10, 0).getTime();
     const day21 = at(2024, 4, 22, 10, 0).getTime();
-    const T0 = at(2024, 4, 2, 8, 0).getTime();
-    const T21 = at(2024, 4, 23, 8, 0).getTime();
+    const T0 = at(2024, 4, 1, 18, 0).getTime();
+    const T21 = at(2024, 4, 22, 18, 0).getTime();
     p = commit(p, day0, T0, "suggestion").next;
     const before = commit(p, day21, T21, "suggestion");
     const setId = canonicalSetId(extractKeys(new Date(day21), new Date(T21)));
-    // classH for D1/Wd family is 21 days, so one prior unit decays to 0.5 before the +1 credit.
+    // A later-today snooze learns only D0 keys, whose half-life is 21 days, so one prior unit decays to 0.5 before the +1 credit.
     expect(before.next.sets[setId]?.c).toBeCloseTo(1.5, 5);
   });
 
@@ -142,7 +142,10 @@ describe("commit / decay", () => {
     ).next;
     const [first] = rankDeep([p], at(2024, 3, 7, 10, 0).getTime());
     expect(first.keyId).toBe("D0@0805");
-    expect(p.sets["D0@0800__Wd2@0800"].c).toBeCloseTo(1 - 2 ** (-1 / 6), 9);
+    expect(p.sets["D0@0800__Dom5@0800__Wd2@0800"].c).toBeCloseTo(
+      1 - 2 ** (-1 / 6),
+      9,
+    );
   });
 
   test("one date rule can hold two times", () => {
@@ -489,6 +492,13 @@ type Fixtures = {
     resolvedLocal: string;
     phrase: "littleWhile" | "muchLater";
   }[];
+  label: {
+    name: string;
+    now: string;
+    key: string;
+    resolvedLocal: string;
+    text: string;
+  }[];
   quickTimes: {
     name: string;
     now: string;
@@ -614,6 +624,15 @@ describe("shared fixtures (must match Android)", () => {
       expect(labelFor(c.key, epoch as number, now).startsWith(prefix)).toBe(
         true,
       );
+    });
+  }
+
+  for (const c of fixtures.label) {
+    test(`label: ${c.name}`, () => {
+      const now = local(c.now);
+      const epoch = resolveKey(c.key, now);
+      expect(epoch).toBe(local(c.resolvedLocal).getTime());
+      expect(labelFor(c.key, epoch as number, now)).toBe(c.text);
     });
   }
 
@@ -790,7 +809,12 @@ describe("5am day-boundary consistency (Dom/DomL/Mo vs D/W/Wd/Wn)", () => {
   test("T2: same window, DomL and Mo1 both match a month-end target", () => {
     // Commit at 2026-11-01 02:00 -> shifted day is Oct 31.
     const keys = extractKeys(at(2026, 11, 1, 2, 0), at(2026, 11, 30, 21, 0));
-    expect(keys.sort()).toEqual(["D29@2100", "DomL@2100", "Mo1@2100"]);
+    expect(keys.sort()).toEqual([
+      "D29@2100",
+      "Dom30@2100",
+      "DomL@2100",
+      "Mo1@2100",
+    ]);
   });
 
   test("T3: shifted-day reasoning can leave a pick with only its day count", () => {
@@ -811,7 +835,8 @@ describe("5am day-boundary consistency (Dom/DomL/Mo vs D/W/Wd/Wn)", () => {
     const keys = extractKeys(at(2026, 10, 7, 10, 0), at(2026, 10, 8, 8, 0));
     expect(keys).toContain("D0@0800");
     expect(keys.filter((k) => k.startsWith("Wd"))).toHaveLength(1);
-    expect(keys).toHaveLength(2);
+    expect(keys).toContain("Dom8@0800");
+    expect(keys).toHaveLength(3);
     expect(keys.some((k) => k.includes("_h"))).toBe(false);
   });
 
@@ -840,6 +865,8 @@ describe("classH", () => {
     expect(classH("Wd1_h3")).toBe(21);
     expect(classH("Dom1@0900")).toBe(60);
     expect(classH("DomL@0900")).toBe(60);
+    expect(classH("Dom28@0900")).toBe(60);
+    expect(classH("DomL2@0900")).toBe(60);
     expect(classH("Mo1@0900")).toBe(60);
   });
 });
