@@ -266,7 +266,12 @@ later of that date and its wake time. Gmail's message order isn't trusted, and d
   than "All done" while they do.
 - **Suggestions:** latr's learned snooze menu, ported with latr's fixtures. Counts sit in this app's own
   `users/{uid}/meta/snoozeStats` (same format), which latr's apps read and write too, so mail and
-  todos learn one menu.
+  todos learn one menu. Unlike latr, a snooze learns any day of the month it lands on (`Dom1`..`Dom31`,
+  skipping months without that day), the last day (`DomL`) and the three before it (`DomL1`..`DomL3`),
+  all on the 60-day half-life. These rules lose ties to every other rule, so a day of the month names a
+  row only when more snoozes back it than back any other reading: two snoozes to Dec 10 09:00, from
+  Nov 26 and Dec 3, add up to "The 10th, 09:00". `DomL` reads "End of month"; the others read as the
+  date ("The 28th"). latr's apps drop sets holding these keys when they read the shared counts.
 - **Pin:** Gmail's star (`STARRED`), so pins and stars are the same thing everywhere. Pinned threads
   stay put through "Done all". Pins (threads' and todos') show in the theme's accent color.
 - **Important:** Gmail's own `IMPORTANT` label, shown as a small marker in the theme's accent color by the sender and set

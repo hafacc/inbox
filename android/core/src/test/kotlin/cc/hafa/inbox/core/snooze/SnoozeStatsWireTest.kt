@@ -115,7 +115,8 @@ class SnoozeStatsWireTest {
     fun `a vote adds two to the power of half-lives since the epoch`() {
         val one = cc.hafa.inbox.core.snooze.SnoozeSuggestions.commit(SnoozeStatsSnapshot(), at, at + day, zone, "custom").next
         val added = SnoozeStatsWire.voteDeltas(SnoozeStatsSnapshot(), one).sets.values.single()
-        assertEquals(Math.pow(2.0, (at - SnoozeStatsWire.VOTE_EPOCH) / (21.0 * day)), added, 1e-6)
+        // A snooze to tomorrow also learns its day of the month, whose half-life is 60 days.
+        assertEquals(Math.pow(2.0, (at - SnoozeStatsWire.VOTE_EPOCH) / (60.0 * day)), added, 1e-6)
     }
 
     @Test
