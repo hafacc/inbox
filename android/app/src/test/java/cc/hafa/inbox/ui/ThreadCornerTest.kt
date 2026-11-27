@@ -14,14 +14,14 @@ class ThreadCornerTest {
         val actions = threadActions(listOf("INBOX"), snoozed = false, unread = false, todo = null, hasSender = true)
         val places = threadActionPlaces(actions)
         assertEquals(listOf("Done", "Snooze"), places.inner.map { threadTool(it, snoozed = false).label })
-        assertEquals(listOf("Pin", "Label", "Report spam", "Delete"), places.outer.map { threadTool(it, snoozed = false).label })
+        assertEquals(listOf("Pin", "Label", "Mark unread", "Report spam", "Delete"), places.outer.map { threadTool(it, snoozed = false).label })
     }
 
     @Test
-    fun unreadThreadHasNoMarkRead() {
+    fun unreadThreadHasMarkReadAfterAddTodo() {
         val actions = threadActions(listOf("INBOX", "UNREAD"), snoozed = false, unread = true, todo = ThreadTodoAction.ADD, hasSender = true)
         val outer = threadActionPlaces(actions).outer.map { threadTool(it, snoozed = false).label }
-        assertEquals(listOf("Pin", "Label", "Add todo", "Report spam", "Delete"), outer)
+        assertEquals(listOf("Pin", "Label", "Add todo", "Mark read", "Report spam", "Delete"), outer)
     }
 
     @Test
@@ -30,7 +30,7 @@ class ThreadCornerTest {
         assertEquals(ToolTone.DANGER, threadTool(ThreadAction.SPAM, snoozed = false).tone)
         assertEquals(ToolTone.DANGER, threadTool(ThreadAction.DELETE, snoozed = false).tone)
         assertEquals(ToolTone.ON, threadTool(ThreadAction.UNPIN, snoozed = false).tone)
-        assertEquals(ToolTone.ON, threadTool(ThreadAction.READ, snoozed = false).tone)
+        assertEquals(ToolTone.PLAIN, threadTool(ThreadAction.READ, snoozed = false).tone)
         assertEquals(ToolTone.PLAIN, threadTool(ThreadAction.PIN, snoozed = false).tone)
     }
 

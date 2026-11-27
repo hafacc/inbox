@@ -404,16 +404,24 @@ except where the list says.
   the count and Select all (or none). Every action that would change something is on a round corner
   button (below) 12 above the bar: on its inner ring Done and Snooze, Move to inbox taking
   Done's place and Wake now Snooze's wherever they apply; on its outer ring Pin (Unpin) first, then a
-  Done or Snooze so displaced, Label, Mark read or unread, Report spam or Not spam and a todo's Delete.
-  Neither ring holds a lone action beside the other: with Done or Snooze missing Pin joins the inner
-  ring, and an outer ring of one joins it too, so threads and todos together have Done, Snooze and Pin
-  on one ring (`selectionDisc` in `shared/src/selection.ts`, same fixtures). The undo bar rises above the button. Above phone width the
+  Done or Snooze so displaced, Label, Mark read or unread, Report spam or Not spam and Delete (Move to
+  inbox when every selected thread is in the trash and no todo is selected), in the open thread's
+  order (below), the same icons for the same actions. For todos alone the inner ring holds Done alone,
+  and the outer ring Snooze, Pin (Unpin) and Delete. An outer ring of one joins the inner ring, and so
+  does every action when the inner ring would be empty; otherwise, with Done or Snooze missing, Pin
+  joins the inner ring, as in the open thread, so threads and todos together have Done and Snooze
+  inside and Pin and Delete beyond (`selectionDisc` in `shared/src/selection.ts`, same
+  fixtures). The undo bar rises above the button. Above phone width the
   web's bar keeps every action in the header: Wake now as a ringed pill, Snooze, Pin, Label, Mark read,
   Spam and Delete as icons, then Move to inbox as a ringed pill and Done as a green pill. A selection of
   threads and todos together offers only
-  the actions both have (Done, Snooze, Pin); labels, move, category, read, spam and a todo's
-  Delete show only when the selection is all one kind (`selectionActions` in
-  `shared/src/selection.ts`, fixtures in `shared/testdata/selection-fixtures.json`).
+  the actions both have (Done, Snooze, Pin, Delete); labels, move, category, read and spam show only
+  when the selection is all threads (`selectionActions` in
+  `shared/src/selection.ts`, fixtures in `shared/testdata/selection-fixtures.json`). Delete moves the
+  selected threads to the trash and deletes the selected todos, as one undo; with only threads, all
+  in the trash, it moves them to the inbox (`todoSelectionPlan`, same fixtures). The selection has no
+  Add todo: an email's Add todo opens its own todo to write, saved only once it has text, which
+  several emails at once have no way to give.
 - Undo puts back the rows the action took out and the focus it had.
 - **Round menus.** Every round menu, on both platforms, is one element (web `hold-menu.svelte`, Android
   `HoldMenu.kt`), its geometry and hit-testing shared (`shared/src/hold-menu.ts`, Android
@@ -549,10 +557,10 @@ except where the list says.
   the subject is cut to one line in the header, and a click on it shows it whole the same way
   rather than closing the thread. Its other actions are on a round corner button (above), where Compose
   sits in the list: Done (Move to inbox once done) and Snooze on the inner ring, Pin (Unpin), Label, Add
-  todo (Edit todo), Report spam (Not spam in spam) and Delete (Move to inbox in the trash) on the outer;
+  todo (Edit todo), Mark read or unread, Report spam (Not spam in spam) and Delete (Move to inbox in
+  the trash) on the outer, the selection's order with Add todo after Label;
   in spam and the trash, with no Done, Pin stays on the inner ring beside Snooze
-  (`threadActionPlaces` in `shared/src/view-filter.ts`, same fixtures). Mark read or unread is not on it
-  (it stays in the wide header, the selection's actions and on Shift+I / Shift+U). The messages scroll
+  (`threadActionPlaces` in `shared/src/view-filter.ts`, same fixtures). The messages scroll
   under the button, their end kept clear of it and of the undo bar above it. Wake now (when snoozed)
   and Filter mail like this are buttons on the line above the messages, with the label chips and
   the message count ("3 messages"), each in a 48 dp (px) tall tap area, the line 16 in from the
