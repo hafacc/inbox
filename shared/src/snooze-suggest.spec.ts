@@ -372,9 +372,9 @@ describe("labelFor", () => {
     );
   });
 
-  test("the upcoming Thursday seen on a Thursday after its time reads Next Thursday", () => {
+  test("the upcoming Thursday seen on a Thursday after its time reads This Thursday", () => {
     expect(label("Wd4@0900", "2026-09-24T10:00:00")).toBe(
-      "Next Thursday morning, 09:00",
+      "This Thursday morning, 09:00",
     );
   });
 
@@ -390,9 +390,9 @@ describe("labelFor", () => {
     );
   });
 
-  test("weekday after next on its own weekday reads '<weekday> in 2 weeks'", () => {
+  test("weekday after next on its own weekday, 14 days out, reads Next", () => {
     expect(label("Wn4@0900", "2026-09-24T10:00:00")).toBe(
-      "Thursday in 2 weeks, 09:00",
+      "Next Thursday morning, 09:00",
     );
   });
 
@@ -402,7 +402,7 @@ describe("labelFor", () => {
 
   test("in a week seen at 04:50 counts from this morning's 09:00", () => {
     expect(label("W1@0900", "2026-09-23T04:50:00")).toBe(
-      "Next Wednesday morning, 09:00",
+      "This Wednesday morning, 09:00",
     );
   });
 
@@ -774,7 +774,8 @@ describe("lastRow", () => {
     expect(text(at(2024, 3, 5, 8, 0))).toBe("Last · Tomorrow morning");
     expect(text(at(2024, 3, 8, 14, 0))).toBe("Last · This Friday afternoon");
     expect(text(at(2024, 3, 12, 8, 0))).toBe("Last · Next Tuesday morning");
-    expect(text(at(2024, 3, 18, 8, 0))).toBe("Last · Monday in 2 weeks");
+    expect(text(at(2024, 3, 11, 8, 0))).toBe("Last · This Monday morning");
+    expect(text(at(2024, 3, 18, 8, 0))).toBe("Last · Next Monday morning");
     expect(text(at(2024, 3, 20, 14, 0))).toBe("Last · Mar 20");
   });
 });
@@ -853,7 +854,8 @@ describe("row icons and label parts (mirror Android rowIcon)", () => {
     expect(icon("D0@1500", at(2026, 9, 21, 15, 0))).toBe("todayDay");
     expect(icon("D1@0900", at(2026, 9, 22, 9, 0))).toBe("tomorrow");
     expect(icon("D3@0900", at(2026, 9, 24, 9, 0))).toBe("weekday");
-    expect(icon("W2@0900", at(2026, 10, 5, 9, 0))).toBe("days");
+    expect(icon("W2@0900", at(2026, 10, 5, 9, 0))).toBe("weekday");
+    expect(icon("D15@0900", at(2026, 10, 6, 9, 0))).toBe("days");
     expect(icon("Wd5@0900", at(2026, 9, 25, 9, 0))).toBe("weekday");
     expect(icon("Dom1@0900", at(2026, 10, 1, 9, 0))).toBe("monthly");
     expect(icon("D0_h3", at(2026, 9, 21, 15, 0))).toBe("offset");
@@ -913,12 +915,12 @@ function expectedLabel(target: Date, now: Date, keyId: string): string {
     text = region === "night" ? "Tonight" : `This ${region}`;
   } else if (days === 1 && !/^(Wd|Wn)/.test(keyId)) {
     text = `Tomorrow ${region}`;
-  } else if (days <= 6) {
+  } else if (days <= 7) {
     text = `This ${weekday} ${region}`;
-  } else if (days <= 13) {
+  } else if (days <= 14) {
     text = `Next ${weekday} ${region}`;
   } else {
-    text = `${weekday} in 2 weeks`;
+    throw new Error(`no key here lands ${days} days out`);
   }
   return `${text}, ${clock}`;
 }
