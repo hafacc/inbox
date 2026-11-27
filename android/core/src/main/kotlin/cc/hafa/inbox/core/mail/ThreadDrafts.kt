@@ -120,3 +120,51 @@ fun draftsOpening(inDrafts: Boolean, event: ListEvent<*, *>, openBefore: String?
     val fromRow = event is ListEvent.Tap || event == ListEvent.Enter
     return openAfter.takeIf { inDrafts && fromRow && it != null && it != openBefore }
 }
+
+/** A draft the device keeps a record of, for [heldDraftStates]. */
+data class KeptDraftRecord(
+    /** the draft's id on this device */
+    val localId: String,
+    /** whether the record is a delete waiting for Gmail */
+    val deleted: Boolean,
+)
+
+/** A draft the device holds, as [heldDraftStates] gives it. */
+data class HeldDraftState(
+    /** the draft's id on this device */
+    val localId: String,
+    /** where it stands */
+    val state: LocalDraftState,
+    /** whether the device keeps a record of it (else only this session's memory knows it) */
+    val kept: Boolean,
+)
+
+/**
+ * The drafts this device holds and where each stands (shared rule, see web `heldDraftStates`).
+ * Every [kept] record is one: deleted when it is a delete or was [thrown] away here, else sending
+ * when it is [sending], else a draft. A draft with no record is held only while thrown away
+ * (deleted) or sending, so it is never a draft: only a draft whose record the device still keeps
+ * can be listed and opened. Kept records come first in their order, then the rest, thrown away
+ * before sending, each once.
+ */
+fun heldDraftStates(kept: List<KeptDraftRecord>, thrown: List<String>, sending: List<String>): List<HeldDraftState> {
+    val thrownSet = thrown.toSet()
+    val sendingSet = sending.toSet()
+    val seen = mutableSetOf<String>()
+    val held = mutableListOf<HeldDraftState>()
+    for (record in kept) {
+        if (!seen.add(record.localId)) continue
+        val state = when {
+            record.deleted || record.localId in thrownSet -> LocalDraftState.DELETED
+            record.localId in sendingSet -> LocalDraftState.SENDING
+            else -> LocalDraftState.DRAFT
+        }
+        held += HeldDraftState(record.localId, state, kept = true)
+    }
+    for (localId in thrown + sending) {
+        if (!seen.add(localId)) continue
+        val state = if (localId in thrownSet) LocalDraftState.DELETED else LocalDraftState.SENDING
+        held += HeldDraftState(localId, state, kept = false)
+    }
+    return held
+}

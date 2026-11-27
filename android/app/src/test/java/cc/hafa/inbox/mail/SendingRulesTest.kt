@@ -25,6 +25,22 @@ class SendingRulesTest {
     private fun doc(id: String, status: OutboxStatus) = OutboxDoc(id, "draft-$id", "me@example.com", status, 0, null, null)
 
     @Test
+    fun `a draft thrown away is kept as a delete only while Gmail has a copy`() {
+        val empty = DraftContent(localId = "d1", from = Person("", "me@example.com"))
+        // Never in Gmail: forgotten, a queued save with it.
+        assertEquals(null, thrownAway(null, empty))
+        assertEquals(null, thrownAway(stored(null).copy(dirty = true), empty))
+        // A save reached Gmail after the composer last heard: its draft is deleted at the next flush.
+        val saved = stored(pending).let { it.copy(content = it.content.copy(draftId = "g1")) }
+        val kept = thrownAway(saved, empty)
+        assertEquals("g1", kept?.content?.draftId)
+        assertTrue(kept!!.deleted)
+        assertEquals(null, kept.pendingSend)
+        // Only the composer knows the Gmail draft.
+        assertEquals("g2", thrownAway(null, empty.copy(draftId = "g2"))?.content?.draftId)
+    }
+
+    @Test
     fun `a send stands only while the draft still asks for it`() {
         assertTrue(sendStands(stored(pending), pending, rewrite = false, waiting = false))
         // Undone: the draft no longer waits on the send.
