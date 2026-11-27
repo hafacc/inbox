@@ -281,6 +281,7 @@
     if (!closed) {
       layerShrink?.cancel();
       layerShrink = null;
+      resetPull();
     } else if (!untrack(() => mail.openedInPlace)) {
       // After the list has brought the row back into view.
       void tick().then(() => {
@@ -404,7 +405,8 @@
    */
   function onPullStart(event: TouchEvent) {
     const touch = event.touches[0];
-    if (settling) return;
+    // A thread closed by a pull shrinks from where it was pulled to.
+    if (settling || !phoneOpen) return;
     resetPull();
     if (
       !touch ||
@@ -508,12 +510,13 @@
       else turnPage(step);
       return;
     }
-    const closes = dragging && event.type === "touchend" && armed;
-    resetPull();
-    if (closes) {
+    if (dragging && event.type === "touchend" && armed) {
+      // It shrinks into its row from where it was pulled to.
+      pullStart = null;
+      dragging = false;
       hapticTick();
       mail.close();
-    }
+    } else resetPull();
   }
 
   // Slide the neighbor the swipe went toward in, then open it as a tap on its row would, in this

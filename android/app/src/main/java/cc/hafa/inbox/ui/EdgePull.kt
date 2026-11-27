@@ -65,8 +65,8 @@ private val ARROW_SIZE = 18.dp
 /**
  * A vertical drag that what it wraps leaves unused from its very start, past its top or end: the
  * content follows it, moved by [stretch] of the drag's length, and on release one of at least
- * [threshold] pixels calls [onRelease]; either way the content springs back. A scroll that merely
- * reaches the edge does not count.
+ * [threshold] pixels calls [onRelease] and leaves the content where it is, for it to close from there;
+ * a shorter one springs back. A scroll that merely reaches the edge does not count.
  */
 class EdgePull(
     private val threshold: Float,
@@ -117,6 +117,11 @@ class EdgePull(
         }
     }
 
+    /** Put the content back at rest at once. */
+    fun reset() {
+        travel = 0f
+    }
+
     override suspend fun onPreFling(available: Velocity): Velocity {
         val counted = counts == true
         counts = null
@@ -125,8 +130,9 @@ class EdgePull(
         } else {
             if (armed) {
                 onRelease()
+            } else {
+                animate(travel, 0f, animationSpec = spring()) { value, _ -> travel = value }
             }
-            animate(travel, 0f, animationSpec = spring()) { value, _ -> travel = value }
             available
         }
     }
@@ -153,7 +159,8 @@ fun ThresholdTicks(armed: () -> Boolean, counts: () -> Boolean) {
 /**
  * An [EdgePull] at the thread's distance that follows the finger by [pullStretch], or not at all with
  * animations off, where the indicator alone shows the pull. It ticks as the pull crosses the point
- * where letting go closes, and gives a release haptic before [onClose].
+ * where letting go closes, and gives a release haptic before [onClose], leaving the thread where it
+ * was pulled to while it closes.
  */
 @Composable
 fun rememberEdgePull(onClose: () -> Unit): EdgePull {
@@ -171,6 +178,11 @@ fun rememberEdgePull(onClose: () -> Unit): EdgePull {
         }
     }
     ThresholdTicks(armed = { pull.armed }, counts = { pull.dragging })
+    // A thread opened again while it shrinks from a pull shows at rest.
+    val leaving = LocalLayerLeaving.current
+    LaunchedEffect(pull, leaving) {
+        if (!leaving) pull.reset()
+    }
     return pull
 }
 
