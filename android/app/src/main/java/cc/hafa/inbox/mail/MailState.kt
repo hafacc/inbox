@@ -101,6 +101,7 @@ import cc.hafa.inbox.core.mail.compareHistoryIds
 import cc.hafa.inbox.core.mail.decodeBase64Url
 import cc.hafa.inbox.core.mail.doneAllIds
 import cc.hafa.inbox.core.mail.doneAllTodoIds
+import cc.hafa.inbox.core.mail.draftsOpening
 import cc.hafa.inbox.core.mail.enqueue
 import cc.hafa.inbox.core.mail.epochToIso
 import cc.hafa.inbox.core.mail.enqueueAccount
@@ -3307,11 +3308,15 @@ class MailState(
     /** Apply [event] to the list, then carry out the work it asks for: a bundle's next page, an action, a todo to edit. */
     fun dispatch(event: ListEvent<Row, Todo>) {
         var effect: ListEffect? = null
+        var draft: String? = null
         state.update { model ->
-            val list = listStep(model.list, event)
+            var list = listStep(model.list, event)
+            draft = draftsOpening(model.view == View.Fixed(Mailbox.DRAFTS), event, model.list.open, list.open)
+            if (draft != null) list = list.copy(open = null)
             effect = list.effect
             model.copy(list = list)
         }
+        draft?.let { key -> sending.openThreadDraft(state.value.threadsOf(key).toSet()) { open(key) } }
         // A bundle's next page is asked for in modelChanged, which sees every step's, layouts too.
         when (val asked = effect) {
             is ListEffect.Edit -> todos.setEditing(asked.todoId)

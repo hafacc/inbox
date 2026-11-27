@@ -65,7 +65,6 @@ import {
 import { createContext, untrack } from "svelte";
 import { AccountSettings } from "../account-settings.svelte";
 import { ADDRESS_DOMAIN } from "../address/address-model";
-import { phoneWidth } from "../components/phone";
 import { ContactBook } from "../contacts/contact-book.svelte";
 import { errorText } from "../error-text";
 import { db } from "../firebase";
@@ -513,7 +512,9 @@ export class ComposeHub {
       untrack(() => void this.#mail.reloadSavedDrafts());
     });
 
-    this.#disposers.push(mail.onOpen((id) => void this.#openInDrafts(id)));
+    this.#disposers.push(
+      mail.onDraftsOpen((id) => void this.openThreadDraft(id)),
+    );
 
     // r, a or f on a thread that wasn't open waits for its messages.
     $effect(() => {
@@ -1082,12 +1083,12 @@ export class ComposeHub {
   /**
    * Open a draft while Gmail can't be reached: this device's own copy when it has one, else the
    * saved copy's when it holds all of it (see `offlineEditable`), else say it opens once back
-   * online. `before` runs just before a draft opens.
+   * online.
    */
-  async #openSaved(
-    target: { messageId?: string; threadIds?: readonly string[] },
-    before: () => void = () => {},
-  ): Promise<void> {
+  async #openSaved(target: {
+    messageId?: string;
+    threadIds?: readonly string[];
+  }): Promise<void> {
     const threads = new Set(target.threadIds ?? []);
     for (const draft of this.localDrafts.values()) {
       const threadId = draft.draftThreadId ?? draft.threadId;
@@ -1100,7 +1101,6 @@ export class ComposeHub {
         .composer(draft.localId)
         .catch(() => undefined);
       if (kept === undefined) continue;
-      before();
       await this.openLocalDraft(draft.localId);
       return;
     }
@@ -1121,7 +1121,6 @@ export class ComposeHub {
       this.#notice(OPENS_ONLINE, false);
       return;
     }
-    before();
     try {
       await this.#showDraft(read, message.id, false);
     } catch (error) {
@@ -1197,51 +1196,26 @@ export class ComposeHub {
   }
 
   /**
-   * Open the draft of a thread from Drafts: a reply opens in place in the thread, a new message
-   * in the floating composer (its thread has nothing else to show).
+   * Open the draft of a row in Drafts in the composer, a reply's too, its thread left closed; a
+   * row with no draft left opens its thread.
    */
   openThreadDraft = async (threadId: string): Promise<void> => {
     const members = this.#mail.membersOf(threadId);
-    // A new message's thread has nothing else to show.
-    const closeEmpty = () => {
-      const detail = this.#mail.detail;
-      if (detail?.id === threadId && detail.messages.length === 0) {
-        this.#mail.close();
-      }
-    };
     let drafts: GmailDraft[];
     try {
       drafts = await this.#mail.gmail.listDrafts();
     } catch (error) {
       if (isNetworkError(error)) {
-        await this.#openSaved({ threadIds: members }, closeEmpty);
+        await this.#openSaved({ threadIds: members });
       } else {
         this.#notice(`Couldn't open the draft. ${errorText(error)}`, true);
       }
       return;
     }
     const match = draftIn(drafts, members);
-    if (!match) return;
-    // On a phone a reply's draft would cover the email full-screen: the email shows, its draft a
-    // card in it to tap. A new message's draft has no email to show.
-    const detail = this.#mail.detail;
-    const answersEmail = detail?.id === threadId && detail.messages.length > 0;
-    if (phoneWidth.current && answersEmail) return;
-    closeEmpty();
-    await this.openDraft(match.id);
+    if (match) await this.openDraft(match.id);
+    else this.#mail.open(threadId);
   };
-
-  // In Drafts, opening a thread opens its draft for editing once its messages show.
-  async #openInDrafts(id: string): Promise<void> {
-    if (this.#mail.view.kind !== "drafts") return;
-    const detail = await this.#mail.detailShown(id);
-    if (detail === null || this.#disposed) return;
-    if (this.#mail.view.kind !== "drafts") return;
-    if (this.inline !== null && holdsThread(detail, this.inline.threadId)) {
-      return;
-    }
-    await this.openThreadDraft(id);
-  }
 
   /** Open a draft shown in a thread: the device's copy, else Gmail's. */
   openLocalDraft = async (localId: string): Promise<void> => {

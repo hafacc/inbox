@@ -135,6 +135,7 @@ import {
   type SnoozeSource,
   shownRows,
 } from "@inbox/shared/snooze-suggest";
+import { draftsOpening } from "@inbox/shared/thread-drafts";
 import {
   newerMail,
   type SnoozeDoc,
@@ -491,12 +492,8 @@ export class MailState {
   #flushing = false;
   // Whether `#start` has read the stored label queue.
   #queueRead = false;
-  // Who hears each row that opens, and who waits for an open row's messages to show.
-  #openListeners = new Set<(id: string) => void>();
-  #detailWaits: {
-    id: string;
-    resolve: (detail: ThreadDetail | null) => void;
-  }[] = [];
+  // Who opens the draft of a row opened in Drafts.
+  #draftsOpener: ((id: string) => void) | null = null;
   #prunedAt = 0;
   #attachmentCache = new Map<string, Promise<Uint8Array>>();
   // Data URLs of inline images shown this session, by message id and content id, least recently
@@ -1673,8 +1670,7 @@ export class MailState {
     this.#disposed = true;
     for (const dispose of this.#disposers) dispose();
     this.#disposers = [];
-    this.#openListeners.clear();
-    this.#settleDetailWaits();
+    this.#draftsOpener = null;
     this.encryption.dispose();
     forgetCleaned();
     void this.#cache.close();
@@ -4857,33 +4853,15 @@ export class MailState {
     }
   };
 
-  /** Call `listener` with each row that opens; returns the function that stops it. */
-  onOpen(listener: (id: string) => void): () => void {
-    this.#openListeners.add(listener);
-    return () => this.#openListeners.delete(listener);
-  }
-
-  /** Open row `id`'s messages once they show; null when it closes or another row opens first. */
-  detailShown(id: string): Promise<ThreadDetail | null> {
-    if (this.detail?.id === id) return Promise.resolve(this.detail);
-    if (this.openId !== id || this.#disposed) return Promise.resolve(null);
-    return new Promise((resolve) => this.#detailWaits.push({ id, resolve }));
-  }
-
-  // Answer the `detailShown` waits the open row's messages or its close settled.
-  #settleDetailWaits(): void {
-    const detail = this.detail;
-    const open = this.#disposed ? null : this.openId;
-    this.#detailWaits = this.#detailWaits.filter((wait) => {
-      if (detail !== null && detail.id === wait.id && open === wait.id) {
-        wait.resolve(detail);
-      } else if (open !== wait.id) {
-        wait.resolve(null);
-      } else {
-        return true;
-      }
-      return false;
-    });
+  /**
+   * Have `opener` open the draft of each row opened in Drafts, which then stays closed
+   * (`draftsOpening`); returns the function that stops it.
+   */
+  onDraftsOpen(opener: (id: string) => void): () => void {
+    this.#draftsOpener = opener;
+    return () => {
+      if (this.#draftsOpener === opener) this.#draftsOpener = null;
+    };
   }
 
   /** Open a thread from a notification: show the inbox, fetch it fresh, and open the thread there. */
@@ -5004,7 +4982,6 @@ export class MailState {
         this.detail = detail;
         this.detailError = null;
         openMarkDrawn("messages drawn");
-        this.#settleDetailWaits();
       }
       this.#putSummaries(
         threads.map((thread) => this.#withQueued(summarizeThread(thread))),
@@ -5061,7 +5038,6 @@ export class MailState {
     this.detail = this.#withShown(id, this.#rowLabelsOver(id, saved));
     this.detailError = null;
     openMarkDrawn("messages drawn");
-    this.#settleDetailWaits();
   }
 
   // What opening a saved row does besides showing it: it counts as opened, and is marked read.
@@ -5542,6 +5518,16 @@ export class MailState {
         : null;
     if (lead !== null)
       after = listStep(after, { type: "openThread", id: lead });
+    const draft =
+      this.#draftsOpener === null
+        ? null
+        : draftsOpening(
+            this.view.kind === "drafts",
+            event,
+            before.open,
+            after.open,
+          );
+    if (draft !== null) after = { ...after, open: null };
     this.list = after;
     this.menus.follow(before.menu, after.menu);
     if (after.open !== before.open) {
@@ -5551,10 +5537,6 @@ export class MailState {
       this.#openMembers =
         after.open === null ? [] : this.#joins.membersOf(after.open);
       if (after.open !== null) this.#openDetail(after.open);
-      this.#settleDetailWaits();
-      if (after.open !== null) {
-        for (const listener of this.#openListeners) listener(after.open);
-      }
     }
     const opened = after.bundle?.labelId;
     if (opened !== undefined && opened !== before.bundle?.labelId) {
@@ -5569,6 +5551,7 @@ export class MailState {
     else if (effect?.kind === "edit") this.todos.setEditing(effect.todoId);
     else if (effect?.kind === "act")
       this.#command(effect.action, effect.target);
+    if (draft !== null) this.#draftsOpener?.(draft);
     return after;
   };
 
