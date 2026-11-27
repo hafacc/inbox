@@ -1,5 +1,6 @@
 import {
   negated,
+  SHARED_SETS_FIELD,
   sharedFromWire,
   type VoteDeltas,
   voteDeltas,
@@ -22,7 +23,7 @@ export type SnoozeUndo = {
   custom: boolean;
 };
 
-/** Firestore path of the learned snooze counts: `users/{uid}/meta/snoozeStats`, latr's `snoozeVotes` format. */
+/** Firestore path of the learned snooze counts: `users/{uid}/meta/snoozeStats`. */
 export function snoozeStatsPath(uid: string): [string, ...string[]] {
   return ["users", uid, "meta", "snoozeStats"];
 }
@@ -96,7 +97,9 @@ export class SnoozeStatsStore {
 
   #write(deltas: VoteDeltas, extra: Record<string, unknown>): void {
     const fields: Record<string, unknown> = { ...extra };
-    if (Object.keys(deltas.sets).length) fields.sets = increments(deltas.sets);
+    if (Object.keys(deltas.sets).length) {
+      fields[SHARED_SETS_FIELD] = increments(deltas.sets);
+    }
     if (Object.keys(deltas.tod).length) fields.tod = increments(deltas.tod);
     if (Object.keys(fields).length === 0) return;
     void setDoc(this.#ref(), fields, { merge: true }).catch((error) =>

@@ -1307,7 +1307,7 @@ describe("users/{uid}/meta/snoozeStats", () => {
       setDoc(
         stats(signedIn(OWNER)),
         {
-          sets: { "D1@0900": increment(1.5) },
+          setsV2: { "D1@0900": increment(1.5) },
           tod: { "0900": increment(1.5) },
           lastCustom: { target: 1, at: 0 },
           picks: { 1: increment(1) },

@@ -15,8 +15,18 @@ import {
   varySendTimes,
   varySetting,
 } from "./send-suggest";
-import { fromWire } from "./snooze-stats-wire";
-import type { RowIcon } from "./snooze-suggest";
+import type { DevicePartition, RowIcon } from "./snooze-suggest";
+
+// A fixture's partition: its fields as saved, missing ones empty.
+function partitionOf(deviceId: string, raw: unknown): DevicePartition {
+  const {
+    sets = {},
+    tod = {},
+    lastCustom = null,
+    picks = {},
+  } = raw as Partial<DevicePartition>;
+  return { deviceId, sets, tod, lastCustom, picks };
+}
 
 type Fixtures = {
   rows: {
@@ -73,7 +83,7 @@ describe("send fixtures (must match Android)", () => {
   for (const fixture of fixtures.rows) {
     test(`rows: ${fixture.name}`, () => {
       const partitions = fixture.partitions.map((raw, index) =>
-        fromWire(`p${index}`, raw),
+        partitionOf(`p${index}`, raw),
       );
       const rows = sendRows(partitions, epoch(fixture.now));
       expect(

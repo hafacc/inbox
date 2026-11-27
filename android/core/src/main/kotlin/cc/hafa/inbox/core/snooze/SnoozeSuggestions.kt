@@ -55,8 +55,10 @@ enum class RowIcon { OFFSET, TODAY_DAY, TODAY_NIGHT, TOMORROW, DAYS, WEEKDAY, MO
 object SnoozeSuggestions {
 
     private const val MS_PER_DAY = 24.0 * 60 * 60 * 1000
-    private const val SHORT_HALF_LIFE_DAYS = 21L
-    private const val LONG_HALF_LIFE_DAYS = 60L
+    // A set's half-life grows with how far ahead it points (see setHalfLifeDays); a simulation of snooze habits picked these.
+    private const val SET_HALF_LIFE_BASE_DAYS = 21L
+    private const val SET_HALF_LIFE_PER_DAY = 2L
+    private const val SET_HALF_LIFE_MAX_DAYS = 90L
     const val TOD_HALF_LIFE_DAYS = 21L
     const val SLOT_MINUTES = 5
     private const val DAY_BOUNDARY_HOUR = 5L
@@ -95,7 +97,6 @@ object SnoozeSuggestions {
     private val MO_RE = Regex("^Mo([1-3])$")
     private val DOM_RE = Regex("^Dom([1-9]|[12]\\d|3[01])$")
     private val FROM_MONTH_END_RE = Regex("^DomL([1-3]?)$")
-    private val LONG_PERIOD_FAMILIES = setOf("Dom", "DomL", "Mo")
 
     /** The set of pattern keys a commit from [at] to [target] matches. Empty if no date rule reaches it. */
     fun extract(at: Instant, target: Instant, zone: ZoneId): Set<PatternKey> =
@@ -236,42 +237,18 @@ object SnoozeSuggestions {
         else -> "D"
     }
 
-    private fun classH(dateRule: String): Long =
-        if (familyOfRule(dateRule) in LONG_PERIOD_FAMILIES) LONG_HALF_LIFE_DAYS else SHORT_HALF_LIFE_DAYS
+    /** Half-life in days of the counts of a set holding [members]: [SET_HALF_LIFE_BASE_DAYS] plus [SET_HALF_LIFE_PER_DAY] for each day ahead the set points (its largest `D<n>`), at most [SET_HALF_LIFE_MAX_DAYS]. */
+    private fun setHalfLifeDays(members: Set<PatternKey>): Long {
+        val daysAhead = members.maxOfOrNull { D_RE.matchEntire(dateRuleOf(it))?.groupValues?.get(1)?.toLong() ?: 0L } ?: 0L
+        return minOf(SET_HALF_LIFE_MAX_DAYS, SET_HALF_LIFE_BASE_DAYS + SET_HALF_LIFE_PER_DAY * daysAhead)
+    }
 
-    private fun classHForKey(key: PatternKey): Long = classH(dateRuleOf(key))
-
-    /** A set's half-life is the longest among its members'. */
-    private fun setH(members: Set<PatternKey>): Long = members.maxOf { classHForKey(it) }
-
-    fun setH(id: String): Long = setH(splitSetId(id))
+    /** Half-life in days of a set's counts. */
+    fun setHalfLifeDays(id: String): Long = setHalfLifeDays(splitSetId(id))
 
     fun setId(keys: Set<PatternKey>): String = keys.sorted().joinToString("__")
 
     private fun splitSetId(id: String): Set<PatternKey> = id.split("__").toSet()
-
-    /** The day count of the one D-rule key among [keys], or null unless there is exactly one. */
-    private fun dayCountOf(keys: Collection<PatternKey>): Long? =
-        keys.mapNotNull { D_RE.matchEntire(dateRuleOf(it))?.groupValues?.get(1)?.toLong() }.singleOrNull()
-
-    /** A set's keys as they read now: none if its clock keys disagree about the day (older builds' 7- and 14-day sets), no offsets off its clock time's day (older builds saved some across midnight). */
-    private fun liveMembers(id: String): Set<PatternKey> {
-        val keys = splitSetId(id)
-        val timed = keys.filter { isTimedKey(it) }.toSet()
-        val days = dayCountOf(timed) ?: return timed
-        val consistent = timed.all { key ->
-            val rule = dateRuleOf(key)
-            when {
-                W_RE.matches(rule) -> rule.drop(1).toLong() * 7 == days
-                WD_RE.matches(rule) -> days <= 6
-                WN_RE.matches(rule) -> days in 7..13
-                else -> true
-            }
-        }
-        if (!consistent) return emptySet()
-        val offsetDays = dayCountOf(keys.filter { !isTimedKey(it) })
-        return if (offsetDays != null && offsetDays - days in 0..1) keys else timed
-    }
 
     private fun decayFactor(ageMs: Long, halfLifeDays: Long): Double =
         2.0.pow(-(ageMs / MS_PER_DAY) / halfLifeDays)
@@ -351,7 +328,7 @@ object SnoozeSuggestions {
         if (keys.isNotEmpty()) {
             id = setId(keys)
             prevSet = stats.sets[id]
-            sets = sets + (id to bump(prevSet, at, setH(keys)))
+            sets = sets + (id to bump(prevSet, at, setHalfLifeDays(keys)))
         }
         val atInstant = Instant.ofEpochMilli(at)
         val targetTime = slotTime(target, zone)
@@ -390,39 +367,6 @@ object SnoozeSuggestions {
             undoNearbySets = nearbySets,
             undoNearbyTod = nearbyTod,
         )
-    }
-
-    /** A clock key as builds before the first-hit rule resolved it: its date rule counted from [at]'s snooze day. For [upgradeLegacySets] only. */
-    private fun legacyClockTime(key: PatternKey, at: Instant, zone: ZoneId): Long? {
-        if (!isTimedKey(key) || !KEY_RE.matches(key)) return null
-        val from = snoozeDay(LocalDateTime.ofInstant(at, zone))
-        val dateRule = dateRuleOf(key)
-        val day = domRuleDay(dateRule, from)
-            ?: MO_RE.matchEntire(dateRule)?.let { from.plusMonths(it.groupValues[1].toLong()) }
-            ?: offsetRuleDay(dateRule, from)
-            ?: return null
-        return onSnoozeDay(day, slotClockMinutes(key.substringAfter('@')), zone).takeIf { it > at.toEpochMilli() + MIN_LEAD_MS }
-    }
-
-    /** Sets saved before the first-hit rule, re-learned from the target their clock keys named at their last commit; sets that land on the same new id merge. A set whose clock keys don't agree on one target is kept as saved. */
-    fun upgradeLegacySets(sets: Map<String, SetStat>, zone: ZoneId): Map<String, SetStat> {
-        val out = mutableMapOf<String, SetStat>()
-        for ((id, stat) in sets) {
-            val at = Instant.ofEpochMilli(stat.t)
-            val targets = splitSetId(id).filter { isTimedKey(it) }.map { legacyClockTime(it, at, zone) }.toSet()
-            val target = targets.singleOrNull()
-            val keys = if (target != null) extract(at, Instant.ofEpochMilli(target), zone) else emptySet()
-            val newId = if (keys.isNotEmpty()) setId(keys) else id
-            val prev = out[newId]
-            out[newId] = if (prev == null) {
-                stat
-            } else {
-                val halfLife = setH(newId)
-                val t = maxOf(prev.t, stat.t)
-                SetStat(prev.c * decayFactor(t - prev.t, halfLife) + stat.c * decayFactor(t - stat.t, halfLife), t)
-            }
-        }
-        return out
     }
 
     /** Reverts exactly what [result] changed. */
@@ -486,9 +430,8 @@ object SnoozeSuggestions {
         val membersById = mutableMapOf<String, Set<PatternKey>>()
         for (partition in partitions) {
             for ((id, s) in partition.sets) {
-                val members = membersById.getOrPut(id) { liveMembers(id) }
-                if (members.isEmpty()) continue
-                val live = s.c * decayFactor(nowMillis - s.t, setH(id))
+                membersById.getOrPut(id) { splitSetId(id) }
+                val live = s.c * decayFactor(nowMillis - s.t, setHalfLifeDays(id))
                 if (live <= 0.0) continue
                 liveById[id] = (liveById[id] ?: 0.0) + live
             }
