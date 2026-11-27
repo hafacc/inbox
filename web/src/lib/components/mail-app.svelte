@@ -503,7 +503,7 @@
 </script>
 
 <svelte:head>
-  <title>{title} · Inbox</title>
+  <title>{title === "Inbox" ? title : `${title} · Inbox`}</title>
 </svelte:head>
 
 <svelte:window
