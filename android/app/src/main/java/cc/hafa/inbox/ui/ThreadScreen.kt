@@ -56,8 +56,8 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.FilterList
-import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.MarkEmailRead
 import androidx.compose.material.icons.outlined.MarkEmailUnread
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.MoveToInbox
@@ -391,10 +391,10 @@ internal fun threadTool(action: ThreadAction, snoozed: Boolean): ThreadTool = wh
     ThreadAction.LABEL -> ThreadTool("Label", Icons.AutoMirrored.Outlined.Label)
     ThreadAction.IMPORTANT -> ThreadTool("Mark important", Icons.AutoMirrored.Outlined.LabelImportant)
     ThreadAction.UNIMPORTANT -> ThreadTool("Mark not important", Icons.AutoMirrored.Filled.LabelImportant, ToolTone.ON)
-    ThreadAction.READ -> ThreadTool("Mark read", Icons.Outlined.MarkEmailUnread, ToolTone.ON)
+    ThreadAction.READ -> ThreadTool("Mark read", Icons.Outlined.MarkEmailRead)
     ThreadAction.UNREAD -> ThreadTool("Mark unread", Icons.Outlined.MarkEmailUnread)
     ThreadAction.SPAM -> ThreadTool("Report spam", Icons.Outlined.Report, ToolTone.DANGER)
-    ThreadAction.NOT_SPAM -> ThreadTool("Not spam", Icons.Outlined.Inbox)
+    ThreadAction.NOT_SPAM -> ThreadTool("Not spam", Icons.Outlined.VerifiedUser)
     ThreadAction.DELETE -> ThreadTool("Delete", Icons.Outlined.Delete, ToolTone.DANGER)
     ThreadAction.UNTRASH -> ThreadTool("Move to inbox", Icons.Outlined.RestoreFromTrash)
     ThreadAction.FILTER -> ThreadTool("Filter mail like this", Icons.Outlined.FilterList)

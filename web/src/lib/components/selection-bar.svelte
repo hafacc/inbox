@@ -1,4 +1,4 @@
-<!-- @component The bar (at the top, at the bottom at phone width) while threads or todos are selected: how many, a way to clear them, Select all, and the actions that apply to all of them at once (at phone width on the corner button just above the bar, placed by `selectionDisc`): threads and todos together get only Snooze, Pin and Done; Label, Mark read, Spam and Move to inbox need threads alone, Delete todos alone. Done takes the threads in the inbox or snoozed and Move to inbox the rest, both showing when the selection holds both. -->
+<!-- @component The bar (at the top, at the bottom at phone width) while threads or todos are selected: how many, a way to clear them, Select all, and the actions that apply to all of them at once (at phone width on the corner button just above the bar, placed by `selectionDisc`): threads and todos together get only Snooze, Pin, Delete and Done; Label, Mark read, Spam and Move to inbox need threads alone. Delete moves threads to the trash and deletes todos, or, with only threads all in the trash, moves them to the inbox. Done takes the threads in the inbox or snoozed and Move to inbox the rest, both showing when the selection holds both. -->
 <script lang="ts">
   import {
     type SelectionAction,
@@ -59,6 +59,13 @@
     offers("done") && inboxPlan.done.length + todoPlan.done.length > 0,
   );
   const canInbox = $derived(offers("inbox") && inboxPlan.inbox.length > 0);
+  const canDelete = $derived(
+    offers("delete") &&
+      todoPlan.delete.threads.length + todoPlan.delete.todos.length > 0,
+  );
+  const deleteWords = $derived(
+    todoPlan.delete.untrash ? "Move to inbox" : "Delete",
+  );
   const allWords = $derived(mail.allSelected ? "Select none" : "Select all");
   const snoozeOpen = $derived(mail.snoozeMenuFor === SELECTION_MENU);
   const labelOpen = $derived(mail.labelMenuFor === SELECTION_MENU);
@@ -82,7 +89,7 @@
         anyThread && "label",
         anyThread && "read",
         anyThread && "spam",
-        offers("delete") && "delete",
+        canDelete && "delete",
       ] as const
     ).filter((action): action is SelectionDiscAction => action !== false),
   );
@@ -119,12 +126,14 @@
           ? { id: action, label: spamWords, icon: OctagonAlert, tone: "danger" }
           : { id: action, label: spamWords, icon: MailCheck };
       case "delete":
-        return { id: action, label: "Delete", icon: Trash2, tone: "danger" };
+        return todoPlan.delete.untrash
+          ? { id: action, label: deleteWords, icon: Inbox }
+          : { id: action, label: deleteWords, icon: Trash2, tone: "danger" };
     }
   }
 
   function discMenu() {
-    const { inner, outer } = selectionDisc(available);
+    const { inner, outer } = selectionDisc(available, threads.length === 0);
     return { inner: inner.map(discItem), outer: outer.map(discItem) };
   }
 
@@ -294,15 +303,19 @@
         {/if}
       </button>
     {/if}
-    {#if offers("delete")}
+    {#if canDelete}
       <button
         type="button"
-        aria-label={keyLabel("Delete", "#", shortcuts)}
-        title={keyTitle("Delete", "#", shortcuts)}
+        aria-label={keyLabel(deleteWords, "#", shortcuts)}
+        title={keyTitle(deleteWords, "#", shortcuts)}
         onclick={() => mail.actOnSelection("delete")}
         class={quietButton}
       >
-        <Trash2 class="w-[18px] h-[18px]" />
+        {#if todoPlan.delete.untrash}
+          <Inbox class="w-[18px] h-[18px]" />
+        {:else}
+          <Trash2 class="w-[18px] h-[18px]" />
+        {/if}
       </button>
     {/if}
     {#if canInbox}

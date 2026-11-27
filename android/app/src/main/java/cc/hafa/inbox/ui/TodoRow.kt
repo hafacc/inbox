@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Undo
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.Schedule
@@ -481,7 +482,11 @@ private fun rememberTodoHold(
                 val scale = density.density
                 val current = shown
                 val items = listOf(
-                    HoldMenuItem("pin", if (current.pinned) "Unpin" else "Pin", Icons.Outlined.PushPin),
+                    if (current.pinned) {
+                        HoldMenuItem("pin", "Unpin", Icons.Filled.PushPin, HoldTone.ON)
+                    } else {
+                        HoldMenuItem("pin", "Pin", Icons.Outlined.PushPin)
+                    },
                     HoldMenuItem("delete", "Delete", Icons.Outlined.Delete, HoldTone.DANGER),
                 )
                 val spec = HoldMenuSpec(

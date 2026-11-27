@@ -365,11 +365,9 @@
       window.innerWidth,
     ).map((wedge) =>
       wedge.id === "pin"
-        ? {
-            ...wedge,
-            label: todo.pinned ? "Unpin" : "Pin",
-            icon: todo.pinned ? PinOff : Pin,
-          }
+        ? todo.pinned
+          ? { ...wedge, label: "Unpin", icon: PinOff, tone: "on" }
+          : { ...wedge, label: "Pin", icon: Pin }
         : { ...wedge, label: "Delete", icon: Trash2, tone: "danger" },
     );
     held = true;

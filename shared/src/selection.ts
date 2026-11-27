@@ -54,7 +54,17 @@ export type MixedPin = {
   todos: string[];
 };
 
-/** What Done, Snooze and Pin do to selected todos, beside the selected threads. */
+/** Delete across selected threads and todos together, and what it changes in each. */
+export type MixedDelete = {
+  /** whether it moves the threads out of the trash to the inbox (every one is there and no todo is selected) rather than deleting */
+  untrash: boolean;
+  /** the threads it moves to the trash, or out of it */
+  threads: string[];
+  /** the todos it deletes */
+  todos: string[];
+};
+
+/** What Done, Snooze, Pin and Delete do to selected todos, beside the selected threads. */
 export type TodoSelectionPlan = {
   /** todos Done marks done */
   done: string[];
@@ -62,6 +72,8 @@ export type TodoSelectionPlan = {
   snooze: string[];
   /** Pin across threads and todos */
   pin: MixedPin;
+  /** Delete across threads and todos */
+  delete: MixedDelete;
 };
 
 /** One label's state across the selected threads, and what choosing it changes. */
@@ -89,6 +101,7 @@ const INBOX = "INBOX";
 const STARRED = "STARRED";
 const UNREAD = "UNREAD";
 const SPAM = "SPAM";
+const TRASH = "TRASH";
 
 // Actions that take threads out of the list, or move them where the selection no longer makes sense.
 const CLEARS: ReadonlySet<SetAction> = new Set([
@@ -208,7 +221,11 @@ export function selectionCategory(
   else return null;
 }
 
-/** What Done, Snooze and Pin do to `todos` selected with `threads`; a done todo is left alone. */
+/**
+ * What Done, Snooze, Pin and Delete do to `todos` selected with `threads`; Done and Snooze leave a
+ * done todo alone. Delete moves the threads not in the trash there and deletes every todo; with
+ * every thread in the trash and no todo it moves them back to the inbox instead.
+ */
 export function todoSelectionPlan(
   threads: readonly SelectedThread[],
   todos: readonly SelectedTodo[],
@@ -231,7 +248,22 @@ export function todoSelectionPlan(
           threads: threads.map((thread) => thread.id),
           todos: openIds,
         };
-  return { done: openIds, snooze: openIds, pin };
+  const untrashed = threads.filter(
+    (thread) => !thread.labelIds.includes(TRASH),
+  );
+  const remove: MixedDelete =
+    threads.length > 0 && untrashed.length === 0 && todos.length === 0
+      ? {
+          untrash: true,
+          threads: threads.map((thread) => thread.id),
+          todos: [],
+        }
+      : {
+          untrash: false,
+          threads: untrashed.map((thread) => thread.id),
+          todos: todos.map((todo) => todo.id),
+        };
+  return { done: openIds, snooze: openIds, pin, delete: remove };
 }
 
 /** Whether every one of `shown` is selected (and there is at least one). */
@@ -275,6 +307,7 @@ const THREAD_ACTIONS: readonly SelectionAction[] = [
   "category",
   "read",
   "spam",
+  "delete",
   "inbox",
   "done",
 ];
@@ -319,9 +352,9 @@ export type SelectionDiscAction =
 
 /** The selection's actions on a phone's corner button: the ring next to it and the ring beyond, each from the top. */
 export type SelectionDisc = {
-  /** Done (or Move to inbox) and Snooze (or Wake now) */
+  /** Done (or Move to inbox) and Snooze (or Wake now); for todos alone Done alone */
   inner: SelectionDiscAction[];
-  /** the rest, Pin first */
+  /** the rest, Pin first; for todos alone Snooze (or Wake now) first */
   outer: SelectionDiscAction[];
 };
 
@@ -339,25 +372,41 @@ const DISC_OUTER: readonly SelectionDiscAction[] = [
 /**
  * Where the corner button puts each of `available` (the actions that would change something): the
  * inner ring holds Done and Snooze, Move to inbox taking Done's place and Wake now Snooze's wherever
- * they apply; Pin, a Done or Snooze so displaced, and every other action go on the outer ring.
- * Neither ring holds a lone action beside the other: with Done or Snooze missing Pin joins the inner
- * ring, and an outer ring of one joins it too (threads and todos together have only Done, Snooze
- * and Pin, all next to the button).
+ * they apply; Pin, a Done or Snooze so displaced, and every other action go on the outer ring, in
+ * the open thread's order (Pin, Label, Mark read, Spam, Delete). For `todosAlone` (no thread
+ * selected) the inner ring holds Done alone, and Snooze (or Wake now) goes first on the outer ring,
+ * before Pin and Delete. An outer ring of one, or with nothing next to the button every action,
+ * goes on the inner ring; otherwise, with Done or Snooze missing, Pin joins it, as in the open
+ * thread.
  */
 export function selectionDisc(
   available: readonly SelectionDiscAction[],
+  todosAlone: boolean,
 ): SelectionDisc {
   const has = (action: SelectionDiscAction) => available.includes(action);
   const first = has("inbox") ? "inbox" : has("done") ? "done" : null;
   const second = has("wake") ? "wake" : has("snooze") ? "snooze" : null;
-  const placed = [first, second].filter(
+  const candidates: (SelectionDiscAction | null)[] = todosAlone
+    ? [first]
+    : [first, second];
+  const placed = candidates.filter(
     (action): action is SelectionDiscAction => action !== null,
   );
-  const inner =
-    placed.length < 2 && has("pin") ? [...placed, "pin" as const] : placed;
-  const outer = DISC_OUTER.filter(
-    (action) => has(action) && !inner.includes(action),
-  );
-  if (outer.length === 1) return { inner: [...inner, ...outer], outer: [] };
-  else return { inner, outer };
+  const inner: SelectionDiscAction[] =
+    !todosAlone && placed.length < 2 && has("pin")
+      ? [...placed, "pin"]
+      : placed;
+  const lead: SelectionDiscAction[] =
+    todosAlone && second !== null ? [second] : [];
+  const outer = [
+    ...lead,
+    ...DISC_OUTER.filter(
+      (action) => has(action) && !inner.includes(action) && action !== second,
+    ),
+  ];
+  if (inner.length === 0 || outer.length === 1) {
+    return { inner: [...inner, ...outer], outer: [] };
+  } else {
+    return { inner, outer };
+  }
 }

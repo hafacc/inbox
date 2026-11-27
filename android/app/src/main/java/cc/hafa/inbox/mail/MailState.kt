@@ -2526,12 +2526,27 @@ class MailState(
     /** Delete todos of either kind; an email's leaves its email as it is. */
     fun deleteTodos(ids: List<String>, origin: ActOrigin = ActOrigin.ROW) {
         if (ids.isEmpty()) return
+        carryOut(deleteTodosPlan(ids), origin)
+    }
+
+    /**
+     * The selection's Delete: threads [threadIds] to the trash (or, when [untrash], out of it to the
+     * inbox) and todos [todoIds] deleted, as one undo.
+     */
+    fun deleteWithTodos(threadIds: List<String>, untrash: Boolean, todoIds: List<String>, origin: ActOrigin = ActOrigin.ROW) {
+        val threads = trashItemsPlan(gmailThreads(threadIds).mapNotNull(::undoItem), threadIds, trash = !untrash)
+        // The todos go first, so the threads' action names the undo when there are any.
+        carryOut(if (todoIds.isEmpty()) threads else deleteTodosPlan(todoIds) + threads, origin)
+    }
+
+    // Delete todos [ids] of either kind, as one undo.
+    private fun deleteTodosPlan(ids: List<String>): ActionPlan {
         val model = state.value
         val onEmails = todos.snapshot.value.emailTodos.mapTo(hashSetOf()) { it.id }
         // An email's todo is listed as its email's row (the Todos view's, a tagged label's).
         val keys = ids.map { id -> if (id in onEmails) threadRowKey(model.rowKeyOf(id)) else todoRowKey(id) }
         val step = TodoStep(ids, { null }, todos::remove, deletesEmail = true)
-        carryOut(ActionPlan(keys = keys, todos = listOf(step), undo = UndoPlan(UndoKind.DELETE)), origin)
+        return ActionPlan(keys = keys, todos = listOf(step), undo = UndoPlan(UndoKind.DELETE))
     }
 
     // A change to todos [ids]: [show] is each as the list shows it after (null: gone), [carry] the

@@ -115,7 +115,8 @@ fun SelectionBar(
 /**
  * The selection's actions as the corner button's two rings ([selectionDisc]), each shown only where it would
  * change something: Done (or Move to inbox for the [inbox] ones) and Snooze (or Wake now) next to the button,
- * then Pin, a Done or Snooze so displaced, Label, Mark read, Spam and Delete beyond.
+ * then Pin, a Done or Snooze so displaced, Label, Mark read, Spam and Delete (Move to inbox for threads all in
+ * the trash) beyond; for todos alone Done alone next to it, Snooze, Pin and Delete beyond.
  */
 internal fun selectionCornerMenu(
     plan: SelectionPlan,
@@ -137,7 +138,9 @@ internal fun selectionCornerMenu(
         if (SelectionAction.LABEL in actions) add(SelectionDiscAction.LABEL)
         if (SelectionAction.READ in actions) add(SelectionDiscAction.READ)
         if (SelectionAction.SPAM in actions) add(SelectionDiscAction.SPAM)
-        if (SelectionAction.DELETE in actions) add(SelectionDiscAction.DELETE)
+        if (SelectionAction.DELETE in actions && (todoPlan.delete.threads.isNotEmpty() || todoPlan.delete.todos.isNotEmpty())) {
+            add(SelectionDiscAction.DELETE)
+        }
     }
     fun item(action: SelectionDiscAction): HoldMenuItem = when (action) {
         SelectionDiscAction.DONE -> HoldMenuItem(action.name, "Done", Icons.Outlined.Check, HoldTone.DONE)
@@ -160,9 +163,13 @@ internal fun selectionCornerMenu(
         } else {
             HoldMenuItem(action.name, "Not spam", Icons.Outlined.VerifiedUser)
         }
-        SelectionDiscAction.DELETE -> HoldMenuItem(action.name, "Delete", Icons.Outlined.Delete, HoldTone.DANGER)
+        SelectionDiscAction.DELETE -> if (todoPlan.delete.untrash) {
+            HoldMenuItem(action.name, "Move to inbox", Icons.Outlined.MoveToInbox)
+        } else {
+            HoldMenuItem(action.name, "Delete", Icons.Outlined.Delete, HoldTone.DANGER)
+        }
     }
-    val disc = selectionDisc(available)
+    val disc = selectionDisc(available, todosAlone = threadCount == 0)
     return CornerMenu(disc.inner.map(::item), disc.outer.map(::item)) { picked ->
         when (SelectionDiscAction.valueOf(picked.id)) {
             SelectionDiscAction.DONE -> onAction(SetAction.DONE)

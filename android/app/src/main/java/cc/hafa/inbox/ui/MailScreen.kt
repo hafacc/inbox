@@ -892,7 +892,10 @@ fun MailScreen(state: MailState, authManager: AuthManager, launcher: LauncherReq
                                 }
                             }
                         },
-                        onDelete = { state.deleteTodos(barTodos.map { it.id }, ActOrigin(ActSource.SELECTION, clearSelection = true)) },
+                        onDelete = {
+                            val delete = todoSelectionPlan(barThreads, barTodos).delete
+                            state.deleteWithTodos(delete.threads, delete.untrash, delete.todos, ActOrigin(ActSource.SELECTION, clearSelection = true))
+                        },
                         onInbox = { ids -> state.moveToInbox(ids, ActOrigin(ActSource.SELECTION, clearSelection = true)) },
                     )
                     if (menu.inner.isNotEmpty() || menu.outer.isNotEmpty()) {
